@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Nunito', 'Fredoka', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Fredoka', 'Nunito', sans-serif;
+    --font-quran: 'Noto Naskh Arabic', 'Amiri', serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #EEF8FF;
+    color: #292742;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+.font-quran {
+  font-family: var(--font-quran);
+  direction: rtl;
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+/* Custom scrollbar for friendly child UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #EEF8FF;
+}
+::-webkit-scrollbar-thumb {
+  background: #C9E1ED;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #08B9EF;
+}

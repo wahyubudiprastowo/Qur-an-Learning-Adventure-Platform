@@ -1,0 +1,6 @@
+{
+  "name": "Cahaya Tahfiz Anak - Belajar & Hafalan Qur'an",
+  "description": "Platform belajar dan menghafal Al-Qur'an interaktif untuk anak dengan metode Dengar, Latihan bertahap, Hafalan mandiri, rekaman suara, Iqra, Tajwid, dan reward seru.",
+  "requestFramePermissions": ["MICROPHONE"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
