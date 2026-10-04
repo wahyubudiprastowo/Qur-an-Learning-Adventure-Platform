@@ -314,10 +314,12 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   // Plant icons for each day
   const plantIcons = ['🌱', '🌿', '🌷', '🌻', '🌸', '🌼', '🏆'];
 
-  // Current Mood State
-  const mood = companion.mood || CompanionService.computeMood(companion);
+  // Current Mood & Emotive Expression State
+  const mood = companion.expression || companion.mood || CompanionService.computeMood(companion);
   const moodMap: Record<PetMood, { label: string; color: string }> = {
-    sleeping: { label: '🌙 Istirahat Zzz', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+    celebrating: { label: '🎉 Takbir! Merayakan!', color: 'bg-gradient-to-r from-amber-400 to-yellow-300 text-amber-950 border-amber-400 font-black animate-bounce shadow-xs' },
+    thoughtful: { label: '🤔 Mentadabburi Ayat...', color: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-extrabold shadow-xs' },
+    sleeping: { label: '🌙 Istirahat Zzz', color: 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-xs' },
     hungry: { label: '🍎 Sedang Lapar', color: 'bg-amber-50 text-amber-800 border-amber-300 animate-pulse' },
     sleepy: { label: '🥱 Mengantuk', color: 'bg-purple-50 text-purple-700 border-purple-200' },
     joyful: { label: '✨ Sangat Bahagia', color: 'bg-rose-50 text-rose-700 border-rose-200' },
@@ -372,25 +374,37 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
 
       {/* --- 2. INTERACTIVE TAMAGOTCHI HABITAT & SPRITE --- */}
       <div className="bg-white/85 backdrop-blur-md border border-[#C9E1ED] rounded-3xl p-4 relative z-10 flex flex-col md:flex-row items-center gap-4">
-        {/* Tamagotchi Mascot Sprite with Bounce and Reaction */}
+        {/* Tamagotchi Mascot Sprite with Emotive Animations and Transitions */}
         <div className="flex flex-col items-center shrink-0">
           <div
-            onClick={companion.isSleeping ? handleToggleSleep : handlePet}
-            className={`relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl border shadow-sm hover:scale-105 active:scale-95 transition-all w-32 h-32 ${
-              companion.isSleeping
-                ? 'bg-gradient-to-b from-indigo-950/20 via-sky-900/10 to-indigo-100/40 border-indigo-300'
+            onClick={companion.isSleeping || mood === 'sleeping' ? handleToggleSleep : handlePet}
+            className={`relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl border shadow-sm hover:scale-105 active:scale-95 transition-all duration-300 w-32 h-32 ${
+              mood === 'celebrating'
+                ? 'bg-gradient-to-b from-amber-100/90 via-yellow-50 to-white border-amber-400 ring-4 ring-amber-300/50 shadow-lg shadow-amber-300/30'
+                : mood === 'thoughtful'
+                ? 'bg-gradient-to-b from-emerald-50 via-teal-50/60 to-white border-emerald-300 ring-2 ring-emerald-200/60 shadow-md shadow-emerald-500/10'
+                : (companion.isSleeping || mood === 'sleeping')
+                ? 'bg-gradient-to-b from-indigo-950/20 via-sky-900/10 to-indigo-100/40 border-indigo-300 ring-2 ring-indigo-200/50'
                 : hunger < 35
                 ? 'bg-gradient-to-b from-amber-50/80 to-white border-amber-300'
                 : 'bg-gradient-to-b from-white to-cyan-50/60 border-cyan-200'
             }`}
-            title={companion.isSleeping ? 'Sahabat sedang tidur nyenyak. Ketuk untuk membangunkan!' : 'Ketuk untuk menyapa sahabatmu!'}
+            title={
+              companion.isSleeping || mood === 'sleeping'
+                ? 'Sahabat sedang tidur nyenyak. Ketuk untuk membangunkan!'
+                : mood === 'celebrating'
+                ? 'Sedang merayakan tuntasnya surah! Ketuk untuk merayakan bersama!'
+                : mood === 'thoughtful'
+                ? 'Sedang mentadabburi Al-Qur\'an. Ketuk untuk mendengar hikmahnya!'
+                : 'Ketuk untuk menyapa sahabatmu!'
+            }
           >
-            {/* Sleeping Floating Zzz */}
-            {companion.isSleeping && (
+            {/* Sleeping Floating Zzz animation */}
+            {(companion.isSleeping || mood === 'sleeping') && (
               <div className="absolute top-2 right-3 pointer-events-none">
                 <motion.span
                   animate={{ y: [0, -18], opacity: [0, 1, 0], x: [0, 6, 12] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
+                  transition={{ repeat: Infinity, duration: 2.2, ease: 'easeOut' }}
                   className="text-sm font-black text-indigo-500 block"
                 >
                   💤
@@ -413,7 +427,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
               )}
             </AnimatePresence>
 
-            {/* Living Avatar with idle breathing / sleeping state / joyful feeding celebration */}
+            {/* Living Avatar with Frame-based animations & Transitions */}
             <motion.div
               animate={
                 isJoyfulFeeding
@@ -422,8 +436,24 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
                       scale: [1, 1.35, 0.9, 1.25, 0.95, 1.1, 1],
                       rotate: [0, -14, 14, -8, 8, -4, 0],
                     }
-                  : companion.isSleeping
-                  ? { y: [0, -3, 0], rotate: [-2, 2, -2] }
+                  : mood === 'celebrating'
+                  ? {
+                      y: [0, -28, 4, -22, 2, -10, 0],
+                      scale: [1, 1.35, 0.95, 1.25, 1],
+                      rotate: [0, -18, 18, -12, 12, 0],
+                    }
+                  : mood === 'thoughtful'
+                  ? {
+                      y: [0, -6, 0],
+                      rotate: [0, -6, 0, 6, 0],
+                      scale: [1, 1.05, 1],
+                    }
+                  : companion.isSleeping || mood === 'sleeping'
+                  ? {
+                      y: [0, 4, 0],
+                      scale: [1, 0.96, 1],
+                      rotate: [-2, 2, -2],
+                    }
                   : hunger < 35
                   ? { y: [0, -5, 0], x: [-1, 1, -1] }
                   : { y: [0, -6, 0] }
@@ -431,11 +461,58 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
               transition={
                 isJoyfulFeeding
                   ? { duration: 2, repeat: 1, ease: 'easeOut' }
-                  : { repeat: Infinity, duration: companion.isSleeping ? 3.2 : 2.4, ease: 'easeInOut' }
+                  : mood === 'celebrating'
+                  ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' }
+                  : mood === 'thoughtful'
+                  ? { repeat: Infinity, duration: 3.2, ease: 'easeInOut' }
+                  : { repeat: Infinity, duration: (companion.isSleeping || mood === 'sleeping') ? 3.5 : 2.4, ease: 'easeInOut' }
               }
-              className={`text-6xl filter drop-shadow-md py-1 relative ${companion.isSleeping ? 'opacity-90' : ''}`}
+              className={`text-6xl filter drop-shadow-md py-1 relative ${
+                (companion.isSleeping || mood === 'sleeping') ? 'opacity-85' : ''
+              }`}
             >
               {currentAvatar}
+
+              {/* Celebrating floating particles & crown */}
+              {mood === 'celebrating' && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <motion.span
+                    animate={{ y: [-15, -45], opacity: [0, 1, 0], scale: [0.8, 1.3] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: 'easeOut' }}
+                    className="absolute -top-4 text-2xl"
+                  >
+                    👑
+                  </motion.span>
+                  <motion.span
+                    animate={{ x: [-20, -45], y: [0, -35], opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, delay: 0.2 }}
+                    className="absolute text-xl"
+                  >
+                    🎉
+                  </motion.span>
+                  <motion.span
+                    animate={{ x: [20, 45], y: [0, -35], opacity: [0, 1, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, delay: 0.4 }}
+                    className="absolute text-xl"
+                  >
+                    🌟
+                  </motion.span>
+                </div>
+              )}
+
+              {/* Thoughtful contemplation thought bubble & Quran glow */}
+              {mood === 'thoughtful' && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <motion.div
+                    animate={{ y: [0, -8, 0], opacity: [0.85, 1, 0.85] }}
+                    transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+                    className="absolute -top-6 -right-5 bg-white/95 border border-emerald-300 rounded-full px-2 py-0.5 shadow-sm text-xs flex items-center gap-0.5"
+                  >
+                    <span>💭</span>
+                    <span>📖</span>
+                  </motion.div>
+                </div>
+              )}
 
               {/* Joyful Feeding floating emoji celebration */}
               {isJoyfulFeeding && (
@@ -477,7 +554,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
             </motion.div>
 
             <span className={`text-[10px] font-extrabold mt-1 px-2 py-0.5 rounded-full border ${isJoyfulFeeding ? 'bg-rose-100 text-rose-800 border-rose-300' : moodInfo.color}`}>
-              {isJoyfulFeeding ? '🥰 Sangat Bahagia & Lahap!' : companion.isSleeping ? '🌙 Tidur Zzz...' : moodInfo.label}
+              {isJoyfulFeeding ? '🥰 Sangat Bahagia & Lahap!' : moodInfo.label}
             </span>
           </div>
 

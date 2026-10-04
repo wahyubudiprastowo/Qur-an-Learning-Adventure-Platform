@@ -5,6 +5,7 @@ import {
   DailyQuest,
   CompanionSpecies,
   PetMood,
+  EmotiveExpression,
   FeedResult,
   FeedStatus,
 } from '../types/companion';
@@ -367,10 +368,11 @@ export class CompanionService {
   }
 
   /**
-   * Computes the current real-time mood based on pet vitals and sleep state
+   * Computes the current real-time mood based on pet vitals, expressions, and sleep state
    */
   static computeMood(companion: CompanionData): PetMood {
     if (companion.isSleeping) return 'sleeping';
+    if (companion.expression) return companion.expression;
     const hunger = companion.hunger ?? 80;
     const energy = companion.energy ?? 80;
     const happiness = companion.happiness ?? 80;
@@ -585,10 +587,11 @@ export class CompanionService {
     companion.surahsCompletedCount = (companion.surahsCompletedCount || 0) + 1;
     companion.surahsSinceLastFeed = (companion.surahsSinceLastFeed || 0) + 1;
     companion.foodTreatsAvailable = (companion.foodTreatsAvailable || 0) + 1; // Award 1 delicious meal treat!
-    companion.mood = 'proud';
+    companion.mood = 'celebrating';
+    companion.expression = 'celebrating';
 
     const targetName = surahName ? `Surah ${surahName}` : 'Hafalan Qur\'an';
-    const message = `Allahu Akbar! Tabarakallah! ${targetName} berhasil dituntaskan dengan tartil! ${companion.name} bangga sekali padamu! Cahaya hafalanmu membuka 1 Hidangan Kurma Berkah 🍯 untuk memberi makan ${companion.name}! 🌟`;
+    const message = `Allahu Akbar! Tabarakallah! ${targetName} berhasil dituntaskan dengan tartil! ${companion.name} merayakan keberhasilanmu dengan takbir & sukacita! 🎉🏆 Cahaya hafalanmu membuka 1 Hidangan Kurma Berkah 🍯 untuk memberi makan ${companion.name}! 🌟`;
     companion.dialogueMessage = message;
 
     // Automatically mark today's garden bloomed
@@ -720,5 +723,81 @@ export class CompanionService {
     if (playedCount < 3) return 10;
     if (playedCount < 6) return 5;
     return 0; // Pure fun, no farming
+  }
+
+  /**
+   * Directly sets an emotive expression on the companion pet
+   */
+  static setEmotiveExpression(
+    childId: string,
+    expression: EmotiveExpression,
+    customDialogue?: string
+  ): CompanionData {
+    const companion = this.getCompanionData(childId);
+    companion.expression = expression;
+    companion.mood = expression;
+
+    if (expression === 'sleeping') {
+      companion.isSleeping = true;
+    } else if (companion.isSleeping) {
+      companion.isSleeping = false;
+    }
+
+    if (customDialogue) {
+      companion.dialogueMessage = customDialogue;
+    } else {
+      if (expression === 'celebrating') {
+        companion.dialogueMessage = `Allahu Akbar! Tabarakallah! Merayakan keberhasilan tuntasnya surah dengan sukacita dan sujud syukur! 🎉🏆`;
+      } else if (expression === 'thoughtful') {
+        companion.dialogueMessage = `${companion.name} sedang terdiam khusyuk mentadabburi keagungan ayat Al-Qur'an... Indah sekali maknanya! 📖🤔`;
+      } else if (expression === 'sleeping') {
+        companion.dialogueMessage = `Ssshh... Karena suasana hening dan tenang, ${companion.name} tertidur pulas dalam naungan doa. Zzz... 🌙`;
+      } else if (expression === 'joyful') {
+        companion.dialogueMessage = `Alhamdulillah! Hati ${companion.name} berseri-seri penuh kegembiraan! ✨`;
+      }
+    }
+
+    this.saveCompanionData(companion);
+    return companion;
+  }
+
+  /**
+   * Emotive Reaction: Browsing Quran Modules triggers thoughtful contemplation
+   */
+  static onBrowsingQuran(childId: string, submoduleName?: string): CompanionData {
+    const companion = this.getCompanionData(childId);
+    companion.isSleeping = false;
+    companion.expression = 'thoughtful';
+    companion.mood = 'thoughtful';
+
+    if (submoduleName === 'tafsir') {
+      companion.dialogueMessage = `${companion.name} khusyuk merenungi tafsir ayat dan hikmah mendalamnya... Sungguh agung firman Allah! 📖✨`;
+    } else if (submoduleName === 'tajwid') {
+      companion.dialogueMessage = `${companion.name} sedang fokus mencermati hukum tajwid dan ketepatan makhraj huruf! 🧐`;
+    } else if (submoduleName === 'asbab') {
+      companion.dialogueMessage = `${companion.name} takjub mendengarkan sejarah asbabun nuzul turunnya ayat suci! 📜`;
+    } else if (submoduleName === 'bahasa') {
+      companion.dialogueMessage = `${companion.name} senang sekali memperdalam kosakata bahasa Al-Qur'an! 🌟`;
+    } else {
+      companion.dialogueMessage = `${companion.name} sedang khusyuk menyimak dan mentadabburi lembaran ayat suci Al-Qur'an... 📖💭`;
+    }
+
+    this.saveCompanionData(companion);
+    return companion;
+  }
+
+  /**
+   * Emotive Reaction: App is idle for a long time, companion peacefully falls asleep
+   */
+  static onAppIdle(childId: string): CompanionData {
+    const companion = this.getCompanionData(childId);
+    if (!companion.isSleeping) {
+      companion.isSleeping = true;
+      companion.expression = 'sleeping';
+      companion.mood = 'sleeping';
+      companion.dialogueMessage = `Ssshh... Karena suasana tenang dan hening cukup lama, ${companion.name} tertidur pulas ditemani lantunan dzikir. Zzz... 🌙`;
+      this.saveCompanionData(companion);
+    }
+    return companion;
   }
 }

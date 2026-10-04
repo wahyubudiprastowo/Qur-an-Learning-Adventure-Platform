@@ -89,6 +89,50 @@ export default function App() {
     }
   }, [activeChild?.id]);
 
+  // Emotive Expression: Thoughtful when exploring Al-Qur'an modules
+  useEffect(() => {
+    if (activeTab === 'alquran' && activeChild?.id) {
+      const updated = CompanionService.onBrowsingQuran(
+        activeChild.id,
+        alQuranSubView || 'alquran'
+      );
+      setCompanion(updated);
+    }
+  }, [activeTab, alQuranSubView, activeChild?.id]);
+
+  // Emotive Expression: Pet falls asleep peacefully when the app is idle for a long time
+  useEffect(() => {
+    if (!activeChild?.id) return;
+    let timer: NodeJS.Timeout;
+
+    const resetIdleTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const updated = CompanionService.onAppIdle(activeChild.id);
+        setCompanion({ ...updated });
+      }, 70000); // 70 seconds idle
+    };
+
+    const handleUserActivity = () => {
+      resetIdleTimer();
+    };
+
+    window.addEventListener('mousemove', handleUserActivity, { passive: true });
+    window.addEventListener('keydown', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
+    window.addEventListener('click', handleUserActivity, { passive: true });
+
+    resetIdleTimer();
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+    };
+  }, [activeChild?.id]);
+
   // Global Audio Isolation: Stop all active audio streams across all modules whenever navigation changes.
   // useLayoutEffect runs synchronously before browser paint to prevent any overlapping audio or lingering UI states.
   useLayoutEffect(() => {

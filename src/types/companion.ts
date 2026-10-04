@@ -4,7 +4,17 @@ export type CompanionTrait = 'hafiz' | 'tartil' | 'reader' | 'scholar' | 'explor
 
 export type CompanionSpecies = 'lumi' | 'buraq' | 'fajr' | 'kibo' | 'dino';
 
-export type PetMood = 'joyful' | 'proud' | 'hungry' | 'sleepy' | 'sleeping' | 'content';
+export type EmotiveExpression =
+  | 'celebrating'
+  | 'sleeping'
+  | 'thoughtful'
+  | 'joyful'
+  | 'proud'
+  | 'hungry'
+  | 'sleepy'
+  | 'content';
+
+export type PetMood = EmotiveExpression;
 
 export interface CompanionSpeciesConfig {
   id: CompanionSpecies;
@@ -31,6 +41,7 @@ export interface CompanionData {
   energy?: number; // 0 - 100 (Daya Semangat / Istirahat)
   isSleeping?: boolean; // Whether companion is sleeping
   mood?: PetMood;
+  expression?: EmotiveExpression;
   lastLoginDate?: string;
   surahsCompletedCount?: number;
   foodTreatsAvailable?: number; // Number of delicious meals/treats earned from completing surahs
