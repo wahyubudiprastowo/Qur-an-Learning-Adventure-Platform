@@ -18,6 +18,8 @@ import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
+import { CompanionService } from '../../services/companionService';
+import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
 interface ZiadahPlayerProps {
   childId: string;
@@ -48,6 +50,8 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
 
   // Reward modal state
   const [rewardModalOpen, setRewardModalOpen] = useState<boolean>(false);
+  const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
+  const companion = CompanionService.getCompanionData(childId);
   const [rewardData, setRewardData] = useState<{ stars: number; xp: number; title: string; message: string }>({
     stars: 5,
     xp: 25,
@@ -90,6 +94,7 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       if (idx !== -1) {
         setCurrentAyahIndex(idx);
         setActiveWordIndex(null);
+        setCompanionPulseTrigger((prev) => prev + 1);
       }
     };
 
@@ -182,6 +187,10 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       'block',
       activeBlock.id
     );
+
+    // Record activity in Companion service for Hafiz trait and quest progression
+    CompanionService.recordActivity(childId, 'ziadah', 25, 5);
+    setCompanionPulseTrigger((prev) => prev + 1);
 
     setRewardData({
       stars: 5,
@@ -387,6 +396,13 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
         xpEarned={rewardData.xp}
         nextLabel={currentBlockIndex < selectedBlocks.length - 1 ? 'Lanjut Blok Berikutnya' : 'Selesai Latihan'}
         onNext={handleNextAfterReward}
+      />
+
+      {/* Subtle Companion Presence in corner (never intrusive) */}
+      <SubtleCompanionReaction
+        companion={companion}
+        pulseTrigger={companionPulseTrigger}
+        message="Lumi tersenyum! +1 🐾"
       />
     </div>
   );

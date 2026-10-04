@@ -19,6 +19,9 @@ import { QuranAudioPlayer, PlaybackState, AudioProgressInfo } from '../../servic
 import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
+import { StorageService } from '../../services/storageService';
+import { CompanionService } from '../../services/companionService';
+import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
 interface DengarModuleProps {
   initialSurahNumber?: number;
@@ -46,6 +49,10 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
   const [playbackState, setPlaybackState] = useState<PlaybackState>('IDLE');
   const [progressInfo, setProgressInfo] = useState<AudioProgressInfo | null>(null);
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
+  const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
+
+  const activeChildId = StorageService.getActiveChildId();
+  const companion = CompanionService.getCompanionData(activeChildId);
 
   const playerRef = useRef<QuranAudioPlayer | null>(null);
 
@@ -106,6 +113,7 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
     player.onAyahChange = (ayahNum) => {
       setCurrentAyahNumber(ayahNum);
       setActiveWordIndex(null);
+      setCompanionPulseTrigger((prev) => prev + 1);
     };
 
     return () => {
@@ -474,12 +482,20 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
         fullWidth
         onClick={() => {
           playerRef.current?.pause();
+          CompanionService.recordActivity(activeChildId, 'dengar', 15, 3);
           onProceedToLatihan(selectedSurahNumber, activeBlock.blockNumber);
         }}
         icon={<CheckCircle size={20} />}
       >
         Sudah Paham Nadanya? Lanjut Latihan!
       </Button>
+
+      {/* Subtle Companion Presence in corner */}
+      <SubtleCompanionReaction
+        companion={companion}
+        pulseTrigger={companionPulseTrigger}
+        message="Lumi suka nada tartil ini 🎵"
+      />
     </div>
   );
 };

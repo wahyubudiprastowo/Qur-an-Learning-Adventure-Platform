@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Sparkles, BookOpen, Gamepad2, User } from 'lucide-react';
+import { Home, Sparkles, BookOpen, Compass, User } from 'lucide-react';
 import { NavigationTab } from '../../types';
 
 interface BottomNavigationProps {
@@ -17,7 +17,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     { id: 'beranda' as NavigationTab, label: 'Beranda', icon: Home },
     { id: 'tahfiz' as NavigationTab, label: 'Tahfiz', icon: Sparkles, badge: murojaahDueCount > 0 ? murojaahDueCount : undefined },
     { id: 'alquran' as NavigationTab, label: "Al-Qur'an", icon: BookOpen },
-    { id: 'game' as NavigationTab, label: 'Game', icon: Gamepad2 },
+    { id: 'game' as NavigationTab, label: 'Dunia', icon: Compass },
     { id: 'akun' as NavigationTab, label: 'Akun', icon: User },
   ];
 

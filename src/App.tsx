@@ -26,6 +26,7 @@ import { AsbabNuzulModule } from './components/alQuran/AsbabNuzulModule';
 import { GameHub } from './components/game/GameHub';
 import { AkunHome } from './components/akun/AkunHome';
 import { ChildProfileModal } from './components/akun/ChildProfileModal';
+import { CompanionService } from './services/companionService';
 
 export default function App() {
   // Navigation Tabs
@@ -64,6 +65,10 @@ export default function App() {
   // Quick Child Selector Modal state
   const [showChildModal, setShowChildModal] = useState<boolean>(false);
 
+  const [companion, setCompanion] = useState(() =>
+    CompanionService.getCompanionData(activeChild.id)
+  );
+
   // Sync state whenever active child changes
   const refreshChildData = (childId: string) => {
     const updatedChild = StorageService.getActiveChild();
@@ -71,12 +76,40 @@ export default function App() {
     setBlockProgressList(StorageService.getBlockProgress(childId));
     setAyahProgressList(StorageService.getAyahProgress(childId));
     setLastSession(StorageService.getLastSession(childId));
+    setCompanion(CompanionService.getCompanionData(childId));
   };
 
   const handleSwitchChild = (childId: string) => {
     StorageService.setActiveChildId(childId);
     setChildrenList(StorageService.getChildren());
     refreshChildData(childId);
+  };
+
+  const handleNavigateToModule = (actionType: string) => {
+    if (actionType === 'dengar') {
+      setActiveTab('tahfiz');
+      setTahfizSubView('dengar');
+    } else if (actionType === 'ziadah') {
+      setActiveTab('tahfiz');
+      setTahfizSubView('ziadah_config');
+    } else if (actionType === 'murojaah') {
+      setActiveTab('tahfiz');
+      setTahfizSubView('murojaah');
+    } else if (actionType === 'hafalan') {
+      setActiveTab('tahfiz');
+      setTahfizSubView('hafalan');
+    } else if (actionType === 'iqra') {
+      setActiveTab('alquran');
+      setAlQuranSubView('iqra');
+    } else if (actionType === 'tajwid') {
+      setActiveTab('alquran');
+      setAlQuranSubView('tajwid');
+    } else if (actionType === 'vocab') {
+      setActiveTab('alquran');
+      setAlQuranSubView('bahasa');
+    } else if (actionType === 'game') {
+      setActiveTab('game');
+    }
   };
 
   // Resume last learning session directly
@@ -161,6 +194,9 @@ export default function App() {
       headerSubtitle = 'Kisah di Balik Surah';
     }
     onBackHandler = () => setAlQuranSubView(null);
+  } else if (activeTab === 'game') {
+    headerTitle = 'Peta Dunia & Petualangan';
+    headerSubtitle = 'Sahabat, Dunia & Game';
   }
 
   const weakAyahsCount = ayahProgressList.filter((a) => a.needsReview).length;
@@ -184,6 +220,7 @@ export default function App() {
           {activeTab === 'beranda' && (
             <BerandaHome
               child={activeChild}
+              companion={companion}
               lastSession={lastSession}
               blockProgressList={blockProgressList}
               ayahProgressList={ayahProgressList}
@@ -196,6 +233,10 @@ export default function App() {
                 setActiveTab('tahfiz');
                 setTahfizSubView('murojaah');
               }}
+              onOpenRoom={() => setActiveTab('game')}
+              onOpenWorldMap={() => setActiveTab('game')}
+              onRefreshCompanion={() => refreshChildData(activeChild.id)}
+              onNavigateToModule={handleNavigateToModule}
             />
           )}
 
@@ -320,8 +361,20 @@ export default function App() {
             </>
           )}
 
-          {/* TAB 4: GAMES */}
-          {activeTab === 'game' && <GameHub childId={activeChild.id} />}
+          {/* TAB 4: GAMES & WORLD MAP */}
+          {activeTab === 'game' && (
+            <GameHub
+              childId={activeChild.id}
+              onNavigateToLand={(tab, subView) => {
+                setActiveTab(tab);
+                if (tab === 'tahfiz' && subView) {
+                  setTahfizSubView(subView);
+                } else if (tab === 'alquran' && subView) {
+                  setAlQuranSubView(subView as any);
+                }
+              }}
+            />
+          )}
 
           {/* TAB 5: AKUN */}
           {activeTab === 'akun' && (

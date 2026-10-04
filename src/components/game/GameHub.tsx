@@ -11,9 +11,11 @@ import {
   Trophy,
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
+import { CompanionService } from '../../services/companionService';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
+import { WorldMapView } from '../companion/WorldMapView';
 
 export type GameType =
   | 'continue_ayah'
@@ -28,6 +30,7 @@ export type GameType =
 
 interface GameHubProps {
   childId: string;
+  onNavigateToLand?: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
 }
 
 interface QuizItem {
@@ -39,13 +42,17 @@ interface QuizItem {
   audioInfo?: { surah: number; ayah: number };
 }
 
-export const GameHub: React.FC<GameHubProps> = ({ childId }) => {
+export const GameHub: React.FC<GameHubProps> = ({ childId, onNavigateToLand }) => {
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [score, setScore] = useState<number>(0);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
+  const [companionStateVersion, setCompanionStateVersion] = useState<number>(0);
+
+  const activeChild = StorageService.getActiveChild();
+  const companion = CompanionService.getCompanionData(childId);
 
   // 8 Games catalog with child-friendly questions and verified Quran content
   const gamesList = [
@@ -349,21 +356,29 @@ export const GameHub: React.FC<GameHubProps> = ({ childId }) => {
       setSelectedOption(null);
       setIsAnswered(false);
     } else {
-      // Completed game
+      // Completed game - Diminishing XP logic (10 XP first 3, 5 XP next 3, 0 afterwards to prevent farming)
+      const earnedXp = CompanionService.getGameXpReward(childId);
+      const earnedStars = 5;
+
       StorageService.recordPoints(
         childId,
         'GAME',
-        30,
-        5,
-        `Bermain game Qur'an seru: ${activeGame}`,
+        earnedXp,
+        earnedStars,
+        `Bermain game Qur'an: ${activeGame}`,
         'game',
         activeGame || 'game'
       );
+
+      // Record activity in Companion service to boost Explorer trait & check daily quests
+      CompanionService.recordActivity(childId, 'game', earnedXp, earnedStars);
+      setCompanionStateVersion((v) => v + 1);
+
       setShowCelebration(true);
     }
   };
 
-  // --- Render 1: Interactive Play Screen ---
+  // --- Render 1: Interactive Play Screen for Selected Game ---
   if (activeGame && currentQ) {
     const currentGame = gamesList.find((g) => g.id === activeGame) || gamesList[0];
 
@@ -376,7 +391,7 @@ export const GameHub: React.FC<GameHubProps> = ({ childId }) => {
             className="flex items-center gap-1.5 text-xs font-bold text-[#164C68] hover:text-[#08B9EF] cursor-pointer"
           >
             <ArrowLeft size={16} />
-            <span>Pilih Game Lain</span>
+            <span>Pilih Game Lain / Kembali</span>
           </button>
           <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-amber-700 font-black text-xs">
             <Star size={14} className="fill-yellow-400 text-yellow-500" />
@@ -487,8 +502,8 @@ export const GameHub: React.FC<GameHubProps> = ({ childId }) => {
           title="Permainan Selesai!"
           message={`Skor akhir kamu: ${score}. Terus asah hafalanmu dengan game-game seru lainnya!`}
           starsEarned={5}
-          xpEarned={30}
-          nextLabel="Kembali ke Game Hub"
+          xpEarned={15}
+          nextLabel="Kembali ke Dunia & Game"
           onNext={() => {
             setShowCelebration(false);
             setActiveGame(null);
@@ -498,59 +513,16 @@ export const GameHub: React.FC<GameHubProps> = ({ childId }) => {
     );
   }
 
-  // --- Render 2: 8 Games Menu Grid ---
+  // --- Render 2: Signature World Map & Adventure Hub ---
   return (
-    <div className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#FFD83E] to-[#FFAA00] text-amber-950 rounded-3xl p-5 shadow-xs relative overflow-hidden">
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-white/40 flex items-center justify-center text-2xl shadow-xs">
-            🎮
-          </div>
-          <div>
-            <h2 className="text-xl font-black font-heading tracking-tight">
-              Taman Game Qur'an
-            </h2>
-            <p className="text-xs font-bold text-amber-900/80">
-              8 permainan edukatif untuk menguji hafalan & kosakata
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Games Catalog Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {gamesList.map((g) => (
-          <div
-            key={g.id}
-            onClick={() => handleStartGame(g.id)}
-            className="bg-white border-2 border-[#C9E1ED] hover:border-[#08B9EF] rounded-3xl p-4.5 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center justify-between group active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-[#EEF8FF] border border-[#C9E1ED] flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                {g.icon}
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <h3 className="text-sm font-black text-[#164C68] font-heading group-hover:text-[#08B9EF] transition-colors">
-                    {g.title}
-                  </h3>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-[#08B9EF] border border-cyan-200">
-                    {g.badge}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[#8C9BA7] font-medium leading-snug">
-                  {g.subtitle}
-                </p>
-              </div>
-            </div>
-
-            <div className="w-8 h-8 rounded-full bg-[#EEF8FF] text-[#164C68] group-hover:bg-[#08B9EF] group-hover:text-white flex items-center justify-center transition-colors">
-              ➔
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <WorldMapView
+      child={activeChild}
+      companion={companion}
+      onNavigateToLand={(tab, subView) => {
+        onNavigateToLand?.(tab, subView);
+      }}
+      onRefreshCompanion={() => setCompanionStateVersion((v) => v + 1)}
+      onLaunchMiniGame={(gameId) => handleStartGame(gameId as GameType)}
+    />
   );
 };

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { CompanionService } from '../../services/companionService';
+import { getStageForXp } from '../../data/companionData';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { Button } from '../common/Button';
 
@@ -296,6 +298,48 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Companion & Gamification Motivation Layer Status */}
+                {(() => {
+                  const companion = CompanionService.getCompanionData(activeChild.id);
+                  const stage = getStageForXp(companion.xp);
+                  const bloomedDays = (companion.gardenDays || []).filter(Boolean).length;
+
+                  return (
+                    <div className="p-4 bg-gradient-to-r from-sky-50 to-cyan-50 border border-cyan-200 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-[#164C68] uppercase tracking-wider">
+                          Companion & Motivasi Anak
+                        </h4>
+                        <span className="text-[10px] font-bold text-[#08B9EF] bg-white px-2 py-0.5 rounded-full border border-cyan-200">
+                          Living Companion Layer
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div className="bg-white/80 p-2 rounded-xl border border-cyan-100">
+                          <span className="text-[10px] text-[#8C9BA7] font-semibold block">Sahabat & Fase:</span>
+                          <span className="font-bold text-[#164C68]">{stage.avatarIcon} {companion.name} ({stage.name})</span>
+                        </div>
+                        <div className="bg-white/80 p-2 rounded-xl border border-cyan-100">
+                          <span className="text-[10px] text-[#8C9BA7] font-semibold block">Tingkat Karakter:</span>
+                          <span className="font-bold text-[#164C68]">Level {companion.level} ({companion.xp} XP)</span>
+                        </div>
+                        <div className="bg-white/80 p-2 rounded-xl border border-cyan-100">
+                          <span className="text-[10px] text-[#8C9BA7] font-semibold block">Kebun Mingguan:</span>
+                          <span className="font-bold text-emerald-600">{bloomedDays}/7 Hari Mekar</span>
+                        </div>
+                        <div className="bg-white/80 p-2 rounded-xl border border-cyan-100">
+                          <span className="text-[10px] text-[#8C9BA7] font-semibold block">Kartu Surah Koleksi:</span>
+                          <span className="font-bold text-purple-600">{(companion.unlockedCards || []).length} Kartu Terbuka</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[#8C9BA7] font-medium pt-1 border-t border-cyan-100">
+                        *Catatan: Sistem reward ini murni lapisan motivasi positif tanpa hukuman, streak putus tidak mengurangi progres hafalan anak.
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

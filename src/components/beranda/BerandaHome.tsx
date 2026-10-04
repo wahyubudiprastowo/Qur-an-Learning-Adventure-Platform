@@ -14,12 +14,14 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { ChildProfile, ChildBlockProgress, ChildAyahProgress } from '../../types';
-import { getLevelForXp } from '../../data/levelsAndAchievements';
+import { CompanionData } from '../../types/companion';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
-import { Button } from '../common/Button';
+import { LivingCompanionCard } from '../companion/LivingCompanionCard';
+import { DailyQuestsCard } from '../companion/DailyQuestsCard';
 
 interface BerandaHomeProps {
   child: ChildProfile;
+  companion: CompanionData;
   lastSession: {
     surahNumber: number;
     surahName: string;
@@ -33,22 +35,26 @@ interface BerandaHomeProps {
   onNavigateToTahfizStep: (step: 'dengar' | 'latihan' | 'hafalan') => void;
   onResumeLastSession: () => void;
   onOpenMurojaahDue: () => void;
+  onOpenRoom: () => void;
+  onOpenWorldMap: () => void;
+  onRefreshCompanion: () => void;
+  onNavigateToModule: (actionType: string) => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
   child,
+  companion,
   lastSession,
   blockProgressList,
   ayahProgressList,
   onNavigateToTahfizStep,
   onResumeLastSession,
   onOpenMurojaahDue,
+  onOpenRoom,
+  onOpenWorldMap,
+  onRefreshCompanion,
+  onNavigateToModule,
 }) => {
-  const levelInfo = getLevelForXp(child.totalXp);
-  const xpInCurrentLevel = child.totalXp - levelInfo.minXp;
-  const xpNeeded = levelInfo.maxXp - levelInfo.minXp;
-  const levelProgressPercent = Math.min(100, Math.round((xpInCurrentLevel / xpNeeded) * 100));
-
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
   const learningBlocksCount = blockProgressList.filter((b) => b.state === 'LEARNING').length;
   const memorizedAyahsCount = ayahProgressList.filter((a) => a.memorized).length;
@@ -56,47 +62,18 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* Personalized Child Greeting Card */}
-      <div className="bg-gradient-to-r from-[#08B9EF] via-[#10c3f7] to-[#164C68] text-white rounded-3xl p-5 shadow-md shadow-cyan-500/20 relative overflow-hidden">
-        <div className="flex items-center justify-between relative z-10">
-          <div>
-            <span className="text-xs text-cyan-100 font-semibold flex items-center gap-1">
-              <span>Selamat Belajar</span>
-              <span>✨</span>
-            </span>
-            <h2 className="text-2xl font-black font-heading tracking-tight mt-0.5">
-              Assalamu'alaikum, {child.name}!
-            </h2>
-            <p className="text-xs text-cyan-100/90 font-medium mt-1">
-              "Sebaik-baik kalian adalah yang belajar Al-Qur'an dan mengajarkannya."
-            </p>
-          </div>
+      {/* 1. Living Companion Card (Hero with Lumi, Emotion, Garden Streak, Spaced Repetition Advice) */}
+      <LivingCompanionCard
+        child={child}
+        companion={companion}
+        ayahProgressList={ayahProgressList}
+        blockProgressList={blockProgressList}
+        onOpenRoom={onOpenRoom}
+        onOpenWorldMap={onOpenWorldMap}
+        onRefreshCompanion={onRefreshCompanion}
+      />
 
-          <div className="text-4xl p-2 bg-white/20 rounded-2xl backdrop-blur-xs shadow-xs">
-            {child.avatar}
-          </div>
-        </div>
-
-        {/* Level & XP Progress inside Greeting */}
-        <div className="mt-4 pt-3 border-t border-white/20 space-y-1.5 relative z-10">
-          <div className="flex items-center justify-between text-xs font-bold text-white">
-            <span className="flex items-center gap-1.5">
-              <span>{levelInfo.badge}</span>
-              <span>Level {levelInfo.level}: {levelInfo.title}</span>
-            </span>
-            <span>{child.totalXp} XP</span>
-          </div>
-
-          <div className="w-full bg-black/20 h-2.5 rounded-full overflow-hidden p-0.5">
-            <div
-              className="bg-[#FFD83E] h-full rounded-full transition-all duration-300"
-              style={{ width: `${Math.max(8, levelProgressPercent)}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Continue Learning Last Session Card */}
+      {/* 2. Continue Learning Last Session Card */}
       <div className="bg-gradient-to-r from-[#FF7A50] to-[#FF946F] text-white rounded-3xl p-5 shadow-md shadow-orange-500/25 flex items-center justify-between">
         <div className="space-y-1">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/25 text-[11px] font-bold">
@@ -118,12 +95,20 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         <button
           onClick={onResumeLastSession}
           className="w-14 h-14 rounded-full bg-white text-[#FF7A50] flex items-center justify-center shadow-lg active:scale-95 transition-transform hover:bg-orange-50 cursor-pointer shrink-0"
+          title="Lanjutkan Sesi Belajar"
         >
           <Play size={26} className="fill-[#FF7A50] ml-1" />
         </button>
       </div>
 
-      {/* Murojaah Due Alert (if any weak ayahs exist) */}
+      {/* 3. Daily Quests Adventure Card (Petualangan Hari Ini) */}
+      <DailyQuestsCard
+        childId={child.id}
+        onNavigateToModule={onNavigateToModule as any}
+        onQuestsUpdated={onRefreshCompanion}
+      />
+
+      {/* 4. Murojaah Due Alert (if any weak ayahs exist) */}
       {weakAyahsCount > 0 && (
         <div
           onClick={onOpenMurojaahDue}
@@ -146,10 +131,10 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         </div>
       )}
 
-      {/* Current Memorization Multi-Metric Grid */}
+      {/* 5. Current Memorization Multi-Metric Grid */}
       <div className="space-y-2 pt-1">
         <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
-          PERKEMBANGAN HAFALAN
+          PERKEMBANGAN HAFALAN ANAK
         </span>
 
         <div className="grid grid-cols-3 gap-3">
@@ -182,10 +167,10 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         </div>
       </div>
 
-      {/* Quick Launch Cards to 3 Steps */}
+      {/* 6. Quick Launch Cards to 3 Steps */}
       <div className="space-y-2 pt-1">
         <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
-          AKSES CEPAT TAHFIZ
+          AKSES CEPAT TAHFIZ (3-LANGKAH)
         </span>
 
         <div className="grid grid-cols-3 gap-2.5">

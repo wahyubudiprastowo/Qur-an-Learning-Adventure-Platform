@@ -23,6 +23,8 @@ import { AyahData, SurahMetadata } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
+import { CompanionService } from '../../services/companionService';
+import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
 interface HafalanModuleProps {
   childId: string;
@@ -59,6 +61,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
   // Result modal state
   const [showResultModal, setShowResultModal] = useState<boolean>(false);
+  const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
+  const companion = CompanionService.getCompanionData(childId);
 
   const recorderRef = useRef<AudioRecordingService | null>(null);
   const timerRef = useRef<any>(null);
@@ -177,6 +181,10 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         score.overallScore,
         !score.needsReview
       );
+
+      // Record activity in Companion service
+      CompanionService.recordActivity(childId, 'hafalan', 35, 5);
+      setCompanionPulseTrigger((prev) => prev + 1);
     } catch (err) {
       console.error('Error stopping recording:', err);
     }
@@ -531,6 +539,13 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           setShowResultModal(false);
           onFinishHafalan();
         }}
+      />
+
+      {/* Subtle Companion Reaction in corner */}
+      <SubtleCompanionReaction
+        companion={companion}
+        pulseTrigger={companionPulseTrigger}
+        message="Lumi terpukau! Suaramu merdu ✨"
       />
     </div>
   );

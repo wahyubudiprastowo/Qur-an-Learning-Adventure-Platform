@@ -21,6 +21,8 @@ import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
+import { CompanionService } from '../../services/companionService';
+import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
 interface MurojaahModuleProps {
   childId: string;
@@ -53,6 +55,8 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
 
   // Reward Modal
   const [rewardModalOpen, setRewardModalOpen] = useState<boolean>(false);
+  const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
+  const companion = CompanionService.getCompanionData(childId);
 
   const playerRef = useRef<QuranAudioPlayer | null>(null);
   const ayahsRef = useRef<AyahData[]>([]);
@@ -189,6 +193,10 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
       'murojaah',
       activeBlock.id
     );
+
+    // Record activity in Companion service for Hafiz trait and quest progression
+    CompanionService.recordActivity(childId, 'murojaah', 20, 4);
+    setCompanionPulseTrigger((prev) => prev + 1);
 
     setRewardModalOpen(true);
   };
@@ -411,6 +419,13 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
           setRewardModalOpen(false);
           onFinishMurojaah();
         }}
+      />
+
+      {/* Subtle Companion Mascot in corner */}
+      <SubtleCompanionReaction
+        companion={companion}
+        pulseTrigger={companionPulseTrigger}
+        message="Lumi bangga! Ingatanmu makin kokoh ✨"
       />
     </div>
   );
