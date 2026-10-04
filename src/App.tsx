@@ -27,7 +27,8 @@ import { GameHub } from './components/game/GameHub';
 import { AkunHome } from './components/akun/AkunHome';
 import { ChildProfileModal } from './components/akun/ChildProfileModal';
 import { QuickChildSwitcherModal } from './components/akun/QuickChildSwitcherModal';
-import { AndroidApkModal } from './components/common/AndroidApkModal';
+import { AuthModal } from './components/auth/AuthModal';
+import { ProVsFreeModal } from './components/subscription/ProVsFreeModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
@@ -72,11 +73,21 @@ export default function App() {
   // Child Switcher & Creation Modals
   const [showQuickChildSwitcher, setShowQuickChildSwitcher] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
-  const [showAndroidApkModal, setShowAndroidApkModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('register');
+  const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
 
   const [companion, setCompanion] = useState(() =>
     CompanionService.getCompanionData(activeChild.id)
   );
+
+  // Stateful pet reaction: Daily login triggers morning greeting & vitals adjustment
+  useEffect(() => {
+    if (activeChild?.id) {
+      const { companion: updatedComp } = CompanionService.onChildDailyLogin(activeChild.id);
+      setCompanion(updatedComp);
+    }
+  }, [activeChild?.id]);
 
   // Global Audio Isolation: Stop all active audio streams across all modules whenever navigation changes.
   // useLayoutEffect runs synchronously before browser paint to prevent any overlapping audio or lingering UI states.
@@ -278,20 +289,28 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#D8EDF8] flex justify-center text-[#292742]">
-      {/* Responsive Container Shell (Mobile width on phones, widescreen canvas on tablet & desktop) */}
-      <div className="w-full max-w-md md:max-w-3xl lg:max-w-5xl min-h-screen bg-[#EEF8FF] shadow-2xl relative border-x border-[#C9E1ED]/50 flex flex-col transition-all duration-300">
-        {/* Top Header */}
+      {/* Responsive Container Shell (Adaptive phone canvas on mobile, expansive rich web layout on tablet & desktop) */}
+      <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl min-h-screen bg-[#EEF8FF] shadow-2xl relative border-x border-[#C9E1ED]/50 flex flex-col transition-all duration-300">
+        {/* Top Header with Responsive Desktop Navbar */}
         <Header
           title={headerTitle}
           subtitle={headerSubtitle}
           onBack={onBackHandler}
           activeChild={activeChild}
           onSelectChild={() => setShowQuickChildSwitcher(true)}
-          onOpenAndroidApk={() => setShowAndroidApkModal(true)}
+          userAccount={userAccount}
+          onOpenAuth={(mode) => {
+            setAuthModalMode(mode);
+            setShowAuthModal(true);
+          }}
+          onOpenPlanModal={() => setShowPlanModal(true)}
+          activeTab={activeTab}
+          onTabChange={navigateToTab}
+          murojaahDueCount={weakAyahsCount}
         />
 
         {/* Scrollable Content Container */}
-        <main className="flex-1 px-4 pt-3 overflow-y-auto">
+        <main className="flex-1 px-4 sm:px-6 pt-3 md:pb-8 overflow-y-auto">
           {/* TAB 1: BERANDA */}
           {activeTab === 'beranda' && (
             <BerandaHome
@@ -313,7 +332,12 @@ export default function App() {
               onOpenWorldMap={() => navigateGame('map')}
               onRefreshCompanion={() => refreshChildData(activeChild.id)}
               onNavigateToModule={handleNavigateToModule}
-              onOpenAndroidApk={() => setShowAndroidApkModal(true)}
+              userAccount={userAccount}
+              onOpenAuth={(mode) => {
+                setAuthModalMode(mode);
+                setShowAuthModal(true);
+              }}
+              onOpenPlanModal={() => setShowPlanModal(true)}
             />
           )}
 
@@ -462,7 +486,11 @@ export default function App() {
               activeChild={activeChild}
               childrenList={childrenList}
               onSwitchChild={handleSwitchChild}
-              onRefreshData={() => refreshChildData(activeChild.id)}
+              onRefreshData={() => {
+                refreshChildData(activeChild.id);
+                setUserAccount(StorageService.getUserAccount());
+                setChildrenList(StorageService.getChildren());
+              }}
             />
           )}
         </main>
@@ -508,10 +536,27 @@ export default function App() {
           }}
         />
 
-        {/* Android APK Modal */}
-        <AndroidApkModal
-          isOpen={showAndroidApkModal}
-          onClose={() => setShowAndroidApkModal(false)}
+        {/* Pro vs Free Classification Modal */}
+        <ProVsFreeModal
+          isOpen={showPlanModal}
+          onClose={() => setShowPlanModal(false)}
+          userAccount={userAccount}
+          onPlanChanged={(updated) => {
+            setUserAccount(updated);
+          }}
+        />
+
+        {/* Hijalearn-style Auth & Registration Modal */}
+        <AuthModal
+          isOpen={showAuthModal}
+          initialMode={authModalMode}
+          onClose={() => setShowAuthModal(false)}
+          onAuthSuccess={(updated) => {
+            setUserAccount(updated);
+            setShowAuthModal(false);
+            setChildrenList(StorageService.getChildren());
+            setActiveChild(StorageService.getActiveChild());
+          }}
         />
       </div>
     </div>

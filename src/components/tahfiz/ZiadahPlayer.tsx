@@ -205,6 +205,7 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
 
     // Record activity in Companion service for Hafiz trait and quest progression
     CompanionService.recordActivity(childId, 'ziadah', 25, 5);
+    CompanionService.onSurahCompleted(childId, surahMeta.nameLatin);
     setCompanionPulseTrigger((prev) => prev + 1);
 
     setRewardData({

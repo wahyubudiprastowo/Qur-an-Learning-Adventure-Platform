@@ -239,6 +239,7 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
 
     // Record activity in Companion service for Hafiz trait and quest progression
     CompanionService.recordActivity(childId, 'murojaah', 20, 4);
+    CompanionService.onSurahCompleted(childId, surahMeta.nameLatin);
     setCompanionPulseTrigger((prev) => prev + 1);
 
     setRewardModalOpen(true);

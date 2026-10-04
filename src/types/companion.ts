@@ -4,6 +4,8 @@ export type CompanionTrait = 'hafiz' | 'tartil' | 'reader' | 'scholar' | 'explor
 
 export type CompanionSpecies = 'lumi' | 'buraq' | 'fajr' | 'kibo' | 'dino';
 
+export type PetMood = 'joyful' | 'proud' | 'hungry' | 'sleepy' | 'sleeping' | 'content';
+
 export interface CompanionSpeciesConfig {
   id: CompanionSpecies;
   name: string;
@@ -26,7 +28,14 @@ export interface CompanionData {
   hunger?: number; // 0 - 100 (Kenyang Energi)
   happiness?: number; // 0 - 100 (Kebahagiaan Tamagotchi)
   cleanliness?: number; // 0 - 100 (Kesucian Wudhu)
-  energy?: number; // 0 - 100 (Daya Semangat)
+  energy?: number; // 0 - 100 (Daya Semangat / Istirahat)
+  isSleeping?: boolean; // Whether companion is sleeping
+  mood?: PetMood;
+  lastLoginDate?: string;
+  surahsCompletedCount?: number;
+  foodTreatsAvailable?: number; // Number of delicious meals/treats earned from completing surahs
+  surahsSinceLastFeed?: number; // Surahs completed since last feeding
+  requiredSurahsPerFeed?: number; // Required surahs completed to unlock next meal (default: 1)
   roomItems: string[]; // IDs of currently placed decorations in room
   unlockedItems: string[]; // IDs of purchased / unlocked room decorations
   unlockedCards: string[]; // Surah Knowledge Card IDs
@@ -38,6 +47,26 @@ export interface CompanionData {
   lastPetAt?: string;
   lastFedAt?: string;
   dialogueMessage?: string;
+}
+
+export interface FeedResult {
+  success: boolean;
+  message: string;
+  happinessGained: number;
+  newHappiness: number;
+  newHunger: number;
+  treatsRemaining: number;
+  isJoyful: boolean;
+  surahsNeeded?: number;
+}
+
+export interface FeedStatus {
+  canFeed: boolean;
+  treatsAvailable: number;
+  surahsCompletedCount: number;
+  surahsNeededForNext: number;
+  requiredSurahsPerFeed: number;
+  isSleeping: boolean;
 }
 
 export interface StageConfig {

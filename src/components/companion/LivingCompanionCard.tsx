@@ -18,10 +18,13 @@ import {
   Shield,
   X,
   CheckCircle2,
+  Moon,
+  Sun,
+  Trophy,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ChildProfile, ChildAyahProgress, ChildBlockProgress } from '../../types';
-import { CompanionData, StageConfig, CompanionSpecies } from '../../types/companion';
+import { CompanionData, StageConfig, CompanionSpecies, PetMood } from '../../types/companion';
 import {
   getStageForXp,
   COMPANION_STAGES,
@@ -42,7 +45,7 @@ interface LivingCompanionCardProps {
 }
 
 // Gentle pleasant synthesizer sounds for offline Tamagotchi care
-const playTamagotchiSound = (type: 'eat' | 'pet' | 'wash' | 'water') => {
+const playTamagotchiSound = (type: 'eat' | 'pet' | 'wash' | 'water' | 'sleep' | 'wake' | 'joyful') => {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const now = ctx.currentTime;
@@ -85,6 +88,45 @@ const playTamagotchiSound = (type: 'eat' | 'pet' | 'wash' | 'water') => {
         osc.start(now + i * 0.06);
         osc.stop(now + i * 0.06 + 0.2);
       });
+    } else if (type === 'sleep') {
+      [523.25, 440, 349.23, 261.63].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.14);
+        gain.gain.setValueAtTime(0.12, now + i * 0.14);
+        gain.gain.exponentialRampToValueAtTime(0.005, now + i * 0.14 + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.14);
+        osc.stop(now + i * 0.14 + 0.3);
+      });
+    } else if (type === 'wake') {
+      [261.63, 329.63, 392, 523.25].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.09);
+        gain.gain.setValueAtTime(0.15, now + i * 0.09);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.09 + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.09);
+        osc.stop(now + i * 0.09 + 0.2);
+      });
+    } else if (type === 'joyful') {
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        gain.gain.setValueAtTime(0.2, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.25);
+      });
     }
   } catch {
     // Ignore audio context error
@@ -110,6 +152,8 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   const [showPetPicker, setShowPetPicker] = useState<boolean>(false);
   const [showGardenModal, setShowGardenModal] = useState<boolean>(false);
   const [selectedGardenDay, setSelectedGardenDay] = useState<number | null>(null);
+  const [isJoyfulFeeding, setIsJoyfulFeeding] = useState<boolean>(false);
+  const [happinessSurge, setHappinessSurge] = useState<number | null>(null);
 
   const species = companion.species || 'lumi';
   const speciesConfig = getCompanionSpeciesConfig(species);
@@ -150,12 +194,46 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   };
 
   const handleFeed = () => {
-    playTamagotchiSound('eat');
-    setActionFeedback({ icon: '🍎', text: 'Nyam! Enak & Berenergi!' });
+    if (companion.isSleeping) {
+      setActionFeedback({ icon: '🌙', text: 'Bangunkan sahabat dulu!' });
+      setDialogue(`Ssshh... ${companion.name} sedang tidur nyenyak. Bangunkan terlebih dahulu untuk makan! 🌙`);
+      setTimeout(() => setActionFeedback(null), 2000);
+      return;
+    }
+
     const res = CompanionService.feedCompanion(child.id, 'kurma');
-    setDialogue(res.message);
-    setTimeout(() => setActionFeedback(null), 1800);
-    onRefreshCompanion();
+    if (res.success) {
+      playTamagotchiSound('eat');
+      setTimeout(() => playTamagotchiSound('joyful'), 220);
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 80,
+          origin: { y: 0.55 },
+          colors: ['#F43F5E', '#FB7185', '#F59E0B', '#10B981', '#38BDF8'],
+        });
+      } catch {
+        // Ignore
+      }
+
+      setIsJoyfulFeeding(true);
+      setHappinessSurge(res.happinessGained);
+      setActionFeedback({ icon: '🍯', text: `Nyam! +${res.happinessGained}% Bahagia!` });
+      setDialogue(res.message);
+
+      setTimeout(() => {
+        setIsJoyfulFeeding(false);
+        setHappinessSurge(null);
+      }, 3000);
+
+      setTimeout(() => setActionFeedback(null), 2200);
+      onRefreshCompanion();
+    } else {
+      playTamagotchiSound('pet');
+      setActionFeedback({ icon: '📖', text: 'Selesaikan 1 Surah!' });
+      setDialogue(res.message);
+      setTimeout(() => setActionFeedback(null), 2800);
+    }
   };
 
   const handleClean = () => {
@@ -164,6 +242,19 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
     const res = CompanionService.cleanCompanion(child.id);
     setDialogue(res.message);
     setTimeout(() => setActionFeedback(null), 1800);
+    onRefreshCompanion();
+  };
+
+  const handleToggleSleep = () => {
+    const willSleep = !companion.isSleeping;
+    playTamagotchiSound(willSleep ? 'sleep' : 'wake');
+    const res = CompanionService.toggleSleep(child.id);
+    setActionFeedback({
+      icon: willSleep ? '🌙' : '☀️',
+      text: willSleep ? 'Tidur Nyenyak Zzz...' : 'Bangun Segar!',
+    });
+    setDialogue(res.message);
+    setTimeout(() => setActionFeedback(null), 2000);
     onRefreshCompanion();
   };
 
@@ -186,6 +277,27 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
     onRefreshCompanion();
   };
 
+  const handleClaimWeeklyHarvest = () => {
+    const res = CompanionService.claimWeeklyGardenHarvest(child.id);
+    if (res.success) {
+      playTamagotchiSound('pet');
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#FFD83E', '#81E850', '#08B9EF', '#FF946F'],
+        });
+      } catch {
+        // Ignore
+      }
+      setActionFeedback({ icon: '🏆', text: '+150 XP & 5 ⭐!' });
+    }
+    setDialogue(res.message);
+    setTimeout(() => setActionFeedback(null), 2500);
+    onRefreshCompanion();
+  };
+
   const handleSelectSpecies = (newSpecies: CompanionSpecies) => {
     const config = getCompanionSpeciesConfig(newSpecies);
     CompanionService.setCompanionSpecies(child.id, newSpecies, config.defaultName);
@@ -197,9 +309,22 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   const gardenDays = companion.gardenDays || [true, false, false, false, false, false, false];
   const bloomedCount = gardenDays.filter(Boolean).length;
   const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+  const isWeeklyHarvestClaimed = CompanionService.isWeeklyGardenHarvestClaimed(child.id, companion.gardenWeekId);
 
   // Plant icons for each day
   const plantIcons = ['🌱', '🌿', '🌷', '🌻', '🌸', '🌼', '🏆'];
+
+  // Current Mood State
+  const mood = companion.mood || CompanionService.computeMood(companion);
+  const moodMap: Record<PetMood, { label: string; color: string }> = {
+    sleeping: { label: '🌙 Istirahat Zzz', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+    hungry: { label: '🍎 Sedang Lapar', color: 'bg-amber-50 text-amber-800 border-amber-300 animate-pulse' },
+    sleepy: { label: '🥱 Mengantuk', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+    joyful: { label: '✨ Sangat Bahagia', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+    proud: { label: '👑 Bangga Hafalan', color: 'bg-amber-50 text-amber-700 border-amber-300' },
+    content: { label: '😊 Riang Tartil', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  };
+  const moodInfo = moodMap[mood as PetMood] || moodMap.content;
 
   return (
     <div className="bg-gradient-to-b from-[#F0FAFF] via-[#E4F5FD] to-[#D5EEFB] border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm relative overflow-hidden space-y-4">
@@ -250,10 +375,29 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
         {/* Tamagotchi Mascot Sprite with Bounce and Reaction */}
         <div className="flex flex-col items-center shrink-0">
           <div
-            onClick={handlePet}
-            className="relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-b from-white to-cyan-50/60 border border-cyan-200 shadow-sm hover:scale-105 active:scale-95 transition-all w-32 h-32"
-            title="Ketuk untuk menyapa sahabatmu!"
+            onClick={companion.isSleeping ? handleToggleSleep : handlePet}
+            className={`relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl border shadow-sm hover:scale-105 active:scale-95 transition-all w-32 h-32 ${
+              companion.isSleeping
+                ? 'bg-gradient-to-b from-indigo-950/20 via-sky-900/10 to-indigo-100/40 border-indigo-300'
+                : hunger < 35
+                ? 'bg-gradient-to-b from-amber-50/80 to-white border-amber-300'
+                : 'bg-gradient-to-b from-white to-cyan-50/60 border-cyan-200'
+            }`}
+            title={companion.isSleeping ? 'Sahabat sedang tidur nyenyak. Ketuk untuk membangunkan!' : 'Ketuk untuk menyapa sahabatmu!'}
           >
+            {/* Sleeping Floating Zzz */}
+            {companion.isSleeping && (
+              <div className="absolute top-2 right-3 pointer-events-none">
+                <motion.span
+                  animate={{ y: [0, -18], opacity: [0, 1, 0], x: [0, 6, 12] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
+                  className="text-sm font-black text-indigo-500 block"
+                >
+                  💤
+                </motion.span>
+              </div>
+            )}
+
             {/* Feedback Pop Message */}
             <AnimatePresence>
               {actionFeedback && (
@@ -269,33 +413,106 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
               )}
             </AnimatePresence>
 
-            {/* Living Avatar with idle breathing */}
+            {/* Living Avatar with idle breathing / sleeping state / joyful feeding celebration */}
             <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-              className="text-6xl filter drop-shadow-md py-1"
+              animate={
+                isJoyfulFeeding
+                  ? {
+                      y: [0, -30, 4, -22, 2, -10, 0],
+                      scale: [1, 1.35, 0.9, 1.25, 0.95, 1.1, 1],
+                      rotate: [0, -14, 14, -8, 8, -4, 0],
+                    }
+                  : companion.isSleeping
+                  ? { y: [0, -3, 0], rotate: [-2, 2, -2] }
+                  : hunger < 35
+                  ? { y: [0, -5, 0], x: [-1, 1, -1] }
+                  : { y: [0, -6, 0] }
+              }
+              transition={
+                isJoyfulFeeding
+                  ? { duration: 2, repeat: 1, ease: 'easeOut' }
+                  : { repeat: Infinity, duration: companion.isSleeping ? 3.2 : 2.4, ease: 'easeInOut' }
+              }
+              className={`text-6xl filter drop-shadow-md py-1 relative ${companion.isSleeping ? 'opacity-90' : ''}`}
             >
               {currentAvatar}
+
+              {/* Joyful Feeding floating emoji celebration */}
+              {isJoyfulFeeding && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <motion.span
+                    initial={{ opacity: 0, y: 0, scale: 0.5 }}
+                    animate={{ opacity: [0, 1, 0], y: -50, scale: 1.3 }}
+                    transition={{ duration: 1.8 }}
+                    className="absolute -top-3 text-2xl"
+                  >
+                    🍯
+                  </motion.span>
+                  <motion.span
+                    initial={{ opacity: 0, x: -10, y: 0 }}
+                    animate={{ opacity: [0, 1, 0], x: -35, y: -38, scale: 1.2 }}
+                    transition={{ duration: 1.8, delay: 0.15 }}
+                    className="absolute text-xl"
+                  >
+                    💖
+                  </motion.span>
+                  <motion.span
+                    initial={{ opacity: 0, x: 10, y: 0 }}
+                    animate={{ opacity: [0, 1, 0], x: 35, y: -38, scale: 1.2 }}
+                    transition={{ duration: 1.8, delay: 0.25 }}
+                    className="absolute text-xl"
+                  >
+                    ✨
+                  </motion.span>
+                  <motion.span
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: [0, 1, 0], y: -65, scale: 1.4 }}
+                    transition={{ duration: 2, delay: 0.35 }}
+                    className="absolute text-2xl"
+                  >
+                    🥰
+                  </motion.span>
+                </div>
+              )}
             </motion.div>
 
-            <span className="text-[10px] font-extrabold text-[#08B9EF] mt-1 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
-              {stageConfig.name}
+            <span className={`text-[10px] font-extrabold mt-1 px-2 py-0.5 rounded-full border ${isJoyfulFeeding ? 'bg-rose-100 text-rose-800 border-rose-300' : moodInfo.color}`}>
+              {isJoyfulFeeding ? '🥰 Sangat Bahagia & Lahap!' : companion.isSleeping ? '🌙 Tidur Zzz...' : moodInfo.label}
             </span>
           </div>
 
-          {/* Quick Pet Interaction Buttons (Beri Makan, Usap, Mandi) */}
+          {/* Quick Pet Interaction Buttons (Makan, Sayang, Wudhu, Tidur/Bangun) */}
           <div className="flex items-center gap-1.5 mt-2.5">
             <button
               onClick={handleFeed}
-              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-amber-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-amber-50 active:scale-95 cursor-pointer transition-all"
-              title="Beri Makan Kurma Berkah"
+              disabled={companion.isSleeping}
+              className={`p-1.5 bg-white border rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer transition-all relative ${
+                companion.isSleeping
+                  ? 'opacity-40 cursor-not-allowed border-slate-200'
+                  : (companion.foodTreatsAvailable ?? 1) > 0
+                  ? 'border-amber-400 bg-amber-50/80 hover:bg-amber-100 ring-1 ring-amber-300'
+                  : 'border-[#C9E1ED] hover:border-amber-400 hover:bg-amber-50'
+              }`}
+              title={
+                (companion.foodTreatsAvailable ?? 1) > 0
+                  ? `Beri Makan Kurma Berkah (${companion.foodTreatsAvailable ?? 1} hidangan surah tersedia)`
+                  : 'Selesaikan 1 surah lagi untuk memetik Kurma Berkah dari surga'
+              }
             >
-              <Apple size={14} className="text-amber-500" />
+              <Apple size={14} className={(companion.foodTreatsAvailable ?? 1) > 0 ? 'text-amber-600 animate-pulse' : 'text-amber-500'} />
               <span className="text-[10px]">Makan</span>
+              {(companion.foodTreatsAvailable ?? 1) > 0 && (
+                <span className="text-[9px] bg-amber-500 text-white font-black px-1.5 py-0.2 rounded-full -ml-0.5">
+                  {companion.foodTreatsAvailable ?? 1}
+                </span>
+              )}
             </button>
             <button
               onClick={handlePet}
-              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-rose-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-rose-50 active:scale-95 cursor-pointer transition-all"
+              disabled={companion.isSleeping}
+              className={`p-1.5 bg-white border rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer transition-all ${
+                companion.isSleeping ? 'opacity-40 cursor-not-allowed border-slate-200' : 'border-[#C9E1ED] hover:border-rose-400 hover:bg-rose-50'
+              }`}
               title="Usap & Sayang"
             >
               <Heart size={14} className="text-rose-500 fill-rose-500" />
@@ -303,11 +520,35 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
             </button>
             <button
               onClick={handleClean}
-              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-cyan-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-cyan-50 active:scale-95 cursor-pointer transition-all"
+              disabled={companion.isSleeping}
+              className={`p-1.5 bg-white border rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer transition-all ${
+                companion.isSleeping ? 'opacity-40 cursor-not-allowed border-slate-200' : 'border-[#C9E1ED] hover:border-cyan-400 hover:bg-cyan-50'
+              }`}
               title="Mandikan Air Wudhu"
             >
               <Droplet size={14} className="text-cyan-500" />
               <span className="text-[10px]">Wudhu</span>
+            </button>
+            <button
+              onClick={handleToggleSleep}
+              className={`p-1.5 bg-white border rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer transition-all ${
+                companion.isSleeping
+                  ? 'border-amber-400 bg-amber-50/80 text-amber-700 ring-1 ring-amber-300'
+                  : 'border-[#C9E1ED] hover:border-indigo-400 hover:bg-indigo-50 text-[#164C68]'
+              }`}
+              title={companion.isSleeping ? 'Bangunkan Sahabat' : 'Tidurkan Sahabat untuk Istirahat'}
+            >
+              {companion.isSleeping ? (
+                <>
+                  <Sun size={14} className="text-amber-500" />
+                  <span className="text-[10px]">Bangun</span>
+                </>
+              ) : (
+                <>
+                  <Moon size={14} className="text-indigo-500" />
+                  <span className="text-[10px]">Tidur</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -343,21 +584,44 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
               </div>
             </div>
 
-            {/* Happiness */}
-            <div className="space-y-1">
+            {/* Happiness Bar with Joyful Surge and Animation */}
+            <motion.div
+              animate={
+                isJoyfulFeeding
+                  ? { scale: [1, 1.05, 1], backgroundColor: ['#FFF1F2', '#FFE4E6', '#FFF1F2'] }
+                  : {}
+              }
+              transition={{ duration: 0.8, repeat: isJoyfulFeeding ? 2 : 0 }}
+              className={`space-y-1 p-1 rounded-xl transition-all relative ${
+                isJoyfulFeeding ? 'ring-2 ring-rose-400 bg-rose-50 shadow-xs' : ''
+              }`}
+            >
+              {happinessSurge !== null && (
+                <motion.span
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: -16 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute -top-2.5 right-0.5 text-[9px] font-black text-rose-600 bg-white border border-rose-300 px-1.5 py-0.2 rounded-full shadow-xs flex items-center gap-0.5 z-20"
+                >
+                  +{happinessSurge}% Bahagia! 💖
+                </motion.span>
+              )}
+
               <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
                 <span className="flex items-center gap-1">
                   <span>💖</span> Bahagia
                 </span>
-                <span>{happiness}%</span>
+                <span className={isJoyfulFeeding ? 'text-rose-600 font-black' : ''}>
+                  {happiness}%
+                </span>
               </div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-rose-400 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${happiness}%` }}
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <motion.div
+                  className="bg-gradient-to-r from-rose-400 to-pink-500 h-full rounded-full transition-all duration-500"
+                  animate={{ width: `${happiness}%` }}
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Cleanliness */}
             <div className="space-y-1">
@@ -428,7 +692,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full">
               {bloomedCount}/7 Hari Mekar
             </span>
           </div>
@@ -438,6 +702,28 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
         <p className="text-[10px] text-[#8C9BA7] leading-relaxed font-medium">
           Membiasakan hafalan harian tanpa beban. Setiap hari belajar, benih mekar jadi bunga indah. Istiqomah 5-7 hari membuka <strong>Piala Emas & Hadiah Mingguan 🏆</strong>!
         </p>
+
+        {/* Weekly Istiqomah Progress Indicator */}
+        <div className="space-y-1 bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-2">
+          <div className="flex items-center justify-between text-[10px] font-black text-emerald-900">
+            <span className="flex items-center gap-1">
+              <span>🌾</span>
+              <span>Progres Panen Raya Sepekan</span>
+            </span>
+            <span>{Math.round((bloomedCount / 7) * 100)}%</span>
+          </div>
+          <div className="w-full bg-emerald-200/60 h-2 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${(bloomedCount / 7) * 100}%` }}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full transition-all duration-500"
+            />
+          </div>
+          <div className="flex items-center justify-between text-[9px] text-emerald-800 font-bold pt-0.5">
+            <span>{bloomedCount >= 5 ? '🎉 Target Istiqomah Tercapai!' : `Kurang ${5 - bloomedCount} hari lagi untuk Piala Panen`}</span>
+            <span>Target: min. 5 Hari</span>
+          </div>
+        </div>
 
         {/* 7-Day Interactive Garden Grid */}
         <div className="grid grid-cols-7 gap-1.5 text-center">
@@ -490,8 +776,30 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
           })}
         </div>
 
+        {/* Weekly Harvest Claim Action if eligible (5+ days) */}
+        {bloomedCount >= 5 && (
+          <div>
+            {!isWeeklyHarvestClaimed ? (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={handleClaimWeeklyHarvest}
+                className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-amber-950 font-black text-xs shadow-md shadow-amber-400/30 flex items-center justify-center gap-2 cursor-pointer border border-amber-300 ring-2 ring-amber-300/40 animate-pulse"
+              >
+                <Trophy size={16} className="text-amber-800" />
+                <span>🏆 KLAIM PIALA PANEN RAYA! (+150 XP & 5 ⭐)</span>
+              </motion.button>
+            ) : (
+              <div className="w-full py-2 px-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-extrabold flex items-center justify-center gap-1.5">
+                <CheckCircle2 size={14} className="text-amber-600" />
+                <span>Piala Panen Raya Pekan Ini Sudah Diklaim (+150 XP & 5 ⭐)</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Quick Water Button */}
-        {!companion.gardenWateredToday && (
+        {!companion.gardenWateredToday ? (
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.96 }}
@@ -501,6 +809,11 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
             <Droplet size={14} className="fill-white" />
             <span>Siram Kebun Hari Ini (+15 XP & 1 Benih)</span>
           </motion.button>
+        ) : (
+          <div className="w-full py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-[11px] flex items-center justify-center gap-1.5">
+            <CheckCircle2 size={13} className="text-emerald-600" />
+            <span>Tanaman Hari Ini Sudah Segar Disiram Embun Tartil</span>
+          </div>
         )}
       </div>
 

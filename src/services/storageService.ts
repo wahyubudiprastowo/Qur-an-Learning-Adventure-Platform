@@ -36,7 +36,9 @@ const DEFAULT_USER: UserAccount = {
   parentName: 'Bunda Sarah',
   activeChildId: 'child-aisyah',
   pin: '2026',
-  entitlement: 'active',
+  entitlement: 'free',
+  planTier: 'free',
+  isRegistered: false,
   entitlementExpiry: '2027-12-31',
   createdAt: '2026-01-15T00:00:00.000Z',
 };
@@ -86,6 +88,63 @@ export class StorageService {
   static updateUserAccount(updates: Partial<UserAccount>): UserAccount {
     const current = this.getUserAccount();
     const updated = { ...current, ...updates };
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    return updated;
+  }
+
+  static registerUser(
+    name: string,
+    email: string,
+    whatsapp?: string,
+    childName?: string,
+    targetGoal?: string
+  ): UserAccount {
+    const current = this.getUserAccount();
+    const updated: UserAccount = {
+      ...current,
+      parentName: name.trim() || current.parentName,
+      email: email.trim().toLowerCase() || current.email,
+      whatsapp: whatsapp?.trim() || current.whatsapp,
+      targetGoal: targetGoal?.trim() || current.targetGoal,
+      isRegistered: true,
+    };
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+
+    // If childName provided, customize active child or create profile
+    if (childName && childName.trim()) {
+      const activeChild = this.getActiveChild();
+      if (activeChild) {
+        this.updateChild(activeChild.id, {
+          name: childName.trim(),
+        });
+      }
+    }
+
+    return updated;
+  }
+
+  static loginUser(identifier: string, parentName?: string): UserAccount {
+    const current = this.getUserAccount();
+    const isEmail = identifier.includes('@');
+    const updated: UserAccount = {
+      ...current,
+      email: isEmail ? identifier.trim().toLowerCase() : current.email,
+      whatsapp: !isEmail ? identifier.trim() : current.whatsapp,
+      parentName: parentName ? parentName.trim() : current.parentName,
+      isRegistered: true,
+    };
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    return updated;
+  }
+
+  static setPlanTier(tier: 'free' | 'pro'): UserAccount {
+    const current = this.getUserAccount();
+    const updated: UserAccount = {
+      ...current,
+      planTier: tier,
+      entitlement: tier === 'pro' ? 'active' : 'free',
+      entitlementExpiry: tier === 'pro' ? '2027-12-31' : '2099-12-31',
+    };
     localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
     return updated;
   }

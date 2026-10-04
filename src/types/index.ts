@@ -17,15 +17,21 @@ export interface ChildProfile {
   updatedAt: string;
 }
 
+export type PlanTier = 'free' | 'pro';
+
 export interface UserAccount {
   id: string;
   email: string;
   parentName: string;
+  whatsapp?: string;
+  targetGoal?: string;
   activeChildId: string;
   pin: string;
-  entitlement: 'trial' | 'active' | 'lifetime';
+  entitlement: 'trial' | 'active' | 'lifetime' | 'free' | 'pro';
+  planTier: PlanTier;
   entitlementExpiry: string;
   createdAt: string;
+  isRegistered?: boolean;
 }
 
 export type BlockState = 'NOT_STARTED' | 'LEARNING' | 'MEMORIZED' | 'REVIEW_REQUIRED';

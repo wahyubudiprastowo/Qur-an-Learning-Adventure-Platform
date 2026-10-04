@@ -210,6 +210,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
       // Record activity in Companion service
       CompanionService.recordActivity(childId, 'hafalan', 35, 5);
+      CompanionService.onSurahCompleted(childId, surahMeta.nameLatin);
       setCompanionPulseTrigger((prev) => prev + 1);
     } catch (err) {
       console.error('Error stopping recording:', err);

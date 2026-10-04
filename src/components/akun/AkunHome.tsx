@@ -20,7 +20,8 @@ import { Button } from '../common/Button';
 import { ParentDashboardModal } from './ParentDashboardModal';
 import { ChildProfileModal } from './ChildProfileModal';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
-import { AndroidApkModal } from '../common/AndroidApkModal';
+import { ProVsFreeModal } from '../subscription/ProVsFreeModal';
+import { AuthModal } from '../auth/AuthModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -40,7 +41,8 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showParentModal, setShowParentModal] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
   const [showWeeklyReportModal, setShowWeeklyReportModal] = useState<boolean>(false);
-  const [showAndroidApkModal, setShowAndroidApkModal] = useState<boolean>(false);
+  const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -139,31 +141,70 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         <ChevronRight size={22} className="text-white group-hover:translate-x-1 transition-transform" />
       </div>
 
-      {/* Android APK Export & Install Card */}
+      {/* Klasifikasi Fitur PRO vs FREE Card */}
       <div
-        onClick={() => setShowAndroidApkModal(true)}
-        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white rounded-3xl p-5 shadow-md shadow-emerald-600/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        onClick={() => setShowPlanModal(true)}
+        className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
       >
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl">
-            🤖
+          <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl shrink-0">
+            👑
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black font-heading">
-                Pasang & Export APK Android
+                Klasifikasi Fitur PRO & FREE
               </h3>
-              <span className="text-[10px] bg-white/25 px-2 py-0.2 rounded-full font-bold">
-                Standar Android
+              <span
+                className={`text-[10px] font-black px-2 py-0.2 rounded-full border ${
+                  userAccount.planTier === 'pro'
+                    ? 'bg-amber-400 text-amber-950 border-amber-300'
+                    : 'bg-[#22C55E]/20 text-[#22C55E] border-[#22C55E]/40'
+                }`}
+              >
+                {userAccount.planTier === 'pro' ? 'PRO AKTIF' : 'PAKET FREE'}
               </span>
             </div>
-            <p className="text-xs text-teal-100 font-medium mt-0.5">
-              Instal langsung di HP atau build paket installer APK
+            <p className="text-xs text-slate-300 font-medium mt-0.5">
+              Bandingkan hak akses 30 Juz, AI voice analysis, & 5 karakter Tamagotchi
             </p>
           </div>
         </div>
 
-        <ChevronRight size={22} className="text-white group-hover:translate-x-1 transition-transform" />
+        <ChevronRight size={22} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+      </div>
+
+      {/* Account / Registration Status Card (Hijalearn-style Auth trigger) */}
+      <div
+        onClick={() => setShowAuthModal(true)}
+        className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#22C55E] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#22C55E] text-2xl shrink-0">
+            {userAccount.isRegistered ? '✅' : '📝'}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-[#164C68] font-heading">
+                {userAccount.isRegistered ? `Akun Terdaftar: ${userAccount.parentName}` : 'Daftar / Masuk Akun Orang Tua'}
+              </h3>
+              <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full ${
+                userAccount.isRegistered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {userAccount.isRegistered ? 'Online' : 'Tamu'}
+              </span>
+            </div>
+            <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
+              {userAccount.isRegistered
+                ? userAccount.email
+                : 'Simpan progres hafalan anak ke cloud & akses multi-perangkat'}
+            </p>
+          </div>
+        </div>
+
+        <span className="text-xs font-bold text-[#22C55E] group-hover:underline">
+          {userAccount.isRegistered ? 'Kelola' : 'Daftar Sekarang →'}
+        </span>
       </div>
 
       {/* Parent Mode CTA Card */}
@@ -287,10 +328,20 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         activeChild={activeChild}
       />
 
-      {/* Android APK Modal */}
-      <AndroidApkModal
-        isOpen={showAndroidApkModal}
-        onClose={() => setShowAndroidApkModal(false)}
+      {/* Pro vs Free Feature Classification Modal */}
+      <ProVsFreeModal
+        isOpen={showPlanModal}
+        onClose={() => setShowPlanModal(false)}
+        userAccount={userAccount}
+        onPlanChanged={() => onRefreshData()}
+      />
+
+      {/* Hijalearn-style Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        initialMode={userAccount.isRegistered ? 'login' : 'register'}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={() => onRefreshData()}
       />
     </div>
   );

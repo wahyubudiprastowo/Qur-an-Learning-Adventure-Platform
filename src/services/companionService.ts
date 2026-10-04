@@ -4,6 +4,9 @@ import {
   CompanionTrait,
   DailyQuest,
   CompanionSpecies,
+  PetMood,
+  FeedResult,
+  FeedStatus,
 } from '../types/companion';
 import { getStageForXp, COMPANION_DIALOGUES, ROOM_DECORATIONS } from '../data/companionData';
 import { StorageService } from './storageService';
@@ -53,6 +56,14 @@ export class CompanionService {
           data.gardenDays = [false, false, false, false, false, false, false];
         }
 
+        // Initialize feed tracking if missing
+        if (data.foodTreatsAvailable === undefined) {
+          data.foodTreatsAvailable = Math.max(1, data.surahsCompletedCount || 1);
+        }
+        if (data.requiredSurahsPerFeed === undefined) {
+          data.requiredSurahsPerFeed = 1;
+        }
+
         return data;
       } catch (e) {
         console.warn('Error parsing companion data:', e);
@@ -89,6 +100,10 @@ export class CompanionService {
       gardenWeekId: currentWeekId,
       gardenWateredToday: false,
       seedsCount: 3,
+      surahsCompletedCount: 1,
+      foodTreatsAvailable: 1, // Ready to feed right away!
+      surahsSinceLastFeed: 1,
+      requiredSurahsPerFeed: 1,
       lastActiveDate: new Date().toISOString().split('T')[0],
       dialogueMessage: 'Assalamu\'alaikum! Lumi senang sekali belajar bersamamu!',
     };
@@ -352,6 +367,22 @@ export class CompanionService {
   }
 
   /**
+   * Computes the current real-time mood based on pet vitals and sleep state
+   */
+  static computeMood(companion: CompanionData): PetMood {
+    if (companion.isSleeping) return 'sleeping';
+    const hunger = companion.hunger ?? 80;
+    const energy = companion.energy ?? 80;
+    const happiness = companion.happiness ?? 80;
+
+    if (hunger < 35) return 'hungry';
+    if (energy < 30) return 'sleepy';
+    if (happiness >= 85) return 'joyful';
+    if ((companion.surahsCompletedCount || 0) > 0 && happiness >= 70) return 'proud';
+    return 'content';
+  }
+
+  /**
    * Gentle pet interaction gives happy response without stress
    */
   static petCompanion(childId: string): { message: string } {
@@ -362,28 +393,108 @@ export class CompanionService {
     companion.lastPetAt = new Date().toISOString();
     companion.happiness = Math.min(100, (companion.happiness ?? 85) + 15);
     companion.dialogueMessage = randomMsg;
+    companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
 
     return { message: randomMsg };
   }
 
   /**
-   * Tamagotchi: Feed the companion nutritious Kurma / Madu
+   * Checks if companion can be fed and how many treats are available from completed surahs
    */
-  static feedCompanion(childId: string, foodType: 'kurma' | 'madu' = 'kurma'): { success: boolean; message: string } {
+  static canFeedCompanion(childId: string): FeedStatus {
     const companion = this.getCompanionData(childId);
-    companion.hunger = Math.min(100, (companion.hunger ?? 70) + 30);
-    companion.energy = Math.min(100, (companion.energy ?? 75) + 20);
-    companion.happiness = Math.min(100, (companion.happiness ?? 80) + 15);
+    const treats = companion.foodTreatsAvailable ?? 1;
+    const required = companion.requiredSurahsPerFeed || 1;
+    const surahsDone = companion.surahsCompletedCount || 0;
+    const surahsNeeded = treats > 0 ? 0 : 1;
+
+    return {
+      canFeed: treats > 0 && !companion.isSleeping,
+      treatsAvailable: treats,
+      surahsCompletedCount: surahsDone,
+      surahsNeededForNext: surahsNeeded,
+      requiredSurahsPerFeed: required,
+      isSleeping: !!companion.isSleeping,
+    };
+  }
+
+  /**
+   * Tamagotchi: Feed the companion nutritious Kurma / Madu after completing a set number of surahs.
+   * Consumes a food treat earned from completed surahs, triggering a joyful animation and increasing the happiness bar.
+   */
+  static feedCompanion(
+    childId: string,
+    foodType: 'kurma' | 'madu' = 'kurma'
+  ): FeedResult {
+    const companion = this.getCompanionData(childId);
+
+    // Sleep check
+    if (companion.isSleeping) {
+      return {
+        success: false,
+        message: `Ssshh... ${companion.name} sedang tidur nyenyak. Bangunkan terlebih dahulu untuk makan! 🌙`,
+        happinessGained: 0,
+        newHappiness: companion.happiness ?? 70,
+        newHunger: companion.hunger ?? 70,
+        treatsRemaining: companion.foodTreatsAvailable ?? 0,
+        isJoyful: false,
+      };
+    }
+
+    const availableTreats = companion.foodTreatsAvailable ?? 1;
+    if (availableTreats <= 0) {
+      const required = companion.requiredSurahsPerFeed || 1;
+      return {
+        success: false,
+        message: `${companion.name} butuh hidangan dari hafalanmu! Selesaikan setoran 1 surah lagi untuk memetik Kurma Berkah dari surga! 📖✨`,
+        happinessGained: 0,
+        newHappiness: companion.happiness ?? 70,
+        newHunger: companion.hunger ?? 70,
+        treatsRemaining: 0,
+        isJoyful: false,
+        surahsNeeded: required,
+      };
+    }
+
+    // Deduct 1 feast treat earned from completing surahs
+    companion.foodTreatsAvailable = Math.max(0, availableTreats - 1);
+    companion.surahsSinceLastFeed = 0;
+
+    // Significant Happiness Bar surge! (+25% up to 100)
+    const oldHappiness = companion.happiness ?? 75;
+    const happinessGained = Math.min(25, 100 - oldHappiness);
+    companion.happiness = Math.min(100, oldHappiness + 25);
+
+    // Hunger and Energy boosted
+    companion.hunger = Math.min(100, (companion.hunger ?? 65) + 35);
+    companion.energy = Math.min(100, (companion.energy ?? 70) + 20);
+    companion.mood = 'joyful';
     companion.lastFedAt = new Date().toISOString();
 
-    const foodName = foodType === 'kurma' ? 'Kurma Manis' : 'Madu Alami';
-    const message = `Bismillah! Nyam-nyam... ${foodName} yang berkah! Energi ${companion.name} kini terisi penuh!`;
+    const foodName = foodType === 'kurma' ? 'Kurma Ajwa Manis' : 'Madu Murni Berkah';
+    const message = `Alhamdulillah! Nyam nyam nyam... ${companion.name} lahap sekali menikmati ${foodName}! Kebahagiaan melonjak drastis (+${happinessGained}% Bahagia) 🥰💖!`;
     companion.dialogueMessage = message;
+
     this.saveCompanionData(companion);
 
-    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 5, 1, `Memberi makan ${companion.name}`);
-    return { success: true, message };
+    StorageService.recordPoints(
+      childId,
+      'PRACTICE_AYAH',
+      10,
+      1,
+      `Memberi makan ${companion.name} dari hidangan surah`
+    );
+
+    return {
+      success: true,
+      message,
+      happinessGained,
+      newHappiness: companion.happiness,
+      newHunger: companion.hunger,
+      treatsRemaining: companion.foodTreatsAvailable,
+      isJoyful: true,
+    };
   }
 
   /**
@@ -395,10 +506,100 @@ export class CompanionService {
     companion.happiness = Math.min(100, (companion.happiness ?? 80) + 20);
     const message = `Alhamdulillah! Segar sekali disiram embun suci air wudhu. ${companion.name} kini bersih dan wangi!`;
     companion.dialogueMessage = message;
+    companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
 
     StorageService.recordPoints(childId, 'PRACTICE_AYAH', 5, 1, `Menyucikan & merawat ${companion.name}`);
     return { success: true, message };
+  }
+
+  /**
+   * Tamagotchi: Toggle Sleep / Rest state for companion
+   */
+  static toggleSleep(childId: string): { isSleeping: boolean; message: string } {
+    const companion = this.getCompanionData(childId);
+    const currentlySleeping = !!companion.isSleeping;
+
+    if (!currentlySleeping) {
+      // Put pet to sleep to rest and recharge
+      companion.isSleeping = true;
+      companion.mood = 'sleeping';
+      const message = `Ssshh... ${companion.name} sedang tidur nyenyak diiringi lantunan ayat suci. Zzz... Semoga mimpi indah dalam naungan Al-Qur'an! 🌙`;
+      companion.dialogueMessage = message;
+      this.saveCompanionData(companion);
+      return { isSleeping: true, message };
+    } else {
+      // Wake pet up
+      companion.isSleeping = false;
+      companion.energy = Math.min(100, (companion.energy ?? 50) + 40);
+      companion.happiness = Math.min(100, (companion.happiness ?? 70) + 15);
+      companion.mood = 'joyful';
+      const message = `Alhamdulillah! ${companion.name} sudah bangun dengan bugar dan bersemangat! Yuk mulai tilawah lagi! ✨`;
+      companion.dialogueMessage = message;
+      this.saveCompanionData(companion);
+      return { isSleeping: false, message };
+    }
+  }
+
+  /**
+   * Stateful reaction: Called on child daily login
+   * Decreases hunger naturally with time, wakes up sleeping pet, gives warm morning greeting
+   */
+  static onChildDailyLogin(childId: string): { isNewDay: boolean; companion: CompanionData } {
+    const companion = this.getCompanionData(childId);
+    const today = new Date().toISOString().split('T')[0];
+    const isNewDay = companion.lastLoginDate !== today;
+
+    if (isNewDay) {
+      companion.lastLoginDate = today;
+      // Natural overnight decay (non-punitive, encourages breakfast kurma)
+      companion.hunger = Math.max(45, (companion.hunger ?? 85) - 25);
+      companion.energy = Math.max(60, (companion.energy ?? 80) - 15);
+      companion.happiness = Math.min(100, (companion.happiness ?? 80) + 10); // Happy that child returned!
+
+      // Wake up if was sleeping
+      if (companion.isSleeping) {
+        companion.isSleeping = false;
+      }
+
+      companion.dialogueMessage = `Assalamu'alaikum! Senang sekali kamu kembali hari ini. Perut ${companion.name} agak lapar, yuk sarapan kurma dan mulai tartil! ☀️`;
+      companion.mood = this.computeMood(companion);
+      this.saveCompanionData(companion);
+    }
+
+    return { isNewDay, companion };
+  }
+
+  /**
+   * Stateful reaction: Called when a surah or tahfiz block is completed
+   * Companion feels immense pride, joy, spiritual nourishment, and energy boost!
+   */
+  static onSurahCompleted(childId: string, surahName?: string): { companion: CompanionData; message: string } {
+    const companion = this.getCompanionData(childId);
+
+    // If sleeping, wake up joyfully to celebrate
+    companion.isSleeping = false;
+    companion.happiness = 100; // Peak happiness!
+    companion.energy = Math.min(100, (companion.energy ?? 70) + 25);
+    companion.hunger = Math.min(100, (companion.hunger ?? 70) + 15); // Nourished by barakah!
+    companion.surahsCompletedCount = (companion.surahsCompletedCount || 0) + 1;
+    companion.surahsSinceLastFeed = (companion.surahsSinceLastFeed || 0) + 1;
+    companion.foodTreatsAvailable = (companion.foodTreatsAvailable || 0) + 1; // Award 1 delicious meal treat!
+    companion.mood = 'proud';
+
+    const targetName = surahName ? `Surah ${surahName}` : 'Hafalan Qur\'an';
+    const message = `Allahu Akbar! Tabarakallah! ${targetName} berhasil dituntaskan dengan tartil! ${companion.name} bangga sekali padamu! Cahaya hafalanmu membuka 1 Hidangan Kurma Berkah 🍯 untuk memberi makan ${companion.name}! 🌟`;
+    companion.dialogueMessage = message;
+
+    // Automatically mark today's garden bloomed
+    const dayIdx = getTodayDayIndex();
+    if (!companion.gardenDays) {
+      companion.gardenDays = [false, false, false, false, false, false, false];
+    }
+    companion.gardenDays[dayIdx] = true;
+
+    this.saveCompanionData(companion);
+    return { companion, message };
   }
 
   /**
@@ -412,6 +613,8 @@ export class CompanionService {
     companion.gardenDays[dayIdx] = true;
     companion.gardenWateredToday = true;
     companion.seedsCount = (companion.seedsCount || 0) + 1;
+    companion.happiness = Math.min(100, (companion.happiness ?? 80) + 15);
+    companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
 
     StorageService.recordPoints(childId, 'PRACTICE_AYAH', 15, 2, 'Menyiram Kebun Belajar Mingguan');
@@ -419,6 +622,74 @@ export class CompanionService {
       success: true,
       bloomed: !alreadyBloomed,
       message: 'MasyaAllah! Kebun telah disiram air doa & tartil. Bunga belajar hari ini mekar bercahaya! (+1 Benih Cahaya & +15 XP)',
+    };
+  }
+
+  /**
+   * Weekly Garden: Check if weekly harvest trophy bonus has been claimed
+   */
+  static isWeeklyGardenHarvestClaimed(childId: string, weekId?: string): boolean {
+    const targetWeekId = weekId || getCurrentWeekId();
+    return localStorage.getItem(`cahaya_garden_harvest_${childId}_${targetWeekId}`) === 'true';
+  }
+
+  /**
+   * Weekly Garden: Claim the Golden Harvest Trophy & Rewards (150 XP + 5 Stars)
+   */
+  static claimWeeklyGardenHarvest(childId: string): {
+    success: boolean;
+    xpEarned: number;
+    starsEarned: number;
+    message: string;
+  } {
+    const companion = this.getCompanionData(childId);
+    const weekId = companion.gardenWeekId || getCurrentWeekId();
+
+    if (this.isWeeklyGardenHarvestClaimed(childId, weekId)) {
+      return {
+        success: false,
+        xpEarned: 0,
+        starsEarned: 0,
+        message: 'Hadiah Panen Raya Mingguan pekan ini sudah diklaim!',
+      };
+    }
+
+    const bloomedCount = (companion.gardenDays || []).filter(Boolean).length;
+    if (bloomedCount < 5) {
+      return {
+        success: false,
+        xpEarned: 0,
+        starsEarned: 0,
+        message: `Belum cukup mekar! Butuh minimal 5 hari mekar dalam sepekan (saat ini ${bloomedCount}/7 hari). Tetap istiqomah ya!`,
+      };
+    }
+
+    // Award grand weekly prize
+    const xpReward = 150;
+    const starReward = 5;
+    StorageService.recordPoints(
+      childId,
+      'COMPLETE_BLOCK',
+      xpReward,
+      starReward,
+      `Panen Raya Kebun Belajar Mingguan (${bloomedCount}/7 Hari)`
+    );
+
+    localStorage.setItem(`cahaya_garden_harvest_${childId}_${weekId}`, 'true');
+
+    // Boost companion vitals to 100%
+    companion.happiness = 100;
+    companion.energy = 100;
+    companion.hunger = 100;
+    companion.mood = 'proud';
+    companion.dialogueMessage = `MasyaAllah Tabarakallah! Panen raya kebun mingguan berhasil! ${companion.name} sangat bersyukur dan bangga atas keistiqomahanmu! 🏆`;
+    this.saveCompanionData(companion);
+
+    return {
+      success: true,
+      xpEarned: xpReward,
+      starsEarned: starReward,
+      message: `Alhamdulillah! Selamat atas Panen Raya Mingguan! Mendapatkan +${xpReward} XP dan +${starReward} ⭐ Bintang Kebaikan!`,
     };
   }
 
@@ -431,6 +702,7 @@ export class CompanionService {
     if (petName && petName.trim()) {
       companion.name = petName.trim();
     }
+    companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
   }
 

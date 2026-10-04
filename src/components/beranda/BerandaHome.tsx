@@ -14,7 +14,7 @@ import {
   TrendingUp,
   BarChart3,
 } from 'lucide-react';
-import { ChildProfile, ChildBlockProgress, ChildAyahProgress } from '../../types';
+import { ChildProfile, ChildBlockProgress, ChildAyahProgress, UserAccount } from '../../types';
 import { CompanionData } from '../../types/companion';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { LivingCompanionCard } from '../companion/LivingCompanionCard';
@@ -42,7 +42,9 @@ interface BerandaHomeProps {
   onOpenWorldMap: () => void;
   onRefreshCompanion: () => void;
   onNavigateToModule: (actionType: string) => void;
-  onOpenAndroidApk?: () => void;
+  userAccount?: UserAccount;
+  onOpenAuth?: (mode: 'login' | 'register') => void;
+  onOpenPlanModal?: () => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
@@ -58,7 +60,9 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   onOpenWorldMap,
   onRefreshCompanion,
   onNavigateToModule,
-  onOpenAndroidApk,
+  userAccount,
+  onOpenAuth,
+  onOpenPlanModal,
 }) => {
   const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
@@ -234,6 +238,74 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
             onQuestsUpdated={onRefreshCompanion}
           />
 
+          {/* Banner 1: Klasifikasi Fitur PRO vs FREE */}
+          {onOpenPlanModal && (
+            <div
+              onClick={onOpenPlanModal}
+              className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-4 sm:p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-amber-400/60 group select-none"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl shrink-0 group-hover:scale-105 transition-transform">
+                  👑
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black font-heading text-white">
+                      Klasifikasi Fitur PRO & FREE
+                    </h4>
+                    <span
+                      className={`text-[9px] font-black px-2 py-0.2 rounded-full border ${
+                        userAccount?.planTier === 'pro'
+                          ? 'bg-amber-400 text-amber-950 border-amber-300'
+                          : 'bg-[#22C55E]/20 text-[#22C55E] border-[#22C55E]/40'
+                      }`}
+                    >
+                      {userAccount?.planTier === 'pro' ? 'PRO AKTIF' : 'CEK PERBANDINGAN'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 font-medium mt-0.5">
+                    Bandingkan hak akses Juz 30 vs 30 Juz, AI Tartil & 5 Karakter
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-xl group-hover:bg-amber-400 group-hover:text-amber-950 transition-all shrink-0">
+                Detail →
+              </span>
+            </div>
+          )}
+
+          {/* Banner 2: Hijalearn-style Family Register Banner (if not registered) */}
+          {!userAccount?.isRegistered && onOpenAuth && (
+            <div
+              onClick={() => onOpenAuth('register')}
+              className="bg-gradient-to-r from-emerald-950 via-teal-950 to-[#0F172A] border border-emerald-500/40 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-emerald-400 group select-none"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#22C55E]/20 border border-[#22C55E]/40 flex items-center justify-center text-emerald-400 text-2xl shrink-0 group-hover:scale-105 transition-transform">
+                  ✨
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black font-heading text-white">
+                      Daftar Akun Keluarga
+                    </h4>
+                    <span className="text-[9px] font-black bg-[#22C55E] text-slate-950 px-2 py-0.2 rounded-full">
+                      GRATIS
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">
+                    Simpan progres hafalan & rapor mutqin anak di cloud keluarga
+                  </p>
+                </div>
+              </div>
+
+              <span className="text-xs font-black text-slate-950 bg-[#22C55E] hover:bg-[#16A34A] px-3.5 py-1.5 rounded-xl shadow-xs group-hover:scale-105 transition-all shrink-0">
+                Daftar →
+              </span>
+            </div>
+          )}
+
           {/* 6. Quick Launch Cards to 3 Steps */}
           <div className="space-y-2 pt-1">
             <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
@@ -349,23 +421,6 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Android APK Install Banner */}
-          {onOpenAndroidApk && (
-            <div
-              onClick={onOpenAndroidApk}
-              className="p-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl flex items-center justify-between cursor-pointer hover:opacity-95 active:scale-98 transition-all shadow-xs"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🤖</span>
-                <div>
-                  <span className="text-xs font-black block">Pasang & Export APK Android</span>
-                  <span className="text-[10px] text-emerald-100 font-medium">Buka di layar penuh HP seperti aplikasi native</span>
-                </div>
-              </div>
-              <span className="text-xs bg-white/20 px-2.5 py-1 rounded-xl font-bold">Pasang</span>
-            </div>
-          )}
         </div>
       </div>
 

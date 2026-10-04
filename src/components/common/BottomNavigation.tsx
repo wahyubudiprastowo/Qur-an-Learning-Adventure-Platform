@@ -24,7 +24,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   return (
     <nav
       aria-label="Navigasi Utama"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#C9E1ED] shadow-[0_-4px_16px_rgba(22,76,104,0.06)]"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#C9E1ED] shadow-[0_-4px_16px_rgba(22,76,104,0.06)]"
     >
       <div className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto grid grid-cols-5 h-16 items-center px-2">
         {tabs.map((tab) => {
