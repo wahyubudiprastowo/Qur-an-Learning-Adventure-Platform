@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { User, X, CheckCircle2, Sparkles } from 'lucide-react';
+import { User, X, CheckCircle2, Sparkles, Heart } from 'lucide-react';
 import { LearningLevel, ChildProfile } from '../../types';
+import { CompanionSpecies } from '../../types/companion';
+import { COMPANION_SPECIES_LIST } from '../../data/companionData';
+import { CompanionService } from '../../services/companionService';
 import { StorageService } from '../../services/storageService';
 import { Button } from '../common/Button';
 
@@ -17,6 +20,7 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
 }) => {
   const [name, setName] = useState<string>('');
   const [avatar, setAvatar] = useState<string>('👧');
+  const [petSpecies, setPetSpecies] = useState<CompanionSpecies>('lumi');
   const [level, setLevel] = useState<LearningLevel>('pemula');
   const [birthYear, setBirthYear] = useState<string>('2018');
 
@@ -34,6 +38,9 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
       level,
       birthYear ? parseInt(birthYear, 10) : undefined
     );
+    // Initialize chosen Tamagotchi companion
+    CompanionService.setCompanionSpecies(newChild.id, petSpecies);
+
     onChildCreated(newChild);
     onClose();
   };
@@ -82,6 +89,40 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Pet Companion (Tamagotchi) Selector */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-[#8C9BA7] uppercase tracking-wider block">
+                Pilih Sahabat Petualang (Pet)
+              </label>
+              <span className="text-[10px] text-[#08B9EF] font-bold">Bisa diganti nanti</span>
+            </div>
+            <div className="grid grid-cols-5 gap-1.5">
+              {COMPANION_SPECIES_LIST.map((pet) => (
+                <button
+                  type="button"
+                  key={pet.id}
+                  onClick={() => setPetSpecies(pet.id)}
+                  className={`p-2 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                    petSpecies === pet.id
+                      ? 'bg-cyan-50 border-[#08B9EF] shadow-md ring-2 ring-[#08B9EF]/40 scale-105'
+                      : 'bg-[#EEF8FF] border-slate-200 hover:bg-slate-100 opacity-75'
+                  }`}
+                  title={pet.description}
+                >
+                  <span className="text-2xl">{pet.avatarIcon}</span>
+                  <span className="text-[9px] font-black text-[#164C68] truncate max-w-[50px] block">
+                    {pet.name.split(' ')[0]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-cyan-800 bg-cyan-50 border border-cyan-200 rounded-xl p-2 mt-2 leading-relaxed font-medium">
+              ✨ <strong>{COMPANION_SPECIES_LIST.find((p) => p.id === petSpecies)?.name}:</strong>{' '}
+              {COMPANION_SPECIES_LIST.find((p) => p.id === petSpecies)?.description}
+            </p>
           </div>
 
           {/* Child Name */}

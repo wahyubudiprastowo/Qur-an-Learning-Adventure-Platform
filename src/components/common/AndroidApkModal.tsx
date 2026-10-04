@@ -184,20 +184,49 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({ isOpen, onClos
               </p>
             </div>
 
-            <div className="space-y-2 border border-[#C9E1ED] rounded-2xl p-3.5 bg-white">
-              <h4 className="font-black text-[#164C68]">Metode 1: PWABuilder (Paling Cepat & Gratis)</h4>
-              <p className="text-[11px] text-[#8C9BA7] leading-relaxed">
-                1. Buka <strong>PWABuilder.com</strong> (alat resmi Microsoft & Google).<br />
-                2. Masukkan URL aplikasi ini lalu klik <strong>Start</strong>.<br />
-                3. Klik tombol <strong>Generate Android APK / AAB</strong>.<br />
-                4. Unduh file APK siap pakai dan instal di smartphone Android!
+            {/* Real-time Dynamic Sync Guarantee Card */}
+            <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2 text-emerald-800 font-extrabold text-xs">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>100% Dinamis & Terhubung Langsung dengan Website</span>
+              </div>
+              <p className="text-[11px] text-emerald-900 leading-relaxed font-medium">
+                <strong>Ya, APK ini otomatis dinamis!</strong> Karena menggunakan standar resmi Google TWA (Trusted Web Activity), semua progres hafalan anak, audio murottal baru, dan perbaikan di website akan <strong>langsung terupdate otomatis di aplikasi HP</strong> tanpa anak atau orang tua harus men-download ulang APK.
               </p>
             </div>
 
+            {/* Method 1: PWABuilder with direct 1-click launch */}
+            <div className="space-y-2.5 border-2 border-[#08B9EF]/40 bg-[#EEF8FF]/50 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-extrabold text-[#164C68] text-xs">
+                  Metode 1: PWABuilder (1-Klik Siap Jadi APK)
+                </h4>
+                <span className="bg-[#08B9EF] text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                  Rekomendasi
+                </span>
+              </div>
+              <p className="text-[11px] text-[#8C9BA7] leading-relaxed">
+                PWABuilder adalah alat resmi inisiasi Microsoft & Google untuk mengemas aplikasi web menjadi file installer Android (<code className="text-[#08B9EF] font-bold">.apk</code>) siap pasang.
+              </p>
+
+              <a
+                href={`https://www.pwabuilder.com/reportcard?url=${encodeURIComponent(
+                  window.location.origin
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-extrabold text-xs flex items-center justify-center gap-2 hover:opacity-95 shadow-md shadow-cyan-500/20 active:scale-95 transition-all text-center block"
+              >
+                <span>Buka di PWABuilder (Generate APK Sekarang)</span>
+                <ExternalLink size={14} />
+              </a>
+            </div>
+
+            {/* Method 2: Google Bubblewrap CLI */}
             <div className="space-y-2 border border-[#C9E1ED] rounded-2xl p-3.5 bg-white">
               <h4 className="font-black text-[#164C68]">Metode 2: Google Bubblewrap (Command Line)</h4>
               <p className="text-[11px] text-[#8C9BA7] leading-relaxed">
-                Jalankan perintah berikut di terminal komputer:
+                Jika Anda ingin build APK sendiri di terminal komputer:
               </p>
               <div className="bg-slate-900 text-emerald-400 p-2.5 rounded-xl font-mono text-[10px] overflow-x-auto select-all">
                 npm i -g @bubblewrap/cli<br />
@@ -226,7 +255,7 @@ export const AndroidApkModal: React.FC<AndroidApkModalProps> = ({ isOpen, onClos
                 a.download = 'android-app-config.json';
                 a.click();
               }}
-              className="w-full py-2.5 rounded-xl bg-[#08B9EF] text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-[#07a6d7] transition-all cursor-pointer shadow-xs"
+              className="w-full py-2.5 rounded-xl border border-[#C9E1ED] bg-white text-[#164C68] font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
             >
               <Download size={15} />
               <span>Unduh Konfigurasi Build Android (JSON)</span>

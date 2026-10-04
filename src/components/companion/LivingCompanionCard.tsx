@@ -1,8 +1,34 @@
 import React, { useState } from 'react';
-import { Sparkles, Heart, Compass, Home, ChevronRight, Award } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Sparkles,
+  Heart,
+  Compass,
+  Home,
+  ChevronRight,
+  Award,
+  Apple,
+  Droplet,
+  MessageCircle,
+  RefreshCw,
+  Info,
+  Calendar,
+  Zap,
+  Smile,
+  Shield,
+  X,
+  CheckCircle2,
+} from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { ChildProfile, ChildAyahProgress, ChildBlockProgress } from '../../types';
-import { CompanionData, StageConfig } from '../../types/companion';
-import { getStageForXp, COMPANION_STAGES } from '../../data/companionData';
+import { CompanionData, StageConfig, CompanionSpecies } from '../../types/companion';
+import {
+  getStageForXp,
+  COMPANION_STAGES,
+  COMPANION_SPECIES_LIST,
+  getCompanionSpeciesConfig,
+  getSpeciesStageAvatar,
+} from '../../data/companionData';
 import { CompanionService } from '../../services/companionService';
 
 interface LivingCompanionCardProps {
@@ -15,6 +41,56 @@ interface LivingCompanionCardProps {
   onRefreshCompanion: () => void;
 }
 
+// Gentle pleasant synthesizer sounds for offline Tamagotchi care
+const playTamagotchiSound = (type: 'eat' | 'pet' | 'wash' | 'water') => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const now = ctx.currentTime;
+
+    if (type === 'eat') {
+      [330, 440, 550].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        gain.gain.setValueAtTime(0.2, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.08);
+        osc.stop(now + i * 0.08 + 0.1);
+      });
+    } else if (type === 'pet') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.15);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } else if (type === 'wash' || type === 'water') {
+      [600, 750, 900, 1050].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + i * 0.06);
+        gain.gain.setValueAtTime(0.15, now + i * 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.06 + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.06);
+        osc.stop(now + i * 0.06 + 0.2);
+      });
+    }
+  } catch {
+    // Ignore audio context error
+  }
+};
+
 export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   child,
   companion,
@@ -24,117 +100,307 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   onOpenWorldMap,
   onRefreshCompanion,
 }) => {
-  const [showHeartAnim, setShowHeartAnim] = useState(false);
-  const [dialogue, setDialogue] = useState(companion.dialogueMessage || 'Ayo kita lanjutkan petualangan Al-Qur\'an hari ini!');
+  const [actionFeedback, setActionFeedback] = useState<{
+    icon: string;
+    text: string;
+  } | null>(null);
+  const [dialogue, setDialogue] = useState(
+    companion.dialogueMessage || 'Assalamu\'alaikum! Senang sekali belajar Al-Qur\'an bersamamu!'
+  );
+  const [showPetPicker, setShowPetPicker] = useState<boolean>(false);
+  const [showGardenModal, setShowGardenModal] = useState<boolean>(false);
+  const [selectedGardenDay, setSelectedGardenDay] = useState<number | null>(null);
 
+  const species = companion.species || 'lumi';
+  const speciesConfig = getCompanionSpeciesConfig(species);
   const stageConfig = getStageForXp(companion.xp);
+  const currentAvatar = getSpeciesStageAvatar(species, stageConfig.id);
+
   const nextStageIdx = COMPANION_STAGES.findIndex((s) => s.id === stageConfig.id) + 1;
   const nextStage = COMPANION_STAGES[nextStageIdx] || stageConfig;
-
   const xpInStage = companion.xp - stageConfig.minXp;
   const xpNeededForNext = nextStage.minXp - stageConfig.minXp || 100;
   const progressPercent = Math.min(100, Math.max(10, Math.round((xpInStage / xpNeededForNext) * 100)));
 
-  // Spaced repetition intelligent recommendation from Lumi
+  // Tamagotchi Vitals
+  const hunger = companion.hunger ?? 85;
+  const happiness = companion.happiness ?? 90;
+  const cleanliness = companion.cleanliness ?? 95;
+  const energy = companion.energy ?? 85;
+
+  // Spaced repetition intelligent advice
   const weakAyahs = ayahProgressList.filter((a) => a.needsReview);
   let intelligentAdvice = 'Ingatan kita seperti kebun bunga, disiram murojaah setiap hari agar mekar indah!';
   if (weakAyahs.length > 0) {
-    intelligentAdvice = `Lumi mendeteksi ada ${weakAyahs.length} ayat yang rindu kita latih lagi. Yuk murojaah sebentar! 🌙`;
-  } else if (companion.stage === 'egg') {
+    intelligentAdvice = `${companion.name} mendeteksi ada ${weakAyahs.length} ayat yang rindu kita latih lagi. Yuk murojaah sebentar! 🌙`;
+  } else if (stageConfig.id === 'egg') {
     intelligentAdvice = 'Telur misterius ini terasa hangat saat mendengar suara tartil. Ayo dengarkan ayat pertama!';
-  } else if (companion.stage === 'hatchling') {
-    intelligentAdvice = 'Lumi senang sekali sudah menetas! Telinga Lumi suka sekali mendengar nada qari merdu.';
+  } else if (stageConfig.id === 'hatchling') {
+    intelligentAdvice = `${companion.name} senang sekali sudah menetas! Suka sekali mendengar nada qari yang tartil.`;
   }
 
+  // Tamagotchi Actions
   const handlePet = () => {
-    setShowHeartAnim(true);
+    playTamagotchiSound('pet');
+    setActionFeedback({ icon: '💖', text: `Sayang ${companion.name}!` });
     const res = CompanionService.petCompanion(child.id);
     setDialogue(res.message);
-    setTimeout(() => setShowHeartAnim(false), 1200);
+    setTimeout(() => setActionFeedback(null), 1500);
+    onRefreshCompanion();
+  };
+
+  const handleFeed = () => {
+    playTamagotchiSound('eat');
+    setActionFeedback({ icon: '🍎', text: 'Nyam! Enak & Berenergi!' });
+    const res = CompanionService.feedCompanion(child.id, 'kurma');
+    setDialogue(res.message);
+    setTimeout(() => setActionFeedback(null), 1800);
+    onRefreshCompanion();
+  };
+
+  const handleClean = () => {
+    playTamagotchiSound('wash');
+    setActionFeedback({ icon: '🫧', text: 'Bersih & Suci Air Wudhu!' });
+    const res = CompanionService.cleanCompanion(child.id);
+    setDialogue(res.message);
+    setTimeout(() => setActionFeedback(null), 1800);
+    onRefreshCompanion();
+  };
+
+  const handleWaterGarden = () => {
+    playTamagotchiSound('water');
+    try {
+      confetti({
+        particleCount: 25,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: ['#81E850', '#08B9EF', '#FFD83E'],
+      });
+    } catch {
+      // Ignore
+    }
+    const res = CompanionService.waterGarden(child.id);
+    setDialogue(res.message);
+    setActionFeedback({ icon: '💧', text: 'Kebun Berhasil Disiram!' });
+    setTimeout(() => setActionFeedback(null), 2000);
+    onRefreshCompanion();
+  };
+
+  const handleSelectSpecies = (newSpecies: CompanionSpecies) => {
+    const config = getCompanionSpeciesConfig(newSpecies);
+    CompanionService.setCompanionSpecies(child.id, newSpecies, config.defaultName);
+    setShowPetPicker(false);
     onRefreshCompanion();
   };
 
   const dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
   const gardenDays = companion.gardenDays || [true, false, false, false, false, false, false];
+  const bloomedCount = gardenDays.filter(Boolean).length;
+  const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
+
+  // Plant icons for each day
+  const plantIcons = ['🌱', '🌿', '🌷', '🌻', '🌸', '🌼', '🏆'];
 
   return (
     <div className="bg-gradient-to-b from-[#F0FAFF] via-[#E4F5FD] to-[#D5EEFB] border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm relative overflow-hidden space-y-4">
       {/* Decorative Pastel Meadow Backdrop Layer */}
-      <div className="absolute top-0 right-0 left-0 h-28 bg-gradient-to-b from-cyan-100/40 to-transparent pointer-events-none" />
+      <div className="absolute top-0 right-0 left-0 h-32 bg-gradient-to-b from-cyan-100/50 to-transparent pointer-events-none" />
       <div className="absolute -bottom-8 -right-8 w-36 h-36 bg-[#81E850]/15 rounded-full blur-2xl pointer-events-none" />
       <div className="absolute -top-8 -left-8 w-36 h-36 bg-[#08B9EF]/15 rounded-full blur-2xl pointer-events-none" />
 
-      {/* Top Header: Child Greeting & Companion Level */}
+      {/* --- 1. TOP HEADER: Pet Identity, Level & Species Switcher --- */}
       <div className="flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-white border border-[#C9E1ED] shadow-xs flex items-center justify-center text-xl shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-white border border-[#C9E1ED] shadow-xs flex items-center justify-center text-2xl shrink-0">
             {child.avatar}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-[#8C9BA7] uppercase tracking-wider">
-                Teman Perjalanan
+              <span className="text-[10px] font-black text-[#08B9EF] uppercase tracking-wider">
+                Sahabat Tamagotchi
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-[#81E850] animate-pulse" />
             </div>
-            <h3 className="text-base font-black text-[#164C68] font-heading">
-              {companion.name} ({stageConfig.name})
+            <h3 className="text-base font-black text-[#164C68] font-heading flex items-center gap-1.5">
+              <span>{companion.name}</span>
+              <span className="text-xs text-[#8C9BA7] font-bold">({speciesConfig.name})</span>
             </h3>
           </div>
         </div>
 
-        {/* Level Badge */}
-        <div className="flex items-center gap-1.5 bg-white/90 border border-[#C9E1ED] rounded-2xl px-3 py-1 shadow-xs">
-          <Sparkles size={14} className="text-[#FFD83E] fill-current" />
-          <span className="text-xs font-black text-[#164C68]">Lv. {companion.level}</span>
+        {/* Level & Switch Pet Button */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowPetPicker(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#C9E1ED] text-[11px] font-extrabold text-[#164C68] hover:border-[#08B9EF] shadow-xs cursor-pointer active:scale-95 transition-all"
+            title="Ganti Sahabat / Pet"
+          >
+            <RefreshCw size={12} className="text-[#08B9EF]" />
+            <span className="hidden sm:inline">Pilih Pet</span>
+          </button>
+          <div className="flex items-center gap-1 bg-[#FFD83E]/20 border border-amber-300 rounded-xl px-2.5 py-1 text-amber-800 text-xs font-black">
+            <Sparkles size={13} className="text-amber-500 fill-current" />
+            <span>Lv. {companion.level}</span>
+          </div>
         </div>
       </div>
 
-      {/* Interactive Companion Living Habitat */}
-      <div className="bg-white/80 backdrop-blur-xs border border-[#C9E1ED] rounded-3xl p-4 relative z-10 flex flex-col sm:flex-row items-center gap-4">
-        {/* Companion Interactive Sprite with Soft Floating Animation */}
-        <div
-          onClick={handlePet}
-          className="relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-b from-white to-cyan-50/50 border border-cyan-100 shadow-xs hover:scale-105 active:scale-95 transition-all"
-          title="Sentuh untuk menyapa Lumi!"
-        >
-          {/* Floating Heart animation on click */}
-          {showHeartAnim && (
-            <div className="absolute -top-3 text-red-500 animate-bounce flex items-center gap-1 z-20 bg-white px-2 py-0.5 rounded-full border border-red-200 shadow-sm text-xs font-bold">
-              <Heart size={14} className="fill-current text-red-500" />
-              <span>Sayang Lumi!</span>
-            </div>
-          )}
+      {/* --- 2. INTERACTIVE TAMAGOTCHI HABITAT & SPRITE --- */}
+      <div className="bg-white/85 backdrop-blur-md border border-[#C9E1ED] rounded-3xl p-4 relative z-10 flex flex-col md:flex-row items-center gap-4">
+        {/* Tamagotchi Mascot Sprite with Bounce and Reaction */}
+        <div className="flex flex-col items-center shrink-0">
+          <div
+            onClick={handlePet}
+            className="relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-b from-white to-cyan-50/60 border border-cyan-200 shadow-sm hover:scale-105 active:scale-95 transition-all w-32 h-32"
+            title="Ketuk untuk menyapa sahabatmu!"
+          >
+            {/* Feedback Pop Message */}
+            <AnimatePresence>
+              {actionFeedback && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                  animate={{ opacity: 1, y: -10, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="absolute -top-3 z-30 bg-white border-2 border-[#08B9EF] text-[#164C68] text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1"
+                >
+                  <span>{actionFeedback.icon}</span>
+                  <span>{actionFeedback.text}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <div className="text-6xl animate-pulse filter drop-shadow-md py-1">
-            {stageConfig.avatarIcon}
+            {/* Living Avatar with idle breathing */}
+            <motion.div
+              animate={{ y: [0, -6, 0] }}
+              transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+              className="text-6xl filter drop-shadow-md py-1"
+            >
+              {currentAvatar}
+            </motion.div>
+
+            <span className="text-[10px] font-extrabold text-[#08B9EF] mt-1 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
+              {stageConfig.name}
+            </span>
           </div>
 
-          <span className="text-[10px] font-bold text-[#08B9EF] mt-1 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">
-            {stageConfig.subtitle}
-          </span>
+          {/* Quick Pet Interaction Buttons (Beri Makan, Usap, Mandi) */}
+          <div className="flex items-center gap-1.5 mt-2.5">
+            <button
+              onClick={handleFeed}
+              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-amber-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-amber-50 active:scale-95 cursor-pointer transition-all"
+              title="Beri Makan Kurma Berkah"
+            >
+              <Apple size={14} className="text-amber-500" />
+              <span className="text-[10px]">Makan</span>
+            </button>
+            <button
+              onClick={handlePet}
+              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-rose-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-rose-50 active:scale-95 cursor-pointer transition-all"
+              title="Usap & Sayang"
+            >
+              <Heart size={14} className="text-rose-500 fill-rose-500" />
+              <span className="text-[10px]">Sayang</span>
+            </button>
+            <button
+              onClick={handleClean}
+              className="p-1.5 bg-white border border-[#C9E1ED] hover:border-cyan-400 rounded-xl text-xs font-bold text-[#164C68] shadow-xs flex items-center gap-1 hover:bg-cyan-50 active:scale-95 cursor-pointer transition-all"
+              title="Mandikan Air Wudhu"
+            >
+              <Droplet size={14} className="text-cyan-500" />
+              <span className="text-[10px]">Wudhu</span>
+            </button>
+          </div>
         </div>
 
-        {/* Speech Bubble & Spaced Repetition Advice */}
-        <div className="flex-1 space-y-2 text-left">
+        {/* Speech Bubble & Tamagotchi Status Vitals */}
+        <div className="flex-1 space-y-3 w-full text-left">
+          {/* Pet Dialogue Speech Bubble */}
           <div className="bg-white border border-[#C9E1ED] rounded-2xl p-3 shadow-xs relative">
-            <p className="text-xs text-[#164C68] font-semibold leading-relaxed">
+            <p className="text-xs text-[#164C68] font-bold leading-relaxed">
               "{dialogue}"
             </p>
-            <p className="text-[10px] text-[#8C9BA7] font-medium mt-1 flex items-center gap-1">
-              <span>💡</span> {intelligentAdvice}
+            <p className="text-[10px] text-[#8C9BA7] font-medium mt-1.5 flex items-center gap-1.5 pt-1 border-t border-slate-100">
+              <span>💡</span>
+              <span>{intelligentAdvice}</span>
             </p>
           </div>
 
-          {/* XP Progress to Next Stage */}
+          {/* Tamagotchi Vitals Gauge (Kenyang, Bahagia, Kebersihan, Energi) */}
+          <div className="grid grid-cols-2 gap-2 bg-[#F6FBFF] p-2.5 rounded-2xl border border-[#C9E1ED]/70">
+            {/* Hunger */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+                <span className="flex items-center gap-1">
+                  <span>🍎</span> Kenyang Energi
+                </span>
+                <span>{hunger}%</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-amber-400 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${hunger}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Happiness */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+                <span className="flex items-center gap-1">
+                  <span>💖</span> Bahagia
+                </span>
+                <span>{happiness}%</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-rose-400 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${happiness}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Cleanliness */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+                <span className="flex items-center gap-1">
+                  <span>🫧</span> Kesucian
+                </span>
+                <span>{cleanliness}%</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-cyan-400 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${cleanliness}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Energy */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+                <span className="flex items-center gap-1">
+                  <span>⚡</span> Semangat
+                </span>
+                <span>{energy}%</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-emerald-400 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${energy}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* XP Progress Bar to Next Stage */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-bold text-[#164C68]">
-              <span>Progres Tumbuh: {companion.xp} XP</span>
+            <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+              <span>Tumbuh: {companion.xp} XP</span>
               <span className="text-[#8C9BA7]">
                 Menuju {nextStage.name} ({nextStage.minXp} XP)
               </span>
             </div>
-            <div className="w-full bg-[#E2EEF5] h-2.5 rounded-full overflow-hidden p-0.5">
+            <div className="w-full bg-[#E2EEF5] h-2 rounded-full overflow-hidden p-0.5">
               <div
                 className="bg-gradient-to-r from-[#08B9EF] to-[#81E850] h-full rounded-full transition-all duration-500"
                 style={{ width: `${progressPercent}%` }}
@@ -144,57 +410,299 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
         </div>
       </div>
 
-      {/* Non-Punitive Weekly Learning Garden (Streak Tanaman) */}
-      <div className="bg-white/80 border border-[#C9E1ED] rounded-2xl p-3 relative z-10">
-        <div className="flex items-center justify-between text-xs mb-2">
-          <span className="font-bold text-[#164C68] flex items-center gap-1.5">
-            <span>🌱</span> Kebun Belajar Mingguan
-          </span>
-          <span className="text-[10px] text-[#8C9BA7] font-semibold">
-            {gardenDays.filter(Boolean).length}/7 Hari Mekar
-          </span>
+      {/* --- 3. KEBUN BELAJAR MINGGUAN (INTERACTIVE HABIT GARDEN) --- */}
+      <div className="bg-white/85 border border-[#C9E1ED] rounded-2xl p-3.5 relative z-10 space-y-2.5">
+        {/* Header & Purpose Tooltip */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-[#164C68] text-xs flex items-center gap-1.5">
+              <span>🌱</span> Kebun Belajar Mingguan
+            </span>
+            <button
+              onClick={() => setShowGardenModal(true)}
+              className="text-[#8C9BA7] hover:text-[#08B9EF] transition-colors cursor-pointer"
+              title="Penjelasan Kebun Belajar"
+            >
+              <Info size={14} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+              {bloomedCount}/7 Hari Mekar
+            </span>
+          </div>
         </div>
 
+        {/* Clear Purpose Subtitle */}
+        <p className="text-[10px] text-[#8C9BA7] leading-relaxed font-medium">
+          Membiasakan hafalan harian tanpa beban. Setiap hari belajar, benih mekar jadi bunga indah. Istiqomah 5-7 hari membuka <strong>Piala Emas & Hadiah Mingguan 🏆</strong>!
+        </p>
+
+        {/* 7-Day Interactive Garden Grid */}
         <div className="grid grid-cols-7 gap-1.5 text-center">
           {dayNames.map((day, idx) => {
             const isBloomed = gardenDays[idx];
+            const isToday = idx === currentDayIdx;
+            const isSunday = idx === 6;
+
             return (
-              <div
+              <motion.button
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.95 }}
                 key={day}
-                className={`py-1.5 px-1 rounded-xl border transition-all ${
-                  isBloomed
+                onClick={() => {
+                  setSelectedGardenDay(idx);
+                  setShowGardenModal(true);
+                }}
+                className={`py-2 px-1 rounded-xl border-2 transition-all cursor-pointer relative flex flex-col items-center justify-between min-h-[58px] ${
+                  isSunday && isBloomed
+                    ? 'bg-amber-50 border-amber-400 text-amber-800 shadow-sm ring-2 ring-amber-300/40'
+                    : isBloomed
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-xs'
+                    : isToday
+                    ? 'bg-cyan-50 border-[#08B9EF] text-[#164C68] ring-2 ring-cyan-200'
                     : 'bg-slate-50 border-slate-200 text-slate-400'
                 }`}
               >
-                <span className="text-[10px] font-bold block">{day}</span>
-                <span className="text-base block mt-0.5">
-                  {isBloomed ? ['🌱', '🌿', '🌷', '🌳', '🌼', '✨', '🏆'][idx] : '○'}
+                {/* Day name */}
+                <span className="text-[10px] font-black block leading-none">{day}</span>
+
+                {/* Plant Sprite */}
+                <span className="text-xl block my-0.5">
+                  {isSunday
+                    ? isBloomed
+                      ? '🏆'
+                      : '🎁'
+                    : isBloomed
+                    ? plantIcons[idx]
+                    : isToday
+                    ? '🌱'
+                    : '🌰'}
                 </span>
-              </div>
+
+                {/* State Tag */}
+                <span className="text-[8px] font-black uppercase tracking-tight block">
+                  {isSunday ? (isBloomed ? 'Piala' : 'Klaim') : isBloomed ? 'Mekar' : isToday ? 'Hari Ini' : 'Benih'}
+                </span>
+              </motion.button>
             );
           })}
         </div>
+
+        {/* Quick Water Button */}
+        {!companion.gardenWateredToday && (
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={handleWaterGarden}
+            className="w-full py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-1"
+          >
+            <Droplet size={14} className="fill-white" />
+            <span>Siram Kebun Hari Ini (+15 XP & 1 Benih)</span>
+          </motion.button>
+        )}
       </div>
 
-      {/* Action Shortcuts: Kamar Lumi & Peta Petualangan */}
+      {/* --- 4. ACTION SHORTCUTS: Kamar Lumi & Peta Petualangan --- */}
       <div className="grid grid-cols-2 gap-2.5 relative z-10 pt-1">
         <button
           onClick={onOpenRoom}
-          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-white border border-[#C9E1ED] hover:border-[#08B9EF] text-[#164C68] font-bold text-xs shadow-xs hover:bg-cyan-50/50 transition-all cursor-pointer"
+          className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-white border border-[#C9E1ED] hover:border-[#08B9EF] text-[#164C68] font-bold text-xs shadow-xs hover:bg-cyan-50/50 transition-all cursor-pointer"
         >
           <Home size={16} className="text-[#08B9EF]" />
-          <span>Kamar Lumi</span>
+          <span>Kamar Sahabat</span>
         </button>
 
         <button
           onClick={onOpenWorldMap}
-          className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-bold text-xs shadow-xs hover:shadow-md active:scale-95 transition-all cursor-pointer"
+          className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-black text-xs shadow-md shadow-cyan-500/20 active:scale-95 transition-all cursor-pointer"
         >
           <Compass size={16} />
-          <span>Peta Dunia</span>
+          <span>Peta Dunia & Petualangan</span>
         </button>
       </div>
+
+      {/* --- MODAL 1: CHOOSE / SWITCH TAMAGOTCHI PET --- */}
+      <AnimatePresence>
+        {showPetPicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full border-2 border-[#C9E1ED] shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black text-[#08B9EF] uppercase tracking-wider block">
+                    Pilih Sahabat Tamagotchi
+                  </span>
+                  <h3 className="text-base font-black text-[#164C68] font-heading">
+                    Ganti Karakter Sahabat
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowPetPicker(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                {COMPANION_SPECIES_LIST.map((pet) => {
+                  const isCurrent = (companion.species || 'lumi') === pet.id;
+                  return (
+                    <div
+                      key={pet.id}
+                      onClick={() => handleSelectSpecies(pet.id)}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-3.5 ${
+                        isCurrent
+                          ? 'border-[#08B9EF] bg-cyan-50/70 shadow-xs'
+                          : 'border-slate-200 hover:border-cyan-300 bg-white'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs text-3xl flex items-center justify-center shrink-0">
+                        {pet.avatarIcon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-black text-[#164C68] font-heading">
+                            {pet.name}
+                          </h4>
+                          {isCurrent && (
+                            <span className="text-[9px] font-bold bg-[#08B9EF] text-white px-2 py-0.5 rounded-full">
+                              Dipilih
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[#08B9EF] font-bold mt-0.5">
+                          {pet.nature}
+                        </p>
+                        <p className="text-[10px] text-[#8C9BA7] font-medium mt-0.5 leading-relaxed line-clamp-2">
+                          {pet.description}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* --- MODAL 2: DETAIL KEBUN BELAJAR MINGGUAN (PURPOSE & PARAMETERS) --- */}
+      <AnimatePresence>
+        {showGardenModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              className="bg-white rounded-3xl p-6 max-w-sm w-full border-2 border-[#C9E1ED] shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🌱</span>
+                  <div>
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider block">
+                      Panduan & Parameter
+                    </span>
+                    <h3 className="text-base font-black text-[#164C68] font-heading">
+                      Kebun Belajar Mingguan
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowGardenModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* What is it for? (Tujuan) */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 space-y-1.5 text-xs">
+                <h4 className="font-extrabold text-emerald-900 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-emerald-600" />
+                  <span>Untuk Apa Kebun Belajar Ini?</span>
+                </h4>
+                <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                  Kebun Belajar mendidik anak membangun <strong>kebiasaan istiqomah hafalan harian</strong>. Rasulullah ﷺ bersabda bahwa amalan yang paling dicintai Allah adalah yang istiqomah walaupun sedikit. Tidak perlu memaksakan hafalan banyak, cukup 5–10 menit per hari!
+                </p>
+              </div>
+
+              {/* How it works & Parameters */}
+              <div className="space-y-2 text-xs">
+                <h4 className="font-extrabold text-[#164C68]">Parameter & Cara Kerja:</h4>
+                <ul className="space-y-2 text-[11px] text-[#164C68]">
+                  <li className="flex items-start gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <span className="text-base">🌷</span>
+                    <div>
+                      <strong>Mekar Harian:</strong> Selesaikan minimal 1 sesi belajar (Dengar Qari, Ziyadah, Murojaah, atau Arena Game). Benih hari itu akan mekar jadi bunga.
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <span className="text-base">💧</span>
+                    <div>
+                      <strong>Siram Kebun:</strong> Ketuk tombol siram setiap hari untuk menyiram tanaman, menambah +15 XP dan 1 Benih Cahaya.
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
+                    <span className="text-base">🏆</span>
+                    <div>
+                      <strong>Piala Panen Mingguan:</strong> Jika dalam seminggu anak istiqomah 5–7 hari, hari Minggu akan mekar <strong>Piala Emas</strong> dengan hadiah +150 XP, 5 Bintang Kebaikan, dan Kartu Hikmah Langka!
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Day specific status if clicked */}
+              {selectedGardenDay !== null && (
+                <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-2xl text-xs space-y-1">
+                  <div className="flex items-center justify-between font-bold text-[#164C68]">
+                    <span>Hari {dayNames[selectedGardenDay]}</span>
+                    <span>
+                      {gardenDays[selectedGardenDay] ? '✅ Sudah Mekar' : '⏳ Belum Belajar'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-cyan-800 leading-relaxed">
+                    {gardenDays[selectedGardenDay]
+                      ? 'Alhamdulillah! Tanaman di hari ini sudah mekar berkat latihan hafalan yang tekun.'
+                      : 'Yuk buka menu Tahfiz atau Game untuk mekarkan benih di hari ini!'}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowGardenModal(false);
+                  if (!companion.gardenWateredToday) {
+                    handleWaterGarden();
+                  }
+                }}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold text-xs shadow-md shadow-emerald-500/25 cursor-pointer"
+              >
+                {!companion.gardenWateredToday
+                  ? '💧 Siram Kebun Hari Ini (+15 XP)'
+                  : 'Tutup & Lanjut Belajar'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

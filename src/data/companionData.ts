@@ -4,7 +4,101 @@ import {
   RoomDecoration,
   WorldLand,
   SurahKnowledgeCard,
+  CompanionSpecies,
+  CompanionSpeciesConfig,
 } from '../types/companion';
+
+/**
+ * 5 Distinct Tamagotchi Companions with unique traits and Islamic values
+ */
+export const COMPANION_SPECIES_LIST: CompanionSpeciesConfig[] = [
+  {
+    id: 'lumi',
+    name: 'Kucing Cahaya',
+    defaultName: 'Lumi',
+    avatarIcon: '🐱',
+    color: 'from-cyan-400 to-blue-500',
+    description: 'Suka nada tartil merdu dan selalu berputar riang saat mendengar bacaan surah Al-Qur\'an.',
+    nature: 'Penyayang & Suka Tartil',
+    favoriteFood: 'Kurma Ajwa Manis',
+  },
+  {
+    id: 'buraq',
+    name: 'Buraq Bintang',
+    defaultName: 'Buraq Cilik',
+    avatarIcon: '🦄',
+    color: 'from-amber-400 to-orange-500',
+    description: 'Kuda bersayap bintang dengan derap langkah cepat, semangat menambah baris hafalan baru!',
+    nature: 'Semangat Tinggi & Cepat',
+    favoriteFood: 'Buah Tin Surga',
+  },
+  {
+    id: 'fajr',
+    name: 'Burung Bulbul Subuh',
+    defaultName: 'Fajr',
+    avatarIcon: '🐦',
+    color: 'from-emerald-400 to-teal-500',
+    description: 'Burung kicau fajar yang mencintai keindahan tajwid, makhraj fasih, dan qari tartil.',
+    nature: 'Ahli Makhraj & Nada',
+    favoriteFood: 'Biji Delima Berkah',
+  },
+  {
+    id: 'kibo',
+    name: 'Panda Kaligrafi',
+    defaultName: 'Kibo',
+    avatarIcon: '🐼',
+    color: 'from-purple-400 to-indigo-500',
+    description: 'Panda setia yang tenang dan sabar, paling suka menemani sesi murojaah dan pengulangan berkali-kali.',
+    nature: 'Sabar & Kokoh Murojaah',
+    favoriteFood: 'Rebung Segar Zamzam',
+  },
+  {
+    id: 'dino',
+    name: 'Dino Nur Penjelajah',
+    defaultName: 'Dino Nur',
+    avatarIcon: '🦕',
+    color: 'from-rose-400 to-pink-500',
+    description: 'Dinosaurus kecil yang gemar mendengarkan kisah nabi, sejarah asbabun nuzul, dan hikmah Al-Qur\'an.',
+    nature: 'Rasa Ingin Tahu & Ceria',
+    favoriteFood: 'Daun Rindang Zaitun',
+  },
+];
+
+export function getCompanionSpeciesConfig(species?: CompanionSpecies): CompanionSpeciesConfig {
+  const found = COMPANION_SPECIES_LIST.find((s) => s.id === species);
+  return found || COMPANION_SPECIES_LIST[0];
+}
+
+export function getSpeciesStageAvatar(species: CompanionSpecies = 'lumi', stageId: CompanionStage): string {
+  if (stageId === 'egg') return '🥚';
+  if (stageId === 'master') return '👑';
+  if (stageId === 'guardian') return '✨';
+
+  if (species === 'buraq') {
+    if (stageId === 'hatchling') return '🦄';
+    if (stageId === 'little') return '🐎';
+    return '🌟';
+  }
+  if (species === 'fajr') {
+    if (stageId === 'hatchling') return '🐣';
+    if (stageId === 'little') return '🐦';
+    return '🕊️';
+  }
+  if (species === 'kibo') {
+    if (stageId === 'hatchling') return '🐼';
+    if (stageId === 'little') return '🐾';
+    return '🎋';
+  }
+  if (species === 'dino') {
+    if (stageId === 'hatchling') return '🦖';
+    if (stageId === 'little') return '🦕';
+    return '🌴';
+  }
+  // Default Lumi (Kucing)
+  if (stageId === 'hatchling') return '🐱';
+  if (stageId === 'little') return '🐾';
+  return '🌟';
+}
 
 /**
  * 6 Stages of Companion Evolution based on meaningful learning progress

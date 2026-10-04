@@ -278,8 +278,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#D8EDF8] flex justify-center text-[#292742]">
-      {/* Mobile Application Container Shell (Responsive centered frame) */}
-      <div className="w-full max-w-md min-h-screen bg-[#EEF8FF] shadow-2xl relative border-x border-[#C9E1ED]/50 flex flex-col">
+      {/* Responsive Container Shell (Mobile width on phones, widescreen canvas on tablet & desktop) */}
+      <div className="w-full max-w-md md:max-w-3xl lg:max-w-5xl min-h-screen bg-[#EEF8FF] shadow-2xl relative border-x border-[#C9E1ED]/50 flex flex-col transition-all duration-300">
         {/* Top Header */}
         <Header
           title={headerTitle}

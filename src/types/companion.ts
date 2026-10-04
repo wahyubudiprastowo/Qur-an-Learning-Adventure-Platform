@@ -2,21 +2,41 @@ export type CompanionStage = 'egg' | 'hatchling' | 'little' | 'explorer' | 'guar
 
 export type CompanionTrait = 'hafiz' | 'tartil' | 'reader' | 'scholar' | 'explorer';
 
+export type CompanionSpecies = 'lumi' | 'buraq' | 'fajr' | 'kibo' | 'dino';
+
+export interface CompanionSpeciesConfig {
+  id: CompanionSpecies;
+  name: string;
+  defaultName: string;
+  avatarIcon: string;
+  color: string;
+  description: string;
+  nature: string;
+  favoriteFood: string;
+}
+
 export interface CompanionData {
   childId: string;
   name: string;
+  species?: CompanionSpecies;
   stage: CompanionStage;
   xp: number;
   level: number;
   traits: Record<CompanionTrait, number>;
+  hunger?: number; // 0 - 100 (Kenyang Energi)
+  happiness?: number; // 0 - 100 (Kebahagiaan Tamagotchi)
+  cleanliness?: number; // 0 - 100 (Kesucian Wudhu)
+  energy?: number; // 0 - 100 (Daya Semangat)
   roomItems: string[]; // IDs of currently placed decorations in room
   unlockedItems: string[]; // IDs of purchased / unlocked room decorations
   unlockedCards: string[]; // Surah Knowledge Card IDs
   gardenDays: boolean[]; // 7 days of current week (Mon-Sun: [true, false, ...])
   gardenWeekId: string; // e.g. "2026-W40"
+  gardenWateredToday?: boolean;
   seedsCount: number; // Benih Cahaya collected
   lastActiveDate: string;
   lastPetAt?: string;
+  lastFedAt?: string;
   dialogueMessage?: string;
 }
 

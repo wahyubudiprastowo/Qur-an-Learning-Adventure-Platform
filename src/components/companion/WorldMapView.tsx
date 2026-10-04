@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass,
   Gamepad2,
@@ -13,6 +14,8 @@ import {
   Volume2,
   ArrowLeft,
   X,
+  Map as MapIcon,
+  LayoutList,
 } from 'lucide-react';
 import { ChildProfile } from '../../types';
 import {
@@ -31,6 +34,7 @@ import {
 import { CompanionService } from '../../services/companionService';
 import { ACHIEVEMENTS_CATALOG } from '../../data/levelsAndAchievements';
 import { StorageService } from '../../services/storageService';
+import { AdventureTrailMap } from './AdventureTrailMap';
 
 interface WorldMapViewProps {
   child: ChildProfile;
@@ -53,6 +57,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
   const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection'>(initialTab);
   const [selectedLand, setSelectedLand] = useState<WorldLand | null>(null);
   const [mapFilter, setMapFilter] = useState<'all' | 'tahfiz' | 'alquran'>('all');
+  const [mapViewMode, setMapViewMode] = useState<'trail' | 'cards'>('trail');
   const [collectionSubTab, setCollectionSubTab] = useState<'stages' | 'cards' | 'badges' | 'plants'>('stages');
   const [roomActionNotice, setRoomActionNotice] = useState<string | null>(null);
 
@@ -134,10 +139,17 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
 
       {/* --- TAB 1: PETA DUNIA (WORLD MAP ADVENTURE) --- */}
       {activeMainTab === 'map' && (
-        <div className="space-y-4 animate-in fade-in">
+        <motion.div
+          key="tab-map"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-4"
+        >
           {/* World Header Banner */}
           <div className="bg-gradient-to-r from-[#164C68] via-[#0e638b] to-[#08B9EF] text-white rounded-3xl p-5 shadow-md relative overflow-hidden">
-            <div className="relative z-10 space-y-1.5">
+            <div className="relative z-10 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-cyan-200 font-bold uppercase tracking-wider flex items-center gap-1.5">
                   <span>🗺️</span> Peta Petualangan Cahaya
@@ -154,7 +166,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
               </p>
 
               {/* Progress Bar of Unlocked Lands */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <div className="flex items-center justify-between text-[11px] text-cyan-100 font-bold mb-1">
                   <span>
                     Wilayah Terbuka:{' '}
@@ -172,112 +184,170 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* View Mode Toggle: Interactive Trail vs Directory */}
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  onClick={() => setMapViewMode('trail')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    mapViewMode === 'trail'
+                      ? 'bg-[#FFD83E] text-[#164C68] shadow-sm font-black'
+                      : 'bg-white/15 text-white hover:bg-white/25 font-semibold'
+                  }`}
+                >
+                  <MapIcon size={14} />
+                  <span>Jalur Petualangan (Game)</span>
+                </button>
+                <button
+                  onClick={() => setMapViewMode('cards')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    mapViewMode === 'cards'
+                      ? 'bg-[#FFD83E] text-[#164C68] shadow-sm font-black'
+                      : 'bg-white/15 text-white hover:bg-white/25 font-semibold'
+                  }`}
+                >
+                  <LayoutList size={14} />
+                  <span>Daftar Wilayah</span>
+                </button>
+              </div>
             </div>
             <div className="absolute -bottom-6 -right-6 text-7xl opacity-20 pointer-events-none">
               🏰
             </div>
           </div>
 
-          {/* Clean Category Filters */}
-          <div className="flex gap-1.5 bg-white border border-[#C9E1ED] p-1.5 rounded-2xl shadow-xs overflow-x-auto">
-            {[
-              { id: 'all', label: 'Semua Wilayah (10)' },
-              { id: 'tahfiz', label: 'Tahfiz & Hafalan' },
-              { id: 'alquran', label: "Ilmu Al-Qur'an" },
-            ].map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setMapFilter(cat.id as any)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  mapFilter === cat.id
-                    ? 'bg-[#08B9EF] text-white shadow-xs'
-                    : 'text-[#8C9BA7] hover:text-[#164C68]'
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
+          {/* Interactive Game Trail with Framer-Motion Animated Lumi Movement */}
+          {mapViewMode === 'trail' && (
+            <motion.div
+              key="view-trail"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.25 }}
+            >
+              <AdventureTrailMap
+                child={child}
+                companion={companion}
+                onNavigateToLand={onNavigateToLand}
+                onSelectLandModal={(land) => setSelectedLand(land)}
+              />
+            </motion.div>
+          )}
 
-          {/* Beautiful, Organized Adventure Cards */}
-          <div className="space-y-3">
-            {WORLD_LANDS.filter((land) => {
-              if (mapFilter === 'tahfiz') return land.destinationTab === 'tahfiz';
-              if (mapFilter === 'alquran') return land.destinationTab === 'alquran';
-              return true;
-            }).map((land, idx) => {
-              const isLocked = child.level < land.levelRequired;
+          {/* Directory Cards View */}
+          {mapViewMode === 'cards' && (
+            <motion.div
+              key="view-cards"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.25 }}
+              className="space-y-4"
+            >
+              {/* Clean Category Filters */}
+              <div className="flex gap-1.5 bg-white border border-[#C9E1ED] p-1.5 rounded-2xl shadow-xs overflow-x-auto">
+                {[
+                  { id: 'all', label: 'Semua Wilayah (10)' },
+                  { id: 'tahfiz', label: 'Tahfiz & Hafalan' },
+                  { id: 'alquran', label: "Ilmu Al-Qur'an" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setMapFilter(cat.id as any)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                      mapFilter === cat.id
+                        ? 'bg-[#08B9EF] text-white shadow-xs'
+                        : 'text-[#8C9BA7] hover:text-[#164C68]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
 
-              return (
-                <div
-                  key={land.id}
-                  onClick={() => setSelectedLand(land)}
-                  className={`bg-white border-2 rounded-3xl p-4.5 shadow-xs hover:shadow-md transition-all cursor-pointer relative group select-none ${
-                    isLocked
-                      ? 'border-slate-200 bg-slate-50/70 opacity-70'
-                      : 'border-[#C9E1ED] hover:border-[#08B9EF]'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    {/* Glowing Emblemed Avatar */}
-                    <div
-                      className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${land.color} text-white flex items-center justify-center text-3xl shadow-sm shrink-0 group-hover:scale-105 transition-transform`}
+              {/* Beautiful, Organized Adventure Cards */}
+              <div className="space-y-3">
+                {WORLD_LANDS.filter((land) => {
+                  if (mapFilter === 'tahfiz') return land.destinationTab === 'tahfiz';
+                  if (mapFilter === 'alquran') return land.destinationTab === 'alquran';
+                  return true;
+                }).map((land, idx) => {
+                  const isLocked = child.level < land.levelRequired;
+
+                  return (
+                    <motion.div
+                      key={land.id}
+                      whileHover={{ scale: 1.015 }}
+                      whileTap={{ scale: 0.985 }}
+                      onClick={() => setSelectedLand(land)}
+                      className={`bg-white border-2 rounded-3xl p-4.5 shadow-xs hover:shadow-md transition-all cursor-pointer relative group select-none ${
+                        isLocked
+                          ? 'border-slate-200 bg-slate-50/70 opacity-70'
+                          : 'border-[#C9E1ED] hover:border-[#08B9EF]'
+                      }`}
                     >
-                      {isLocked ? '🔒' : land.icon}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#EEF8FF] text-[#08B9EF]">
-                            Wilayah #{idx + 1}
-                          </span>
-                          {isLocked ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                              Perlu Lv. {land.levelRequired}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Terbuka
-                            </span>
-                          )}
+                      <div className="flex items-start gap-4">
+                        {/* Glowing Emblemed Avatar */}
+                        <div
+                          className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${land.color} text-white flex items-center justify-center text-3xl shadow-sm shrink-0 group-hover:scale-105 transition-transform`}
+                        >
+                          {isLocked ? '🔒' : land.icon}
                         </div>
-                        <span className="font-quran text-base text-[#08B9EF] font-bold">
-                          {land.arabicName}
-                        </span>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#EEF8FF] text-[#08B9EF]">
+                                Wilayah #{idx + 1}
+                              </span>
+                              {isLocked ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                                  Perlu Lv. {land.levelRequired}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <CheckCircle2 size={11} /> Terbuka
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-quran text-base text-[#08B9EF] font-bold">
+                              {land.arabicName}
+                            </span>
+                          </div>
+
+                          <h3 className="text-sm font-extrabold text-[#164C68] font-heading group-hover:text-[#08B9EF] transition-colors">
+                            {land.name}
+                          </h3>
+
+                          <p className="text-xs text-[#08B9EF] font-bold">
+                            {land.tagline}
+                          </p>
+
+                          <p className="text-[11px] text-[#8C9BA7] font-medium leading-relaxed pt-0.5">
+                            {land.description}
+                          </p>
+
+                          {/* Card Bottom CTA */}
+                          <div className="pt-2 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-[#8C9BA7]">
+                              Tujuan: {land.destinationTab === 'tahfiz' ? 'Tahfiz' : "Al-Qur'an"} •{' '}
+                              {land.destinationSubView}
+                            </span>
+                            <span className="text-xs font-black text-[#08B9EF] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                              {isLocked ? 'Lihat Syarat' : 'Masuk Wilayah'}{' '}
+                              <ChevronRight size={14} />
+                            </span>
+                          </div>
+                        </div>
                       </div>
-
-                      <h3 className="text-sm font-extrabold text-[#164C68] font-heading group-hover:text-[#08B9EF] transition-colors">
-                        {land.name}
-                      </h3>
-
-                      <p className="text-xs text-[#08B9EF] font-bold">
-                        {land.tagline}
-                      </p>
-
-                      <p className="text-[11px] text-[#8C9BA7] font-medium leading-relaxed pt-0.5">
-                        {land.description}
-                      </p>
-
-                      {/* Card Bottom CTA */}
-                      <div className="pt-2 flex items-center justify-between">
-                        <span className="text-[10px] font-semibold text-[#8C9BA7]">
-                          Tujuan: {land.destinationTab === 'tahfiz' ? 'Tahfiz' : "Al-Qur'an"} •{' '}
-                          {land.destinationSubView}
-                        </span>
-                        <span className="text-xs font-black text-[#08B9EF] flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                          {isLocked ? 'Lihat Syarat' : 'Masuk Wilayah'}{' '}
-                          <ChevronRight size={14} />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </motion.div>
       )}
 
       {/* --- TAB 2: ARENA GAME (MINI-GAMES DIRECT ACCESS) --- */}
@@ -667,53 +737,68 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
       )}
 
       {/* --- Action Sheet Modal when tapping a World Land --- */}
-      {selectedLand && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-3 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border-2 border-[#C9E1ED] space-y-4 animate-in slide-in-from-bottom-6">
-            <div className="flex items-center justify-between">
-              <div
-                className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center text-2xl shadow-xs`}
-              >
-                {selectedLand.icon}
-              </div>
-              <button
-                onClick={() => setSelectedLand(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div>
-              <span className="font-quran text-lg text-[#08B9EF] block">
-                {selectedLand.arabicName}
-              </span>
-              <h3 className="text-lg font-black text-[#164C68] font-heading mt-0.5">
-                {selectedLand.name}
-              </h3>
-              <p className="text-xs text-[#08B9EF] font-bold mt-0.5">
-                {selectedLand.tagline}
-              </p>
-              <p className="text-xs text-[#8C9BA7] font-medium mt-2 leading-relaxed">
-                {selectedLand.description}
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                const destTab = selectedLand.destinationTab;
-                const destSub = selectedLand.destinationSubView;
-                setSelectedLand(null);
-                onNavigateToLand(destTab, destSub);
-              }}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-black text-xs shadow-md shadow-cyan-500/25 flex items-center justify-center gap-2 hover:bg-[#07a6d7] active:scale-95 transition-all cursor-pointer"
+      <AnimatePresence>
+        {selectedLand && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-3"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.92, y: 30, opacity: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 320 }}
+              className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border-2 border-[#C9E1ED] space-y-4"
             >
-              <Compass size={16} />
-              <span>Mulai Petualangan di Wilayah Ini</span>
-            </button>
-          </div>
-        </div>
-      )}
+              <div className="flex items-center justify-between">
+                <div
+                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center text-2xl shadow-xs`}
+                >
+                  {selectedLand.icon}
+                </div>
+                <button
+                  onClick={() => setSelectedLand(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div>
+                <span className="font-quran text-lg text-[#08B9EF] block">
+                  {selectedLand.arabicName}
+                </span>
+                <h3 className="text-lg font-black text-[#164C68] font-heading mt-0.5">
+                  {selectedLand.name}
+                </h3>
+                <p className="text-xs text-[#08B9EF] font-bold mt-0.5">
+                  {selectedLand.tagline}
+                </p>
+                <p className="text-xs text-[#8C9BA7] font-medium mt-2 leading-relaxed">
+                  {selectedLand.description}
+                </p>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => {
+                  const destTab = selectedLand.destinationTab;
+                  const destSub = selectedLand.destinationSubView;
+                  setSelectedLand(null);
+                  onNavigateToLand(destTab, destSub);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-black text-xs shadow-md shadow-cyan-500/25 flex items-center justify-center gap-2 hover:bg-[#07a6d7] cursor-pointer"
+              >
+                <Compass size={16} />
+                <span>Mulai Petualangan di Wilayah Ini</span>
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

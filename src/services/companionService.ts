@@ -3,6 +3,7 @@ import {
   CompanionStage,
   CompanionTrait,
   DailyQuest,
+  CompanionSpecies,
 } from '../types/companion';
 import { getStageForXp, COMPANION_DIALOGUES, ROOM_DECORATIONS } from '../data/companionData';
 import { StorageService } from './storageService';
@@ -66,9 +67,14 @@ export class CompanionService {
     const initialData: CompanionData = {
       childId,
       name: 'Lumi',
+      species: 'lumi',
       stage: initialStage,
       xp: currentXp,
       level: child ? child.level : 1,
+      hunger: 85,
+      happiness: 90,
+      cleanliness: 95,
+      energy: 85,
       traits: {
         hafiz: 5,
         tartil: 4,
@@ -81,6 +87,7 @@ export class CompanionService {
       unlockedCards: ['card-1', 'card-18', 'card-114'],
       gardenDays: initialGarden,
       gardenWeekId: currentWeekId,
+      gardenWateredToday: false,
       seedsCount: 3,
       lastActiveDate: new Date().toISOString().split('T')[0],
       dialogueMessage: 'Assalamu\'alaikum! Lumi senang sekali belajar bersamamu!',
@@ -353,10 +360,78 @@ export class CompanionService {
     const randomMsg = messages[Math.floor(Math.random() * messages.length)];
 
     companion.lastPetAt = new Date().toISOString();
+    companion.happiness = Math.min(100, (companion.happiness ?? 85) + 15);
     companion.dialogueMessage = randomMsg;
     this.saveCompanionData(companion);
 
     return { message: randomMsg };
+  }
+
+  /**
+   * Tamagotchi: Feed the companion nutritious Kurma / Madu
+   */
+  static feedCompanion(childId: string, foodType: 'kurma' | 'madu' = 'kurma'): { success: boolean; message: string } {
+    const companion = this.getCompanionData(childId);
+    companion.hunger = Math.min(100, (companion.hunger ?? 70) + 30);
+    companion.energy = Math.min(100, (companion.energy ?? 75) + 20);
+    companion.happiness = Math.min(100, (companion.happiness ?? 80) + 15);
+    companion.lastFedAt = new Date().toISOString();
+
+    const foodName = foodType === 'kurma' ? 'Kurma Manis' : 'Madu Alami';
+    const message = `Bismillah! Nyam-nyam... ${foodName} yang berkah! Energi ${companion.name} kini terisi penuh!`;
+    companion.dialogueMessage = message;
+    this.saveCompanionData(companion);
+
+    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 5, 1, `Memberi makan ${companion.name}`);
+    return { success: true, message };
+  }
+
+  /**
+   * Tamagotchi: Clean companion with water & light
+   */
+  static cleanCompanion(childId: string): { success: boolean; message: string } {
+    const companion = this.getCompanionData(childId);
+    companion.cleanliness = 100;
+    companion.happiness = Math.min(100, (companion.happiness ?? 80) + 20);
+    const message = `Alhamdulillah! Segar sekali disiram embun suci air wudhu. ${companion.name} kini bersih dan wangi!`;
+    companion.dialogueMessage = message;
+    this.saveCompanionData(companion);
+
+    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 5, 1, `Menyucikan & merawat ${companion.name}`);
+    return { success: true, message };
+  }
+
+  /**
+   * Weekly Garden: Water today's plant to bloom
+   */
+  static waterGarden(childId: string): { success: boolean; message: string; bloomed: boolean } {
+    const companion = this.getCompanionData(childId);
+    const dayIdx = getTodayDayIndex();
+    const alreadyBloomed = companion.gardenDays[dayIdx];
+
+    companion.gardenDays[dayIdx] = true;
+    companion.gardenWateredToday = true;
+    companion.seedsCount = (companion.seedsCount || 0) + 1;
+    this.saveCompanionData(companion);
+
+    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 15, 2, 'Menyiram Kebun Belajar Mingguan');
+    return {
+      success: true,
+      bloomed: !alreadyBloomed,
+      message: 'MasyaAllah! Kebun telah disiram air doa & tartil. Bunga belajar hari ini mekar bercahaya! (+1 Benih Cahaya & +15 XP)',
+    };
+  }
+
+  /**
+   * Tamagotchi: Change / choose companion species
+   */
+  static setCompanionSpecies(childId: string, species: CompanionSpecies, petName?: string): void {
+    const companion = this.getCompanionData(childId);
+    companion.species = species;
+    if (petName && petName.trim()) {
+      companion.name = petName.trim();
+    }
+    this.saveCompanionData(companion);
   }
 
   /**
