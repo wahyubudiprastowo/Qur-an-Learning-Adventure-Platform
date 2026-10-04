@@ -42,6 +42,7 @@ interface BerandaHomeProps {
   onOpenWorldMap: () => void;
   onRefreshCompanion: () => void;
   onNavigateToModule: (actionType: string) => void;
+  onOpenAndroidApk?: () => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
@@ -57,6 +58,7 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   onOpenWorldMap,
   onRefreshCompanion,
   onNavigateToModule,
+  onOpenAndroidApk,
 }) => {
   const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
@@ -224,6 +226,23 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
 
           <ChevronRight size={18} className="text-emerald-700 group-hover:translate-x-1 transition-transform shrink-0" />
         </div>
+
+        {/* Android APK Install Banner */}
+        {onOpenAndroidApk && (
+          <div
+            onClick={onOpenAndroidApk}
+            className="p-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl flex items-center justify-between cursor-pointer hover:opacity-95 active:scale-98 transition-all shadow-xs"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🤖</span>
+              <div>
+                <span className="text-xs font-black block">Pasang & Export APK Android</span>
+                <span className="text-[10px] text-emerald-100 font-medium">Buka di layar penuh HP seperti aplikasi native</span>
+              </div>
+            </div>
+            <span className="text-xs bg-white/20 px-2.5 py-1 rounded-xl font-bold">Pasang</span>
+          </div>
+        )}
       </div>
 
       {/* 6. Quick Launch Cards to 3 Steps */}

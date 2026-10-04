@@ -15,7 +15,13 @@ import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getBlocksForSurah } from '../../data/blocksData';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
-import { QuranAudioPlayer, PlaybackState, AudioProgressInfo, GlobalAudioManager } from '../../services/audioService';
+import {
+  QuranAudioPlayer,
+  PlaybackState,
+  AudioProgressInfo,
+  GlobalAudioManager,
+  getActiveWordIndexFromProgress,
+} from '../../services/audioService';
 import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
@@ -103,12 +109,8 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
     player.onProgressUpdate = (info) => {
       setProgressInfo(info);
       const curr = currentAyahRef.current;
-      if (curr?.words && curr.words.length > 0) {
-        const words = curr.words;
-        const curMs = info.currentTimeMs;
-        const found = words.findIndex((w) => curMs >= w.startMs && curMs < w.endMs);
-        setActiveWordIndex(found !== -1 ? found : null);
-      }
+      const found = getActiveWordIndexFromProgress(curr?.words, info.currentTimeMs, info.durationMs);
+      setActiveWordIndex(found);
     };
     player.onAyahChange = (ayahNum) => {
       setCurrentAyahNumber(ayahNum);
@@ -123,7 +125,11 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
 
     return () => {
       unsubStop();
-      player.destroy();
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+      GlobalAudioManager.stopAll();
     };
   }, []);
 

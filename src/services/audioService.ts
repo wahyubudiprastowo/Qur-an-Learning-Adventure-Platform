@@ -155,6 +155,10 @@ export class QuranAudioPlayer {
 
   private handlePauseEvent = () => {
     if (this.isDestroyed) return;
+    // If the audio track ended naturally, ignore pause event so handleEndedEvent can proceed with repeat
+    if (this.audio.ended) {
+      return;
+    }
     if (this.state !== 'ENDED' && this.state !== 'ERROR' && this.state !== 'IDLE') {
       this.state = 'PAUSED';
       this.onStateChange?.('PAUSED');
@@ -162,7 +166,7 @@ export class QuranAudioPlayer {
   };
 
   private handleTimeUpdateEvent = () => {
-    if (this.isDestroyed || this.state !== 'PLAYING') return;
+    if (this.isDestroyed || (this.state !== 'PLAYING' && !this.audio.seeking)) return;
     this.onProgressUpdate?.({
       currentTimeMs: Math.round(this.audio.currentTime * 1000),
       durationMs: Math.round((this.audio.duration || 0) * 1000),
@@ -176,7 +180,7 @@ export class QuranAudioPlayer {
   };
 
   private handleEndedEvent = () => {
-    if (this.isDestroyed || this.state !== 'PLAYING') return;
+    if (this.isDestroyed) return;
     this.handleAyahEnded();
   };
 
@@ -244,6 +248,7 @@ export class QuranAudioPlayer {
   }
 
   public loadCurrentAyah(): void {
+    if (this.isDestroyed) return;
     this.isFallingBack = false;
     const url = getAyahAudioUrl(this.reciterId, this.surahNumber, this.currentAyah);
     this.audio.src = url;
@@ -254,6 +259,7 @@ export class QuranAudioPlayer {
   }
 
   public async play(): Promise<void> {
+    if (this.isDestroyed) return;
     const token = ++this.currentPlayToken;
     GlobalAudioManager.notifyPlayStarted(this);
     if (!this.audio.src || this.audio.src === '' || this.state === 'IDLE' || this.state === 'ENDED') {
@@ -261,8 +267,12 @@ export class QuranAudioPlayer {
     }
     try {
       await this.audio.play();
+      if (token !== this.currentPlayToken || this.isDestroyed) {
+        this.audio.pause();
+        return;
+      }
     } catch (err) {
-      if (token !== this.currentPlayToken) return;
+      if (token !== this.currentPlayToken || this.isDestroyed) return;
       console.warn('Play was interrupted or waiting user gesture:', err);
     }
   }
@@ -312,7 +322,9 @@ export class QuranAudioPlayer {
       this.loadCurrentAyah();
       this.play();
     } else {
-      this.audio.currentTime = 0;
+      try {
+        this.audio.currentTime = 0;
+      } catch (e) {}
       this.play();
     }
   }
@@ -328,16 +340,15 @@ export class QuranAudioPlayer {
   }
 
   private handleAyahEnded(): void {
-    // If not playing or player was preempted by another module, stop immediately!
-    if (this.state !== 'PLAYING') {
-      return;
-    }
+    if (this.isDestroyed) return;
 
     // If single ayah mode is enabled (user selected one specific ayah to hear)
     if (this.singleAyahMode) {
       if (this.currentAyahRepeat < this.targetAyahRepeats) {
         this.currentAyahRepeat++;
-        this.audio.currentTime = 0;
+        try {
+          this.audio.currentTime = 0;
+        } catch (e) {}
         this.play();
         return;
       }
@@ -346,15 +357,17 @@ export class QuranAudioPlayer {
       return;
     }
 
-    // Check if ayah repetition is needed
+    // Check if ayah repetition is needed (e.g. set to 3 times)
     if (this.currentAyahRepeat < this.targetAyahRepeats) {
       this.currentAyahRepeat++;
-      this.audio.currentTime = 0;
+      try {
+        this.audio.currentTime = 0;
+      } catch (e) {}
       this.play();
       return;
     }
 
-    // Move to next ayah in range
+    // Move to next ayah in block
     if (this.currentAyah < this.endAyah) {
       this.currentAyah++;
       this.currentAyahRepeat = 1;
@@ -366,6 +379,7 @@ export class QuranAudioPlayer {
   }
 
   private handleBlockComplete(): void {
+    if (this.isDestroyed) return;
     this.onBlockCycleComplete?.(this.currentBlockRepeat);
 
     // If infinity or more block repeats remaining
@@ -398,4 +412,39 @@ export class QuranAudioPlayer {
     } catch (e) {}
     this.state = 'IDLE';
   }
+}
+
+/**
+ * Synchronized word progress calculator.
+ * Prevents highlighter from rushing ahead of audio in long surahs like Al-Baqarah
+ * by scaling smoothly according to actual durationMs and word character proportions.
+ */
+export function getActiveWordIndexFromProgress(
+  words: { arabic: string; startMs: number; endMs: number }[] | undefined,
+  currentTimeMs: number,
+  durationMs: number
+): number | null {
+  if (!words || words.length === 0) return null;
+  if (durationMs > 500) {
+    const lengths = words.map((w) =>
+      Math.max(2, w.arabic.replace(/[^\u0600-\u06FF]/g, '').length || w.arabic.length)
+    );
+    const totalLength = lengths.reduce((acc, l) => acc + l, 0);
+    const progressFraction = Math.min(0.999, Math.max(0, currentTimeMs / durationMs));
+    let accumulatedFraction = 0;
+    for (let i = 0; i < words.length; i++) {
+      const wordFraction = lengths[i] / totalLength;
+      if (
+        progressFraction >= accumulatedFraction &&
+        progressFraction < accumulatedFraction + wordFraction
+      ) {
+        return i;
+      }
+      accumulatedFraction += wordFraction;
+    }
+    return words.length - 1;
+  }
+  // Fallback to static timestamps if duration not yet loaded
+  const found = words.findIndex((w) => currentTimeMs >= w.startMs && currentTimeMs < w.endMs);
+  return found !== -1 ? found : null;
 }

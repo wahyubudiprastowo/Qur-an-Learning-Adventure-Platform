@@ -8,11 +8,18 @@ import {
   CheckCircle2,
   Volume2,
   Star,
+  ArrowLeft,
 } from 'lucide-react';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
-import { QuranAudioPlayer, PlaybackState, AudioProgressInfo, GlobalAudioManager } from '../../services/audioService';
+import {
+  QuranAudioPlayer,
+  PlaybackState,
+  AudioProgressInfo,
+  GlobalAudioManager,
+  getActiveWordIndexFromProgress,
+} from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
 import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
@@ -38,6 +45,7 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
   ayahRepeats,
   blockRepeats,
   onFinishSession,
+  onBack,
 }) => {
   const [currentBlockIndex, setCurrentBlockIndex] = useState<number>(0);
   const [currentAyahIndex, setCurrentAyahIndex] = useState<number>(0);
@@ -81,12 +89,9 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       setProgressInfo(info);
       const list = ayahsRef.current;
       const idx = currentAyahIndexRef.current;
-      if (list[idx]?.words) {
-        const words = list[idx].words!;
-        const curMs = info.currentTimeMs;
-        const found = words.findIndex((w) => curMs >= w.startMs && curMs < w.endMs);
-        setActiveWordIndex(found !== -1 ? found : null);
-      }
+      const words = list[idx]?.words;
+      const found = getActiveWordIndexFromProgress(words, info.currentTimeMs, info.durationMs);
+      setActiveWordIndex(found);
     };
     player.onAyahChange = (ayahNum) => {
       const list = ayahsRef.current;
@@ -105,7 +110,11 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
 
     return () => {
       unsubStop();
-      player.destroy();
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+      GlobalAudioManager.stopAll();
     };
   }, []);
 
@@ -226,9 +235,25 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       {/* Top Breadcrumb & Live Progress Bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
-          <span className="text-[#164C68] font-heading font-extrabold text-sm">
-            {surahMeta.nameLatin} ({surahMeta.nameArabic}) • {activeBlock.name}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (playerRef.current) {
+                  playerRef.current.destroy();
+                  playerRef.current = null;
+                }
+                GlobalAudioManager.stopAll();
+                onBack();
+              }}
+              className="p-1.5 -ml-1 text-[#164C68] hover:text-[#08B9EF] rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Kembali"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <span className="text-[#164C68] font-heading font-extrabold text-sm">
+              {surahMeta.nameLatin} ({surahMeta.nameArabic}) • {activeBlock.name}
+            </span>
+          </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-50 border border-yellow-200 text-amber-700 font-black">
             <Star size={14} className="fill-yellow-400 text-yellow-500" />
             <span>+5</span>

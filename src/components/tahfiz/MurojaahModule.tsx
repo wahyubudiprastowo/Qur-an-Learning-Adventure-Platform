@@ -9,7 +9,13 @@ import {
   Star,
   CheckCircle2,
   Eye,
+  Mic,
+  MicOff,
+  Sparkles,
+  AlertCircle,
+  ArrowLeft,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getBlocksForSurah } from '../../data/blocksData';
 import { getSurahAyahs } from '../../data/quranData';
@@ -23,6 +29,10 @@ import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
+
+function removeHarakat(text: string): string {
+  return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+}
 
 interface MurojaahModuleProps {
   childId: string;
@@ -48,6 +58,26 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
 
   // Temporary hint reveals
   const [revealedWordIndices, setRevealedWordIndices] = useState<Set<number>>(new Set());
+
+  // Mode selection: 'bertahap' (progressive text masking) vs 'harakat_voice' (Uji Harakat Hilang dengan Setoran Suara)
+  const [murojaahTab, setMurojaahTab] = useState<'bertahap' | 'harakat_voice'>('bertahap');
+  const [voiceIsRecording, setVoiceIsRecording] = useState<boolean>(false);
+  const [voiceTimer, setVoiceTimer] = useState<number>(0);
+  const [voiceHarakatRevealed, setVoiceHarakatRevealed] = useState<boolean>(false);
+  const [voiceShowCorrection, setVoiceShowCorrection] = useState<boolean>(false);
+  const [voiceSuccess, setVoiceSuccess] = useState<boolean | null>(null);
+  const voiceIntervalRef = useRef<any>(null);
+
+  const triggerPopConfetti = () => {
+    try {
+      confetti({
+        particleCount: 65,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#08B9EF', '#81E850', '#FFD83E', '#B797F6'],
+      });
+    } catch (e) {}
+  };
 
   // Audio Player
   const [reciterId, setReciterId] = useState<string>('alafasy');
@@ -83,6 +113,9 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
       if (idx !== -1) {
         setCurrentAyahIndex(idx);
         setRevealedWordIndices(new Set());
+        setVoiceHarakatRevealed(false);
+        setVoiceSuccess(null);
+        setVoiceShowCorrection(false);
       }
     };
 
@@ -92,7 +125,12 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
 
     return () => {
       unsubStop();
-      player.destroy();
+      if (playerRef.current) {
+        playerRef.current.destroy();
+        playerRef.current = null;
+      }
+      if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
+      GlobalAudioManager.stopAll();
     };
   }, []);
 
@@ -275,81 +313,285 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
         </div>
       )}
 
-      {/* Progressive Text Hiding Segmented Selector (Matches Screenshot!) */}
-      <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-[#8C9BA7] uppercase tracking-wider block px-1">
-          BANTUAN TEKS DIKURANGI BERTAHAP
-        </label>
-        <div className="flex gap-1.5 p-1 bg-white border border-[#C9E1ED] rounded-2xl shadow-xs overflow-x-auto">
-          {RECALL_MODES.map((item) => (
+      {/* 2 Modes: Mode Teks Bertahap vs Mode Uji Harakat Hilang (Setoran Suara) */}
+      <div className="flex bg-[#EEF8FF] p-1 rounded-2xl border border-[#C9E1ED] text-xs font-bold shadow-xs">
+        <button
+          onClick={() => {
+            setMurojaahTab('bertahap');
+            setVoiceIsRecording(false);
+          }}
+          className={`flex-1 py-2 rounded-xl transition-all cursor-pointer ${
+            murojaahTab === 'bertahap'
+              ? 'bg-[#B797F6] text-white shadow-xs'
+              : 'text-[#8C9BA7] hover:text-[#164C68]'
+          }`}
+        >
+          📖 Bantuan Teks Bertahap
+        </button>
+        <button
+          onClick={() => {
+            setMurojaahTab('harakat_voice');
+            setVoiceHarakatRevealed(false);
+            setVoiceSuccess(null);
+            setVoiceShowCorrection(false);
+          }}
+          className={`flex-1 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            murojaahTab === 'harakat_voice'
+              ? 'bg-[#08B9EF] text-white shadow-xs'
+              : 'text-[#8C9BA7] hover:text-[#164C68]'
+          }`}
+        >
+          <span>🎙️</span>
+          <span>Uji Harakat Hilang (Setoran Suara)</span>
+        </button>
+      </div>
+
+      {/* MODE 1: PROGRESSIVE TEXT MASKING */}
+      {murojaahTab === 'bertahap' && (
+        <>
+          {/* Progressive Text Hiding Segmented Selector (Matches Screenshot!) */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-[#8C9BA7] uppercase tracking-wider block px-1">
+              BANTUAN TEKS DIKURANGI BERTAHAP
+            </label>
+            <div className="flex gap-1.5 p-1 bg-white border border-[#C9E1ED] rounded-2xl shadow-xs overflow-x-auto">
+              {RECALL_MODES.map((item) => (
+                <button
+                  key={item.mode}
+                  onClick={() => {
+                    setRecallMode(item.mode);
+                    setRevealedWordIndices(new Set());
+                  }}
+                  className={`flex-1 min-w-[65px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer ${
+                    recallMode === item.mode
+                      ? 'bg-[#08B9EF] text-white shadow-xs'
+                      : 'text-[#8C9BA7] hover:text-[#164C68]'
+                  }`}
+                >
+                  <div>{item.label}</div>
+                  <div className="text-[10px] opacity-80 font-normal">
+                    {item.visiblePercent}% kata
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Main Quran Card with Progressive Masked Arabic Words */}
+          <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-6 shadow-sm min-h-[260px] flex flex-col justify-between text-center relative overflow-hidden">
+            {/* Ayah Title & Hint prompt */}
+            <div className="flex items-center justify-between text-xs text-[#8C9BA7] font-semibold mb-2">
+              <span className="font-bold uppercase tracking-wider bg-[#EEF8FF] text-[#08B9EF] px-2.5 py-0.5 rounded-full">
+                AYAT {currentAyah?.ayahNumber || activeBlock.startAyah}
+              </span>
+              {recallMode !== '100%' && (
+                <span className="text-[11px] text-[#B797F6] font-bold flex items-center gap-1">
+                  <Eye size={13} /> Sentuh •••• untuk intip
+                </span>
+              )}
+            </div>
+
+            {/* Masked Arabic Words Display */}
+            <div className="py-6">
+              {currentAyah ? (
+                <ArabicText
+                  arabicText={currentAyah.arabicText}
+                  ayahNumber={currentAyah.ayahNumber}
+                  words={currentAyah.words}
+                  hiddenWordIndices={hiddenWordIndices}
+                  onWordClick={handleWordHintClick}
+                  showWordMasking={recallMode !== '100%'}
+                  fontSize="large"
+                />
+              ) : (
+                <p className="text-[#8C9BA7] font-medium text-sm">Memuat ayat...</p>
+              )}
+
+              {recallMode === '100%' && currentAyah?.translationId && (
+                <p className="text-xs text-[#164C68] font-medium italic border-t border-slate-100 pt-3 mt-4">
+                  "{currentAyah.translationId}"
+                </p>
+              )}
+            </div>
+
+            {/* Progress Footer */}
+            <div className="flex items-center justify-between text-[11px] text-[#8C9BA7] font-semibold pt-2 border-t border-slate-100">
+              <span>
+                Ayat {currentAyahIndex + 1} dari {ayahs.length || 1}
+              </span>
+              <span className="text-purple-600 font-bold">
+                {recallMode === '0%' ? 'Tantangan Penuh: Tanpa Teks' : `Bantuan ${recallMode}`}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODE 2: UJI HARAKAT HILANG & SETORAN SUARA (Gundul to Pop Harakat) */}
+      {murojaahTab === 'harakat_voice' && (
+        <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-6 shadow-sm space-y-4 text-center animate-in fade-in">
+          <div className="flex items-center justify-between text-xs text-[#8C9BA7] font-semibold">
+            <span className="font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+              <span>🎙️</span> AYAT {currentAyah?.ayahNumber || activeBlock.startAyah} (TEKS GUNDUL)
+            </span>
+            <span className="text-[11px] text-[#08B9EF] font-bold">
+              Setoran Suara
+            </span>
+          </div>
+
+          <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 leading-relaxed text-left">
+            💡 <strong>Tantangan Setoran:</strong> Harakat pada ayat ini dihilangkan. Tekan tombol mikrofon, lafalkan ayatnya! Jika betul, harakat akan langsung muncul dengan animasi pop!
+          </div>
+
+          {/* Ayah Card: Gundul vs Harakat Revealed */}
+          <div className="py-6 bg-[#EEF8FF] border-2 border-[#08B9EF]/40 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all duration-300">
+            {currentAyah ? (
+              <p
+                dir="rtl"
+                className={`font-quran text-3xl sm:text-4xl text-[#164C68] font-bold leading-relaxed transition-all duration-300 ${
+                  voiceHarakatRevealed
+                    ? 'text-emerald-700 scale-105 filter drop-shadow-xs animate-in zoom-in-95'
+                    : 'text-slate-800'
+                }`}
+              >
+                {voiceHarakatRevealed
+                  ? currentAyah.arabicText
+                  : removeHarakat(currentAyah.arabicText)}
+              </p>
+            ) : (
+              <p className="text-slate-400">Memuat...</p>
+            )}
+
+            {voiceHarakatRevealed && (
+              <div className="mt-3 text-xs text-emerald-800 font-bold flex items-center justify-center gap-1.5 animate-in fade-in">
+                <Sparkles size={16} className="text-emerald-500 animate-spin" />
+                <span>Harakat Terbuka Sempurna!</span>
+              </div>
+            )}
+          </div>
+
+          {/* Big Record Voice Button */}
+          <div className="py-2 flex flex-col items-center justify-center space-y-2">
             <button
-              key={item.mode}
               onClick={() => {
-                setRecallMode(item.mode);
-                setRevealedWordIndices(new Set());
+                if (!voiceIsRecording) {
+                  setVoiceIsRecording(true);
+                  setVoiceTimer(0);
+                  setVoiceSuccess(null);
+                  setVoiceShowCorrection(false);
+                  setVoiceHarakatRevealed(false);
+
+                  voiceIntervalRef.current = setInterval(() => {
+                    setVoiceTimer((t) => t + 1);
+                  }, 1000);
+                } else {
+                  setVoiceIsRecording(false);
+                  if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
+
+                  // Recitation completed: trigger pop animation!
+                  setVoiceHarakatRevealed(true);
+                  setVoiceSuccess(true);
+                  triggerPopConfetti();
+
+                  // Play reference audio
+                  if (playerRef.current && currentAyah) {
+                    playerRef.current.jumpToAyah(currentAyah.ayahNumber, true);
+                  }
+                }
               }}
-              className={`flex-1 min-w-[65px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all text-center whitespace-nowrap cursor-pointer ${
-                recallMode === item.mode
-                  ? 'bg-[#08B9EF] text-white shadow-xs'
-                  : 'text-[#8C9BA7] hover:text-[#164C68]'
+              className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl shadow-xl transition-all cursor-pointer ${
+                voiceIsRecording
+                  ? 'bg-rose-500 animate-pulse ring-8 ring-rose-200 scale-105'
+                  : 'bg-gradient-to-tr from-[#08B9EF] to-[#0496c4] hover:scale-105 active:scale-95'
               }`}
             >
-              <div>{item.label}</div>
-              <div className="text-[10px] opacity-80 font-normal">
-                {item.visiblePercent}% kata
-              </div>
+              {voiceIsRecording ? <MicOff size={32} /> : <Mic size={32} />}
             </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Main Quran Card with Progressive Masked Arabic Words */}
-      <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-6 shadow-sm min-h-[260px] flex flex-col justify-between text-center relative overflow-hidden">
-        {/* Ayah Title & Hint prompt */}
-        <div className="flex items-center justify-between text-xs text-[#8C9BA7] font-semibold mb-2">
-          <span className="font-bold uppercase tracking-wider bg-[#EEF8FF] text-[#08B9EF] px-2.5 py-0.5 rounded-full">
-            AYAT {currentAyah?.ayahNumber || activeBlock.startAyah}
-          </span>
-          {recallMode !== '100%' && (
-            <span className="text-[11px] text-[#B797F6] font-bold flex items-center gap-1">
-              <Eye size={13} /> Sentuh •••• untuk intip
+            <span className="text-xs font-black text-[#164C68]">
+              {voiceIsRecording
+                ? `Merekam Setoran... (${voiceTimer} dtk) • Ketuk jika selesai`
+                : 'Ketuk Mikrofon untuk Setoran'}
             </span>
+          </div>
+
+          {/* Success / Correction Bar */}
+          {voiceSuccess && (
+            <div className="space-y-3 animate-in zoom-in-95 pt-2">
+              <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-3xl text-emerald-900 text-xs font-semibold space-y-2 text-left">
+                <div className="flex items-center gap-2 text-sm font-black text-emerald-700">
+                  <span>🎉</span>
+                  <span>Masya Allah, Setoran Diterima!</span>
+                </div>
+                {currentAyah?.translationId && (
+                  <p className="text-[11px] text-emerald-800 italic">
+                    "{currentAyah.translationId}"
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      if (playerRef.current && currentAyah) {
+                        playerRef.current.jumpToAyah(currentAyah.ayahNumber, true);
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-200 text-emerald-900 text-xs font-bold hover:bg-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Volume2 size={14} /> Dengar Suara Qari
+                  </button>
+                  <button
+                    onClick={() => setVoiceShowCorrection(!voiceShowCorrection)}
+                    className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
+                  >
+                    {voiceShowCorrection ? 'Tutup Koreksi' : 'Lihat Tampilan Koreksi'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tampilan Koreksi */}
+              {voiceShowCorrection && currentAyah && (
+                <div className="p-4 bg-white border-2 border-[#C9E1ED] rounded-3xl text-left space-y-2 animate-in fade-in">
+                  <h4 className="text-xs font-black text-[#164C68] flex items-center gap-1.5">
+                    <AlertCircle size={15} className="text-[#08B9EF]" />
+                    <span>Tampilan Koreksi & Penjelasan Harakat:</span>
+                  </h4>
+                  <div className="text-[11px] space-y-1">
+                    <p className="text-[#8C9BA7]">
+                      <strong>Teks Tanpa Harakat:</strong>{' '}
+                      <span dir="rtl" className="font-quran text-sm text-[#164C68]">
+                        {removeHarakat(currentAyah.arabicText)}
+                      </span>
+                    </p>
+                    <p className="text-emerald-700">
+                      <strong>Harakat Lengkap:</strong>{' '}
+                      <span dir="rtl" className="font-quran text-base font-bold">
+                        {currentAyah.arabicText}
+                      </span>
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-[#8C9BA7] pt-1 border-t border-slate-100">
+                    Pastikan mad (panjang 2 harakat), tasydid, dan harakat akhir dibaca dengan tartil sesuai makhraj.
+                  </p>
+                </div>
+              )}
+
+              {/* Next Ayah in Murojaah */}
+              {currentAyahIndex < ayahs.length - 1 && (
+                <Button
+                  variant="green"
+                  size="md"
+                  fullWidth
+                  onClick={handleNext}
+                  icon={<CheckCircle2 size={16} />}
+                >
+                  Lanjut ke Ayat {currentAyahIndex + 2}
+                </Button>
+              )}
+            </div>
           )}
         </div>
-
-        {/* Masked Arabic Words Display */}
-        <div className="py-6">
-          {currentAyah ? (
-            <ArabicText
-              arabicText={currentAyah.arabicText}
-              ayahNumber={currentAyah.ayahNumber}
-              words={currentAyah.words}
-              hiddenWordIndices={hiddenWordIndices}
-              onWordClick={handleWordHintClick}
-              showWordMasking={recallMode !== '100%'}
-              fontSize="large"
-            />
-          ) : (
-            <p className="text-[#8C9BA7] font-medium text-sm">Memuat ayat...</p>
-          )}
-
-          {recallMode === '100%' && currentAyah?.translationId && (
-            <p className="text-xs text-[#164C68] font-medium italic border-t border-slate-100 pt-3 mt-4">
-              "{currentAyah.translationId}"
-            </p>
-          )}
-        </div>
-
-        {/* Progress Footer */}
-        <div className="flex items-center justify-between text-[11px] text-[#8C9BA7] font-semibold pt-2 border-t border-slate-100">
-          <span>
-            Ayat {currentAyahIndex + 1} dari {ayahs.length || 1}
-          </span>
-          <span className="text-purple-600 font-bold">
-            {recallMode === '0%' ? 'Tantangan Penuh: Tanpa Teks' : `Bantuan ${recallMode}`}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Audio Player Controls */}
       <div className="bg-white border border-[#C9E1ED] rounded-3xl p-4 shadow-sm flex items-center justify-between">

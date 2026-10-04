@@ -27,6 +27,7 @@ import { GameHub } from './components/game/GameHub';
 import { AkunHome } from './components/akun/AkunHome';
 import { ChildProfileModal } from './components/akun/ChildProfileModal';
 import { QuickChildSwitcherModal } from './components/akun/QuickChildSwitcherModal';
+import { AndroidApkModal } from './components/common/AndroidApkModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
@@ -71,6 +72,7 @@ export default function App() {
   // Child Switcher & Creation Modals
   const [showQuickChildSwitcher, setShowQuickChildSwitcher] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
+  const [showAndroidApkModal, setShowAndroidApkModal] = useState<boolean>(false);
 
   const [companion, setCompanion] = useState(() =>
     CompanionService.getCompanionData(activeChild.id)
@@ -285,6 +287,7 @@ export default function App() {
           onBack={onBackHandler}
           activeChild={activeChild}
           onSelectChild={() => setShowQuickChildSwitcher(true)}
+          onOpenAndroidApk={() => setShowAndroidApkModal(true)}
         />
 
         {/* Scrollable Content Container */}
@@ -310,6 +313,7 @@ export default function App() {
               onOpenWorldMap={() => navigateGame('map')}
               onRefreshCompanion={() => refreshChildData(activeChild.id)}
               onNavigateToModule={handleNavigateToModule}
+              onOpenAndroidApk={() => setShowAndroidApkModal(true)}
             />
           )}
 
@@ -502,6 +506,12 @@ export default function App() {
             handleSwitchChild(newChild.id);
             setShowAddChildModal(false);
           }}
+        />
+
+        {/* Android APK Modal */}
+        <AndroidApkModal
+          isOpen={showAndroidApkModal}
+          onClose={() => setShowAndroidApkModal(false)}
         />
       </div>
     </div>

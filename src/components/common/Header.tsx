@@ -9,6 +9,7 @@ interface HeaderProps {
   activeChild?: ChildProfile;
   onSelectChild?: () => void;
   rightAction?: React.ReactNode;
+  onOpenAndroidApk?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeChild,
   onSelectChild,
   rightAction,
+  onOpenAndroidApk,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-[#EEF8FF]/90 backdrop-blur-md px-4 py-2.5 border-b border-[#C9E1ED]/60 flex items-center justify-between min-h-[56px]">
@@ -78,6 +80,19 @@ export const Header: React.FC<HeaderProps> = ({
               <Star size={14} className="fill-yellow-400 text-yellow-500" />
               <span>{activeChild.totalStars}</span>
             </div>
+
+            {/* Android APK Button */}
+            {onOpenAndroidApk && (
+              <button
+                onClick={onOpenAndroidApk}
+                aria-label="Pasang APK Android"
+                title="Pasang / Export APK Android"
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-xs font-bold shadow-2xs hover:bg-emerald-100 transition-all cursor-pointer"
+              >
+                <span>🤖</span>
+                <span className="hidden sm:inline text-[10px]">APK</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="w-10" />

@@ -20,6 +20,7 @@ import { Button } from '../common/Button';
 import { ParentDashboardModal } from './ParentDashboardModal';
 import { ChildProfileModal } from './ChildProfileModal';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
+import { AndroidApkModal } from '../common/AndroidApkModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -39,6 +40,7 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showParentModal, setShowParentModal] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
   const [showWeeklyReportModal, setShowWeeklyReportModal] = useState<boolean>(false);
+  const [showAndroidApkModal, setShowAndroidApkModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -130,6 +132,33 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
             </div>
             <p className="text-xs text-teal-50 font-medium mt-0.5">
               Grafik Recharts pencapaian Ziadah, Murojaah, dan Skor Mutqin
+            </p>
+          </div>
+        </div>
+
+        <ChevronRight size={22} className="text-white group-hover:translate-x-1 transition-transform" />
+      </div>
+
+      {/* Android APK Export & Install Card */}
+      <div
+        onClick={() => setShowAndroidApkModal(true)}
+        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white rounded-3xl p-5 shadow-md shadow-emerald-600/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl">
+            🤖
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black font-heading">
+                Pasang & Export APK Android
+              </h3>
+              <span className="text-[10px] bg-white/25 px-2 py-0.2 rounded-full font-bold">
+                Standar Android
+              </span>
+            </div>
+            <p className="text-xs text-teal-100 font-medium mt-0.5">
+              Instal langsung di HP atau build paket installer APK
             </p>
           </div>
         </div>
@@ -256,6 +285,12 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         isOpen={showWeeklyReportModal}
         onClose={() => setShowWeeklyReportModal(false)}
         activeChild={activeChild}
+      />
+
+      {/* Android APK Modal */}
+      <AndroidApkModal
+        isOpen={showAndroidApkModal}
+        onClose={() => setShowAndroidApkModal(false)}
       />
     </div>
   );
