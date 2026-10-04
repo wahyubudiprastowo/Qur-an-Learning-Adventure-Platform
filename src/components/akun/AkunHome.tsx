@@ -11,6 +11,7 @@ import {
   PlusCircle,
   Clock,
   LogOut,
+  BarChart3,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, PointsLedgerEntry } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -18,6 +19,7 @@ import { getLevelForXp, ACHIEVEMENTS_CATALOG } from '../../data/levelsAndAchieve
 import { Button } from '../common/Button';
 import { ParentDashboardModal } from './ParentDashboardModal';
 import { ChildProfileModal } from './ChildProfileModal';
+import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -36,6 +38,7 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
 }) => {
   const [showParentModal, setShowParentModal] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
+  const [showWeeklyReportModal, setShowWeeklyReportModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -105,6 +108,33 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Weekly Progress Report CTA Card (Visual Charts with Recharts) */}
+      <div
+        onClick={() => setShowWeeklyReportModal(true)}
+        className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-3xl p-5 shadow-md shadow-emerald-500/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs">
+            <BarChart3 size={26} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black font-heading">
+                Laporan Progres Mingguan Anak
+              </h3>
+              <span className="text-[10px] bg-white/25 px-2 py-0.2 rounded-full font-bold">
+                Grafik Visual
+              </span>
+            </div>
+            <p className="text-xs text-teal-50 font-medium mt-0.5">
+              Grafik Recharts pencapaian Ziadah, Murojaah, dan Skor Mutqin
+            </p>
+          </div>
+        </div>
+
+        <ChevronRight size={22} className="text-white group-hover:translate-x-1 transition-transform" />
       </div>
 
       {/* Parent Mode CTA Card */}
@@ -219,6 +249,13 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           onSwitchChild(newChild.id);
           onRefreshData();
         }}
+      />
+
+      {/* Weekly Progress Report Modal (Recharts Charts) */}
+      <WeeklyProgressModal
+        isOpen={showWeeklyReportModal}
+        onClose={() => setShowWeeklyReportModal(false)}
+        activeChild={activeChild}
       />
     </div>
   );

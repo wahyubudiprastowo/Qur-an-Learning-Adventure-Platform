@@ -13,12 +13,21 @@ import {
   CreditCard,
   UserCheck,
   CheckCircle2,
+  BarChart3,
+  TrendingUp,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Award,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { CompanionService } from '../../services/companionService';
 import { getStageForXp } from '../../data/companionData';
 import { getAyahAudioUrl } from '../../data/recitersData';
+import { WeeklyReportService } from '../../services/weeklyReportService';
+import { WeeklyProgressCharts } from '../progress/WeeklyProgressCharts';
 import { Button } from '../common/Button';
 
 interface ParentDashboardModalProps {
@@ -43,8 +52,10 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   const [parentPinInput, setParentPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
 
-  // Active Tab inside Parent Dashboard: 'summary' | 'recordings' | 'weak_ayahs' | 'privacy' | 'subscription'
-  const [activeTab, setActiveTab] = useState<'summary' | 'recordings' | 'weak_ayahs' | 'privacy' | 'subscription'>('summary');
+  // Active Tab inside Parent Dashboard: 'summary' | 'weekly_report' | 'recordings' | 'weak_ayahs' | 'privacy' | 'subscription'
+  const [activeTab, setActiveTab] = useState<'summary' | 'weekly_report' | 'recordings' | 'weak_ayahs' | 'privacy' | 'subscription'>('summary');
+  const [reportWeekOffset, setReportWeekOffset] = useState<number>(0);
+  const [copiedReport, setCopiedReport] = useState<boolean>(false);
 
   // Audio Playback in Parent Audit
   const [playingRecId, setPlayingRecId] = useState<string | null>(null);
@@ -214,11 +225,20 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
             <div className="flex gap-1.5 p-1 bg-[#EEF8FF] rounded-2xl border border-[#C9E1ED] overflow-x-auto">
               <button
                 onClick={() => setActiveTab('summary')}
-                className={`flex-1 min-w-[75px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex-1 min-w-[70px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   activeTab === 'summary' ? 'bg-white text-[#164C68] shadow-xs' : 'text-[#8C9BA7]'
                 }`}
               >
                 Ringkasan
+              </button>
+              <button
+                onClick={() => setActiveTab('weekly_report')}
+                className={`flex-1 min-w-[110px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1 ${
+                  activeTab === 'weekly_report' ? 'bg-white text-[#164C68] shadow-xs' : 'text-[#8C9BA7]'
+                }`}
+              >
+                <BarChart3 size={13} className="text-[#08B9EF]" />
+                <span>Rapor Mingguan</span>
               </button>
               <button
                 onClick={() => setActiveTab('recordings')}
@@ -256,7 +276,24 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
 
             {/* TAB 1: SUMMARY */}
             {activeTab === 'summary' && (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                {/* Weekly Report CTA Banner */}
+                <div
+                  onClick={() => setActiveTab('weekly_report')}
+                  className="p-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-2xl flex items-center justify-between cursor-pointer hover:opacity-95 shadow-xs transition-transform active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs">
+                      <BarChart3 size={20} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black block">Laporan & Grafik Mingguan Lengkap</span>
+                      <span className="text-[10px] text-teal-50 font-medium">Visualisasi tren hafalan, akurasi, dan durasi</span>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3.5 bg-cyan-50 rounded-2xl border border-cyan-200">
                     <span className="text-[11px] font-bold text-cyan-800 uppercase block">Total Menit Belajar</span>
@@ -342,6 +379,156 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                 })()}
               </div>
             )}
+
+            {/* TAB: WEEKLY REPORT WITH RECHARTS */}
+            {activeTab === 'weekly_report' && (() => {
+              const report = WeeklyReportService.getWeeklyReport(activeChild.id, reportWeekOffset);
+
+              const handleShareReport = () => {
+                const text = WeeklyReportService.generateShareableSummary(report);
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(text);
+                  setCopiedReport(true);
+                  setTimeout(() => setCopiedReport(false), 3000);
+                }
+              };
+
+              return (
+                <div className="space-y-4 max-h-[460px] overflow-y-auto pr-1">
+                  {/* Week Selector Bar */}
+                  <div className="flex items-center justify-between bg-[#EEF8FF] p-2 rounded-2xl border border-[#C9E1ED]">
+                    <button
+                      onClick={() => setReportWeekOffset((prev) => prev - 1)}
+                      disabled={reportWeekOffset <= -2}
+                      className={`p-1.5 rounded-xl border transition-all flex items-center gap-1 text-xs font-bold cursor-pointer ${
+                        reportWeekOffset <= -2
+                          ? 'text-slate-300 border-transparent cursor-not-allowed'
+                          : 'bg-white text-[#164C68] border-[#C9E1ED] hover:bg-slate-50'
+                      }`}
+                    >
+                      <ChevronLeft size={15} />
+                      <span>Pekan Lalu</span>
+                    </button>
+
+                    <div className="text-center px-1">
+                      <span className="text-xs font-black text-[#164C68] block">
+                        {report.weekLabel}
+                      </span>
+                      <span className="text-[10px] text-[#8C9BA7]">
+                        {reportWeekOffset === 0 ? 'Pekan Sedang Berjalan' : 'Arsip Pekan Lalu'}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => setReportWeekOffset((prev) => prev + 1)}
+                      disabled={reportWeekOffset >= 0}
+                      className={`p-1.5 rounded-xl border transition-all flex items-center gap-1 text-xs font-bold cursor-pointer ${
+                        reportWeekOffset >= 0
+                          ? 'text-slate-300 border-transparent cursor-not-allowed'
+                          : 'bg-white text-[#164C68] border-[#C9E1ED] hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>Pekan Ini</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+
+                  {/* Recognition & Predicate */}
+                  <div className="p-3.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl text-white shadow-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
+                        Predikat Sepekan
+                      </span>
+                      <span className="text-xs font-bold bg-white text-amber-900 px-2 py-0.5 rounded-full">
+                        ⭐ {report.totalBintangMingguan} Bintang
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black font-heading flex items-center gap-1.5">
+                      <span>{report.badgeIcon}</span>
+                      <span>{report.titleBadge}</span>
+                    </h4>
+                    <p className="text-xs text-amber-100 font-medium leading-relaxed">
+                      "{report.encouragementMessage}"
+                    </p>
+                  </div>
+
+                  {/* 4 Summary Stat Metrics */}
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="bg-[#EEF8FF]/80 p-2 rounded-2xl border border-[#C9E1ED] text-center">
+                      <span className="text-[9px] font-bold text-[#8C9BA7] uppercase block">Ziadah</span>
+                      <span className="text-base font-black text-emerald-600 font-heading block mt-0.5">
+                        +{report.totalAyatHafalBaru}
+                      </span>
+                      <span className="text-[9px] text-[#8C9BA7]">Ayat Baru</span>
+                    </div>
+
+                    <div className="bg-[#EEF8FF]/80 p-2 rounded-2xl border border-[#C9E1ED] text-center">
+                      <span className="text-[9px] font-bold text-[#8C9BA7] uppercase block">Murojaah</span>
+                      <span className="text-base font-black text-[#08B9EF] font-heading block mt-0.5">
+                        {report.totalAyatMurojaah}
+                      </span>
+                      <span className="text-[9px] text-[#8C9BA7]">Ayat Diulang</span>
+                    </div>
+
+                    <div className="bg-[#EEF8FF]/80 p-2 rounded-2xl border border-[#C9E1ED] text-center">
+                      <span className="text-[9px] font-bold text-[#8C9BA7] uppercase block">Mutqin</span>
+                      <span className="text-base font-black text-purple-600 font-heading block mt-0.5">
+                        {report.rataRataSkor}%
+                      </span>
+                      <span className="text-[9px] text-[#8C9BA7]">Akurasi</span>
+                    </div>
+
+                    <div className="bg-[#EEF8FF]/80 p-2 rounded-2xl border border-[#C9E1ED] text-center">
+                      <span className="text-[9px] font-bold text-[#8C9BA7] uppercase block">Durasi</span>
+                      <span className="text-base font-black text-amber-600 font-heading block mt-0.5">
+                        {report.totalMenitBelajar}m
+                      </span>
+                      <span className="text-[9px] text-[#8C9BA7]">{report.hariAktif}/7 Hari</span>
+                    </div>
+                  </div>
+
+                  {/* Visual Recharts Section */}
+                  <WeeklyProgressCharts report={report} />
+
+                  {/* Parent Guidance & Strengths */}
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2 text-xs">
+                    <h5 className="font-black text-emerald-900 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      Analisis Kelancaran & Rekomendasi
+                    </h5>
+                    <p className="text-emerald-800 text-[11px] leading-relaxed">
+                      {report.parentReviewNote}
+                    </p>
+                    <ul className="space-y-1 text-emerald-900 text-[11px] pt-1 border-t border-emerald-200/60">
+                      {report.recommendations.map((rec, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-emerald-600 font-bold shrink-0">•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Share button */}
+                  <button
+                    onClick={handleShareReport}
+                    className="w-full py-2.5 px-3 rounded-2xl bg-[#EEF8FF] hover:bg-[#d9effc] text-[#164C68] border border-[#C9E1ED] text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    {copiedReport ? (
+                      <>
+                        <Check size={15} className="text-emerald-600" />
+                        <span className="text-emerald-700 font-bold">Ringkasan Rapor Berhasil Disalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 size={15} className="text-[#08B9EF]" />
+                        <span>Salin / Bagikan Rapor Mingguan ke WhatsApp</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* TAB 2: RECORDINGS AUDIT (Parent can listen to child vs Qari) */}
             {activeTab === 'recordings' && (

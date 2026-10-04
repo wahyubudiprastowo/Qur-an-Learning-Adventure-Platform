@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Sparkles,
   Flame,
@@ -12,12 +12,15 @@ import {
   Award,
   ChevronRight,
   TrendingUp,
+  BarChart3,
 } from 'lucide-react';
 import { ChildProfile, ChildBlockProgress, ChildAyahProgress } from '../../types';
 import { CompanionData } from '../../types/companion';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { LivingCompanionCard } from '../companion/LivingCompanionCard';
 import { DailyQuestsCard } from '../companion/DailyQuestsCard';
+import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
+import { WeeklyReportService } from '../../services/weeklyReportService';
 
 interface BerandaHomeProps {
   child: ChildProfile;
@@ -55,10 +58,12 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   onRefreshCompanion,
   onNavigateToModule,
 }) => {
+  const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
   const learningBlocksCount = blockProgressList.filter((b) => b.state === 'LEARNING').length;
   const memorizedAyahsCount = ayahProgressList.filter((a) => a.memorized).length;
   const weakAyahsCount = ayahProgressList.filter((a) => a.needsReview).length;
+  const weeklyReport = WeeklyReportService.getWeeklyReport(child.id, 0);
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">
@@ -131,11 +136,20 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         </div>
       )}
 
-      {/* 5. Current Memorization Multi-Metric Grid */}
-      <div className="space-y-2 pt-1">
-        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
-          PERKEMBANGAN HAFALAN ANAK
-        </span>
+      {/* 5. Current Memorization Multi-Metric Grid & Weekly Report Preview */}
+      <div className="space-y-2.5 pt-1">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block">
+            PERKEMBANGAN HAFALAN ANAK
+          </span>
+          <button
+            onClick={() => setShowWeeklyModal(true)}
+            className="text-xs font-bold text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <BarChart3 size={13} />
+            <span>Rapor Mingguan</span>
+          </button>
+        </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white border border-[#C9E1ED] rounded-3xl p-3.5 text-center shadow-xs">
@@ -164,6 +178,33 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               Ayat Tuntas
             </span>
           </div>
+        </div>
+
+        {/* Weekly Report Interactive Teaser Card */}
+        <div
+          onClick={() => setShowWeeklyModal(true)}
+          className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between cursor-pointer hover:border-emerald-300 transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white text-emerald-600 border border-emerald-200 flex items-center justify-center text-lg shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+              📊
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h5 className="text-xs font-black text-[#164C68]">
+                  Grafik Sepekan: +{weeklyReport.totalAyatDisentuh} Ayat ({weeklyReport.hariAktif}/7 Hari Aktif)
+                </h5>
+                <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                  Mutqin {weeklyReport.rataRataSkor}%
+                </span>
+              </div>
+              <p className="text-[10px] text-[#8C9BA7] font-semibold mt-0.5">
+                Buka grafik visual Recharts Ziadah, Murojaah, dan waktu belajar
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight size={18} className="text-emerald-700 group-hover:translate-x-1 transition-transform shrink-0" />
         </div>
       </div>
 
@@ -205,6 +246,13 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Weekly Progress Report Modal (Visual Charts with Recharts) */}
+      <WeeklyProgressModal
+        isOpen={showWeeklyModal}
+        onClose={() => setShowWeeklyModal(false)}
+        activeChild={child}
+      />
     </div>
   );
 };
