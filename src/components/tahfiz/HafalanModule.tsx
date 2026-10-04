@@ -23,6 +23,7 @@ import { AyahData, SurahMetadata } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
+import { GlobalAudioManager } from '../../services/audioService';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
@@ -203,25 +204,35 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const handlePlayAyah = () => {
     addAssistance('play_ayah');
     if (audioAssistRef.current) {
+      GlobalAudioManager.unregisterRawAudio(audioAssistRef.current);
       audioAssistRef.current.pause();
     }
     const audioUrl = getAyahAudioUrl('alafasy', selectedSurahNumber, currentAyah.ayahNumber);
     const audio = new Audio(audioUrl);
     audioAssistRef.current = audio;
+    GlobalAudioManager.registerRawAudio(audio);
+    GlobalAudioManager.notifyPlayStarted(audio);
     audio.play().catch(() => {});
+    audio.onended = () => {
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
   };
 
   const handlePlayAwalan = () => {
     addAssistance('play_awalan');
     if (audioAssistRef.current) {
+      GlobalAudioManager.unregisterRawAudio(audioAssistRef.current);
       audioAssistRef.current.pause();
     }
     const audioUrl = getAyahAudioUrl('alafasy', selectedSurahNumber, currentAyah.ayahNumber);
     const audio = new Audio(audioUrl);
     audioAssistRef.current = audio;
+    GlobalAudioManager.registerRawAudio(audio);
+    GlobalAudioManager.notifyPlayStarted(audio);
     audio.play().catch(() => {});
     setTimeout(() => {
       audio.pause();
+      GlobalAudioManager.unregisterRawAudio(audio);
     }, 1800);
   };
 

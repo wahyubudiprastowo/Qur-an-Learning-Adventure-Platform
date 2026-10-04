@@ -13,6 +13,101 @@ export interface AudioProgressInfo {
   totalBlockRepeat: number; // -1 for infinity
 }
 
+type AudioStopListener = () => void;
+
+/**
+ * Global audio manager to guarantee single-channel audio playback across the entire app.
+ * Completely prevents any simultaneous audio playback between Ziadah, Tilawah, Dengar, Murojaah, and Quizzes.
+ */
+export class GlobalAudioManager {
+  private static activePlayers = new Set<QuranAudioPlayer>();
+  private static activeRawAudios = new Set<HTMLAudioElement>();
+  private static stopListeners = new Set<AudioStopListener>();
+
+  static registerPlayer(player: QuranAudioPlayer) {
+    this.activePlayers.add(player);
+  }
+
+  static unregisterPlayer(player: QuranAudioPlayer) {
+    this.activePlayers.delete(player);
+  }
+
+  static registerRawAudio(audio: HTMLAudioElement) {
+    this.activeRawAudios.add(audio);
+  }
+
+  static unregisterRawAudio(audio: HTMLAudioElement) {
+    this.activeRawAudios.delete(audio);
+  }
+
+  /**
+   * Called immediately before or when any audio starts playing.
+   * Pauses and resets all other audio sources across all modules.
+   */
+  static notifyPlayStarted(source: QuranAudioPlayer | HTMLAudioElement) {
+    // 1. Pause and stop all other QuranAudioPlayer instances (Ziadah, Dengar, Murojaah)
+    for (const player of this.activePlayers) {
+      if (player !== source) {
+        player.pause();
+      }
+    }
+
+    // 2. Pause and disarm all other HTMLAudioElement instances (Tilawah, Quizzes, Recordings)
+    for (const audio of Array.from(this.activeRawAudios)) {
+      if (audio !== source) {
+        try {
+          audio.onended = null;
+          audio.onerror = null;
+          audio.pause();
+          audio.currentTime = 0;
+          this.activeRawAudios.delete(audio);
+        } catch (e) {}
+      }
+    }
+
+    // 3. Notify stop listeners so UI components update their play/pause indicators
+    for (const listener of Array.from(this.stopListeners)) {
+      try {
+        listener();
+      } catch (e) {}
+    }
+  }
+
+  /**
+   * Stops all active audio across the app (invoked on navigation, tab switch, etc.)
+   */
+  static stopAll() {
+    for (const player of this.activePlayers) {
+      try {
+        player.stop();
+      } catch (e) {}
+    }
+
+    for (const audio of Array.from(this.activeRawAudios)) {
+      try {
+        audio.onended = null;
+        audio.onerror = null;
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (e) {}
+    }
+    this.activeRawAudios.clear();
+
+    for (const listener of Array.from(this.stopListeners)) {
+      try {
+        listener();
+      } catch (e) {}
+    }
+  }
+
+  static addStopListener(listener: AudioStopListener): () => void {
+    this.stopListeners.add(listener);
+    return () => {
+      this.stopListeners.delete(listener);
+    };
+  }
+}
+
 export class QuranAudioPlayer {
   private audio: HTMLAudioElement;
   public state: PlaybackState = 'IDLE';
@@ -33,6 +128,7 @@ export class QuranAudioPlayer {
   public singleAyahMode: boolean = false; // When true, plays only the selected ayah
 
   private isFallingBack: boolean = false;
+  private currentPlayToken: number = 0;
 
   // Listeners
   public onStateChange?: (state: PlaybackState) => void;
@@ -43,11 +139,13 @@ export class QuranAudioPlayer {
 
   constructor() {
     this.audio = new Audio();
+    GlobalAudioManager.registerPlayer(this);
     this.setupListeners();
   }
 
   private setupListeners() {
     this.audio.addEventListener('play', () => {
+      GlobalAudioManager.notifyPlayStarted(this);
       this.state = 'PLAYING';
       this.onStateChange?.('PLAYING');
     });
@@ -100,8 +198,8 @@ export class QuranAudioPlayer {
     surahNumber: number;
     startAyah: number;
     endAyah: number;
-    ayahRepeats?: number;
-    blockRepeats?: number; // -1 for infinity
+    ayahRepeats: number;
+    blockRepeats: number;
     playbackRate?: number;
     singleAyahMode?: boolean;
   }) {
@@ -110,13 +208,14 @@ export class QuranAudioPlayer {
     this.startAyah = params.startAyah;
     this.endAyah = params.endAyah;
     this.currentAyah = params.startAyah;
-    this.targetAyahRepeats = params.ayahRepeats ?? 1;
+    this.targetAyahRepeats = params.ayahRepeats;
     this.currentAyahRepeat = 1;
-    this.targetBlockRepeats = params.blockRepeats ?? 1;
+    this.targetBlockRepeats = params.blockRepeats;
     this.currentBlockRepeat = 1;
-    this.playbackRate = params.playbackRate ?? 1.0;
     this.singleAyahMode = params.singleAyahMode ?? false;
-    this.isFallingBack = false;
+    if (params.playbackRate) {
+      this.setSpeed(params.playbackRate);
+    }
   }
 
   public setSpeed(rate: number) {
@@ -135,18 +234,36 @@ export class QuranAudioPlayer {
   }
 
   public async play(): Promise<void> {
+    const token = ++this.currentPlayToken;
+    GlobalAudioManager.notifyPlayStarted(this);
     if (!this.audio.src || this.audio.src === '' || this.state === 'IDLE' || this.state === 'ENDED') {
       this.loadCurrentAyah();
     }
     try {
       await this.audio.play();
     } catch (err) {
+      if (token !== this.currentPlayToken) return;
       console.warn('Play was interrupted or waiting user gesture:', err);
     }
   }
 
   public pause(): void {
-    this.audio.pause();
+    this.currentPlayToken++;
+    try {
+      this.audio.pause();
+    } catch (e) {}
+    this.state = 'PAUSED';
+    this.onStateChange?.('PAUSED');
+  }
+
+  public stop(): void {
+    this.currentPlayToken++;
+    try {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    } catch (e) {}
+    this.state = 'IDLE';
+    this.onStateChange?.('IDLE');
   }
 
   public togglePlayPause(): void {
@@ -191,6 +308,11 @@ export class QuranAudioPlayer {
   }
 
   private handleAyahEnded(): void {
+    // If not playing or player was preempted by another module, stop immediately!
+    if (this.state !== 'PLAYING') {
+      return;
+    }
+
     // If single ayah mode is enabled (user selected one specific ayah to hear)
     if (this.singleAyahMode) {
       if (this.currentAyahRepeat < this.targetAyahRepeats) {
@@ -239,14 +361,8 @@ export class QuranAudioPlayer {
     }
   }
 
-  public stop(): void {
-    this.audio.pause();
-    this.audio.currentTime = 0;
-    this.state = 'IDLE';
-    this.onStateChange?.('IDLE');
-  }
-
   public destroy(): void {
+    GlobalAudioManager.unregisterPlayer(this);
     this.stop();
     this.audio.src = '';
   }

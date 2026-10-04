@@ -18,6 +18,7 @@ import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS, getAyahAudioUrl, getAyahAudioFallbackUrl } from '../../data/recitersData';
 import { AyahData, SurahMetadata } from '../../types';
 import { ArabicText } from '../common/ArabicText';
+import { GlobalAudioManager } from '../../services/audioService';
 
 interface TilawahModuleProps {
   childId: string;
@@ -56,13 +57,33 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
 
   // Load Ayahs when active surah is selected
   useEffect(() => {
-    if (!activeSurah) {
+    // Global stop listener: when any other module (Ziadah, Dengar, etc.) starts playing, reset our playing state & disarm audio
+    const unsub = GlobalAudioManager.addStopListener(() => {
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        try {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        } catch (e) {}
+        audioRef.current = null;
       }
       setCurrentPlayingAyah(null);
-      return;
+    });
+
+    if (!activeSurah) {
+      if (audioRef.current) {
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        GlobalAudioManager.unregisterRawAudio(audioRef.current);
+        try {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        } catch (e) {}
+        audioRef.current = null;
+      }
+      setCurrentPlayingAyah(null);
+      return () => unsub();
     }
 
     let isMounted = true;
@@ -76,10 +97,18 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
 
     return () => {
       isMounted = false;
+      unsub();
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
+        GlobalAudioManager.unregisterRawAudio(audioRef.current);
+        try {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        } catch (e) {}
+        audioRef.current = null;
       }
+      setCurrentPlayingAyah(null);
     };
   }, [activeSurah]);
 
@@ -88,19 +117,29 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
 
     // Toggle pause if clicking already playing ayah
     if (currentPlayingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-      setCurrentPlayingAyah(null);
+      handleStopAudio();
       return;
     }
 
     if (audioRef.current) {
-      audioRef.current.pause();
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      GlobalAudioManager.unregisterRawAudio(audioRef.current);
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      } catch (e) {}
+      audioRef.current = null;
     }
 
     const url = getAyahAudioUrl(reciterId, activeSurah.number, ayahNumber);
     const audio = new Audio(url);
     audioRef.current = audio;
     setCurrentPlayingAyah(ayahNumber);
+
+    // Register with global coordinator and stop any other player (Ziadah, Dengar, Murojaah, etc.)
+    GlobalAudioManager.registerRawAudio(audio);
+    GlobalAudioManager.notifyPlayStarted(audio);
 
     // Auto-scroll into view smoothly
     setTimeout(() => {
@@ -111,29 +150,45 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
     }, 50);
 
     audio.onerror = () => {
+      if (audioRef.current !== audio) return;
       console.warn('Audio primary URL failed, trying fallback URL');
       const fallbackUrl = getAyahAudioFallbackUrl(reciterId, activeSurah.number, ayahNumber);
       if (audio.src !== fallbackUrl) {
         audio.src = fallbackUrl;
         audio.play().catch(() => {
-          setCurrentPlayingAyah(null);
+          GlobalAudioManager.unregisterRawAudio(audio);
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+            setCurrentPlayingAyah(null);
+          }
         });
       } else {
-        setCurrentPlayingAyah(null);
+        GlobalAudioManager.unregisterRawAudio(audio);
+        if (audioRef.current === audio) {
+          audioRef.current = null;
+          setCurrentPlayingAyah(null);
+        }
       }
     };
 
     audio.onended = () => {
+      GlobalAudioManager.unregisterRawAudio(audio);
+      if (audioRef.current !== audio) {
+        return;
+      }
+
       if (playMode === 'single' || forceSingle) {
+        audioRef.current = null;
         setCurrentPlayingAyah(null);
         return;
       }
 
-      // Continuous play: play next ayah if available
+      // Continuous play: play next ayah if available and not stopped
       const nextNum = ayahNumber + 1;
       if (nextNum <= activeSurah.ayahCount) {
         handlePlayAyah(nextNum);
       } else {
+        audioRef.current = null;
         setCurrentPlayingAyah(null);
       }
     };
@@ -145,8 +200,15 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
 
   const handleStopAudio = () => {
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+      GlobalAudioManager.unregisterRawAudio(audioRef.current);
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
+      } catch (e) {}
+      audioRef.current = null;
     }
     setCurrentPlayingAyah(null);
   };

@@ -79,7 +79,10 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
       />
 
       {/* 2. Continue Learning Last Session Card */}
-      <div className="bg-gradient-to-r from-[#FF7A50] to-[#FF946F] text-white rounded-3xl p-5 shadow-md shadow-orange-500/25 flex items-center justify-between">
+      <div
+        onClick={onResumeLastSession}
+        className="bg-gradient-to-r from-[#FF7A50] to-[#FF946F] text-white rounded-3xl p-5 shadow-md shadow-orange-500/25 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-transform hover:shadow-lg group"
+      >
         <div className="space-y-1">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/25 text-[11px] font-bold">
             ↻ Lanjutkan Belajar
@@ -98,8 +101,11 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         </div>
 
         <button
-          onClick={onResumeLastSession}
-          className="w-14 h-14 rounded-full bg-white text-[#FF7A50] flex items-center justify-center shadow-lg active:scale-95 transition-transform hover:bg-orange-50 cursor-pointer shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onResumeLastSession();
+          }}
+          className="w-14 h-14 rounded-full bg-white text-[#FF7A50] flex items-center justify-center shadow-lg active:scale-95 transition-transform hover:bg-orange-50 cursor-pointer shrink-0 group-hover:scale-105"
           title="Lanjutkan Sesi Belajar"
         >
           <Play size={26} className="fill-[#FF7A50] ml-1" />
@@ -152,32 +158,44 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white border border-[#C9E1ED] rounded-3xl p-3.5 text-center shadow-xs">
+          <button
+            onClick={() => onNavigateToModule('murojaah')}
+            className="bg-white border border-[#C9E1ED] hover:border-emerald-300 rounded-3xl p-3.5 text-center shadow-xs cursor-pointer transition-all hover:shadow-md active:scale-95"
+            title="Buka Murojaah Blok Hafal"
+          >
             <span className="text-2xl font-black text-[#81E850] font-heading block">
               {memorizedBlocksCount}
             </span>
             <span className="text-[11px] font-bold text-[#164C68] block mt-0.5">
               Blok Hafal
             </span>
-          </div>
+          </button>
 
-          <div className="bg-white border border-[#C9E1ED] rounded-3xl p-3.5 text-center shadow-xs">
+          <button
+            onClick={() => onNavigateToModule('ziadah')}
+            className="bg-white border border-[#C9E1ED] hover:border-sky-300 rounded-3xl p-3.5 text-center shadow-xs cursor-pointer transition-all hover:shadow-md active:scale-95"
+            title="Lanjut Latih Ziadah (Hafalan Baru)"
+          >
             <span className="text-2xl font-black text-[#08B9EF] font-heading block">
               {learningBlocksCount}
             </span>
             <span className="text-[11px] font-bold text-[#164C68] block mt-0.5">
               Sedang Dilatih
             </span>
-          </div>
+          </button>
 
-          <div className="bg-white border border-[#C9E1ED] rounded-3xl p-3.5 text-center shadow-xs">
+          <button
+            onClick={() => setShowWeeklyModal(true)}
+            className="bg-white border border-[#C9E1ED] hover:border-purple-300 rounded-3xl p-3.5 text-center shadow-xs cursor-pointer transition-all hover:shadow-md active:scale-95"
+            title="Lihat Rapor Ayat Tuntas"
+          >
             <span className="text-2xl font-black text-purple-600 font-heading block">
               {memorizedAyahsCount}
             </span>
             <span className="text-[11px] font-bold text-[#164C68] block mt-0.5">
               Ayat Tuntas
             </span>
-          </div>
+          </button>
         </div>
 
         {/* Weekly Report Interactive Teaser Card */}
@@ -243,6 +261,117 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               <Award size={20} />
             </div>
             <span className="text-xs font-bold text-[#164C68]">Setoran</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 7. Al-Quran Learning Curriculum Modules */}
+      <div className="space-y-2 pt-1">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          MODUL BELAJAR AL-QUR'AN
+        </span>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            onClick={() => onNavigateToModule('tilawah')}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-[#08B9EF] rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-cyan-50 text-[#08B9EF] flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              📖
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Tilawah Mushaf
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                114 Surah 30 Juz Lengkap
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToModule('iqra')}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-emerald-300 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              🔤
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Iqra' Anak
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                Huruf Hijaiyah & Harakat
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToModule('tajwid')}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-purple-300 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              🎨
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Belajar Tajwid
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                Hukum Bacaan Tartil
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToModule('vocab')}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-amber-300 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              💡
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Bahasa Qur'an
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                Arti Kata demi Kata
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => onNavigateToModule('tafsir')}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-sky-300 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              📜
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Tafsir & Kisah
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                Kisah Turunnya Surah
+              </span>
+            </div>
+          </button>
+
+          <button
+            onClick={onOpenWorldMap}
+            className="p-3 bg-white border border-[#C9E1ED] hover:border-indigo-300 rounded-2xl flex items-center gap-3 text-left transition-all cursor-pointer shadow-2xs hover:shadow-sm active:scale-98 group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition-transform">
+              🗺️
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-black text-[#164C68] block font-heading truncate">
+                Peta Petualangan
+              </span>
+              <span className="text-[10px] text-[#8C9BA7] block truncate">
+                10 Wilayah & Arena Game
+              </span>
+            </div>
           </button>
         </div>
       </div>

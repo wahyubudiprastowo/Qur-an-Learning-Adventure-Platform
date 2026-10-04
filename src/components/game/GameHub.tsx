@@ -13,6 +13,7 @@ import {
 import { StorageService } from '../../services/storageService';
 import { CompanionService } from '../../services/companionService';
 import { getAyahAudioUrl } from '../../data/recitersData';
+import { GlobalAudioManager } from '../../services/audioService';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
 import { WorldMapView } from '../companion/WorldMapView';
@@ -30,6 +31,7 @@ export type GameType =
 
 interface GameHubProps {
   childId: string;
+  initialTab?: 'map' | 'games' | 'room' | 'collection';
   onNavigateToLand?: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
 }
 
@@ -42,7 +44,7 @@ interface QuizItem {
   audioInfo?: { surah: number; ayah: number };
 }
 
-export const GameHub: React.FC<GameHubProps> = ({ childId, onNavigateToLand }) => {
+export const GameHub: React.FC<GameHubProps> = ({ childId, initialTab, onNavigateToLand }) => {
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -347,7 +349,12 @@ export const GameHub: React.FC<GameHubProps> = ({ childId, onNavigateToLand }) =
     if (!currentQ.audioInfo) return;
     const url = getAyahAudioUrl('alafasy', currentQ.audioInfo.surah, currentQ.audioInfo.ayah);
     const audio = new Audio(url);
+    GlobalAudioManager.registerRawAudio(audio);
+    GlobalAudioManager.notifyPlayStarted(audio);
     audio.play().catch(() => {});
+    audio.onended = () => {
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
   };
 
   const handleNextQuestion = () => {
@@ -518,6 +525,7 @@ export const GameHub: React.FC<GameHubProps> = ({ childId, onNavigateToLand }) =
     <WorldMapView
       child={activeChild}
       companion={companion}
+      initialTab={initialTab}
       onNavigateToLand={(tab, subView) => {
         onNavigateToLand?.(tab, subView);
       }}

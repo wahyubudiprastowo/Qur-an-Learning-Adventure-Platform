@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Compass,
   Gamepad2,
@@ -35,6 +35,7 @@ import { StorageService } from '../../services/storageService';
 interface WorldMapViewProps {
   child: ChildProfile;
   companion: CompanionData;
+  initialTab?: 'map' | 'games' | 'room' | 'collection';
   onNavigateToLand: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
   onRefreshCompanion: () => void;
   // Mini-game launcher
@@ -44,14 +45,21 @@ interface WorldMapViewProps {
 export const WorldMapView: React.FC<WorldMapViewProps> = ({
   child,
   companion,
+  initialTab = 'map',
   onNavigateToLand,
   onRefreshCompanion,
   onLaunchMiniGame,
 }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection'>('map');
+  const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection'>(initialTab);
   const [selectedLand, setSelectedLand] = useState<WorldLand | null>(null);
   const [collectionSubTab, setCollectionSubTab] = useState<'stages' | 'cards' | 'badges' | 'plants'>('stages');
   const [roomActionNotice, setRoomActionNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveMainTab(initialTab);
+    }
+  }, [initialTab]);
 
   const stageConfig = getStageForXp(companion.xp);
 

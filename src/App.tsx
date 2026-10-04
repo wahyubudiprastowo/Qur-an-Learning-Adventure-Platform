@@ -26,7 +26,10 @@ import { AsbabNuzulModule } from './components/alQuran/AsbabNuzulModule';
 import { GameHub } from './components/game/GameHub';
 import { AkunHome } from './components/akun/AkunHome';
 import { ChildProfileModal } from './components/akun/ChildProfileModal';
+import { QuickChildSwitcherModal } from './components/akun/QuickChildSwitcherModal';
 import { CompanionService } from './services/companionService';
+import { GlobalAudioManager } from './services/audioService';
+import { getBlocksForSurah } from './data/blocksData';
 
 export default function App() {
   // Navigation Tabs
@@ -37,6 +40,9 @@ export default function App() {
 
   // Al-Quran Submodule
   const [alQuranSubView, setAlQuranSubView] = useState<AlQuranSubmodule>(null);
+
+  // Sub-tab for Game / World Map ('map' | 'games' | 'room' | 'collection')
+  const [gameSubTab, setGameSubTab] = useState<'map' | 'games' | 'room' | 'collection'>('map');
 
   // Active User & Child Profile State
   const [userAccount, setUserAccount] = useState<UserAccount>(() => StorageService.getUserAccount());
@@ -62,12 +68,18 @@ export default function App() {
     blockRepeats: number;
   } | null>(null);
 
-  // Quick Child Selector Modal state
-  const [showChildModal, setShowChildModal] = useState<boolean>(false);
+  // Child Switcher & Creation Modals
+  const [showQuickChildSwitcher, setShowQuickChildSwitcher] = useState<boolean>(false);
+  const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
 
   const [companion, setCompanion] = useState(() =>
     CompanionService.getCompanionData(activeChild.id)
   );
+
+  // Global Audio Isolation: Stop any active audio across all modules whenever navigation changes
+  useEffect(() => {
+    GlobalAudioManager.stopAll();
+  }, [activeTab, tahfizSubView, alQuranSubView]);
 
   // Sync state whenever active child changes
   const refreshChildData = (childId: string) => {
@@ -86,6 +98,7 @@ export default function App() {
   };
 
   const handleNavigateToModule = (actionType: string) => {
+    GlobalAudioManager.stopAll();
     if (actionType === 'dengar') {
       setActiveTab('tahfiz');
       setTahfizSubView('dengar');
@@ -98,29 +111,59 @@ export default function App() {
     } else if (actionType === 'hafalan') {
       setActiveTab('tahfiz');
       setTahfizSubView('hafalan');
+    } else if (actionType === 'tilawah') {
+      setActiveTab('alquran');
+      setAlQuranSubView('tilawah');
     } else if (actionType === 'iqra') {
       setActiveTab('alquran');
       setAlQuranSubView('iqra');
     } else if (actionType === 'tajwid') {
       setActiveTab('alquran');
       setAlQuranSubView('tajwid');
-    } else if (actionType === 'vocab') {
+    } else if (actionType === 'vocab' || actionType === 'bahasa') {
       setActiveTab('alquran');
       setAlQuranSubView('bahasa');
+    } else if (actionType === 'tafsir') {
+      setActiveTab('alquran');
+      setAlQuranSubView('tafsir');
+    } else if (actionType === 'asbab') {
+      setActiveTab('alquran');
+      setAlQuranSubView('asbab');
     } else if (actionType === 'game') {
       setActiveTab('game');
+      setGameSubTab('games');
+    } else if (actionType === 'room') {
+      setActiveTab('game');
+      setGameSubTab('room');
+    } else if (actionType === 'map') {
+      setActiveTab('game');
+      setGameSubTab('map');
     }
   };
 
   // Resume last learning session directly
   const handleResumeLastSession = () => {
+    GlobalAudioManager.stopAll();
     setActiveTab('tahfiz');
     if (lastSession.mode === 'dengar') {
       setTahfizSubView('dengar');
     } else if (lastSession.mode === 'hafalan') {
       setTahfizSubView('hafalan');
     } else {
-      setTahfizSubView('ziadah_config');
+      // Find matching block for instantaneous seamless practice
+      const allBlocks = getBlocksForSurah(lastSession.surahNumber, 114);
+      const targetBlock = allBlocks.find((b) => b.blockNumber === lastSession.blockNumber) || allBlocks[0];
+      if (targetBlock) {
+        setActivePracticeConfig({
+          surahNumber: lastSession.surahNumber,
+          selectedBlocks: [targetBlock],
+          ayahRepeats: 3,
+          blockRepeats: 3,
+        });
+        setTahfizSubView('ziadah_player');
+      } else {
+        setTahfizSubView('ziadah_config');
+      }
     }
   };
 
@@ -211,7 +254,7 @@ export default function App() {
           subtitle={headerSubtitle}
           onBack={onBackHandler}
           activeChild={activeChild}
-          onSelectChild={() => setShowChildModal(true)}
+          onSelectChild={() => setShowQuickChildSwitcher(true)}
         />
 
         {/* Scrollable Content Container */}
@@ -233,8 +276,14 @@ export default function App() {
                 setActiveTab('tahfiz');
                 setTahfizSubView('murojaah');
               }}
-              onOpenRoom={() => setActiveTab('game')}
-              onOpenWorldMap={() => setActiveTab('game')}
+              onOpenRoom={() => {
+                setActiveTab('game');
+                setGameSubTab('room');
+              }}
+              onOpenWorldMap={() => {
+                setActiveTab('game');
+                setGameSubTab('map');
+              }}
               onRefreshCompanion={() => refreshChildData(activeChild.id)}
               onNavigateToModule={handleNavigateToModule}
             />
@@ -365,6 +414,7 @@ export default function App() {
           {activeTab === 'game' && (
             <GameHub
               childId={activeChild.id}
+              initialTab={gameSubTab}
               onNavigateToLand={(tab, subView) => {
                 setActiveTab(tab);
                 if (tab === 'tahfiz' && subView) {
@@ -404,12 +454,29 @@ export default function App() {
           murojaahDueCount={weakAyahsCount}
         />
 
-        {/* Quick Child Switch Modal */}
+        {/* Quick Child Switcher Modal */}
+        <QuickChildSwitcherModal
+          isOpen={showQuickChildSwitcher}
+          onClose={() => setShowQuickChildSwitcher(false)}
+          childrenList={childrenList}
+          activeChildId={activeChild.id}
+          onSwitchChild={(id) => {
+            handleSwitchChild(id);
+            setShowQuickChildSwitcher(false);
+          }}
+          onOpenCreateChild={() => {
+            setShowQuickChildSwitcher(false);
+            setShowAddChildModal(true);
+          }}
+        />
+
+        {/* Add Child Profile Modal */}
         <ChildProfileModal
-          isOpen={showChildModal}
-          onClose={() => setShowChildModal(false)}
+          isOpen={showAddChildModal}
+          onClose={() => setShowAddChildModal(false)}
           onChildCreated={(newChild) => {
             handleSwitchChild(newChild.id);
+            setShowAddChildModal(false);
           }}
         />
       </div>
