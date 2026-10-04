@@ -12,7 +12,7 @@ import {
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
-import { QuranAudioPlayer, PlaybackState, AudioProgressInfo } from '../../services/audioService';
+import { QuranAudioPlayer, PlaybackState, AudioProgressInfo, GlobalAudioManager } from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
 import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
@@ -98,7 +98,13 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       }
     };
 
+    const unsubStop = GlobalAudioManager.addStopListener(() => {
+      setPlaybackState('PAUSED');
+      setActiveWordIndex(null);
+    });
+
     return () => {
+      unsubStop();
       player.destroy();
     };
   }, []);

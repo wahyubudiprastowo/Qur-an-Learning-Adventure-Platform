@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { NavigationTab, ChildProfile, UserAccount, MemorizationBlock } from './types';
 import { StorageService } from './services/storageService';
 import { Header } from './components/common/Header';
@@ -76,10 +76,41 @@ export default function App() {
     CompanionService.getCompanionData(activeChild.id)
   );
 
-  // Global Audio Isolation: Stop any active audio across all modules whenever navigation changes
-  useEffect(() => {
+  // Global Audio Isolation: Stop all active audio streams across all modules whenever navigation changes.
+  // useLayoutEffect runs synchronously before browser paint to prevent any overlapping audio or lingering UI states.
+  useLayoutEffect(() => {
     GlobalAudioManager.stopAll();
+    return () => {
+      GlobalAudioManager.stopAll();
+    };
   }, [activeTab, tahfizSubView, alQuranSubView]);
+
+  // Unified Safe Navigation Controllers
+  const navigateToTab = (tab: NavigationTab) => {
+    GlobalAudioManager.stopAll();
+    setActiveTab(tab);
+    if (tab === 'tahfiz') {
+      setTahfizSubView('home');
+    } else if (tab === 'alquran') {
+      setAlQuranSubView(null);
+    }
+  };
+
+  const navigateTahfiz = (subView: string) => {
+    GlobalAudioManager.stopAll();
+    setTahfizSubView(subView);
+  };
+
+  const navigateAlQuran = (subView: AlQuranSubmodule) => {
+    GlobalAudioManager.stopAll();
+    setAlQuranSubView(subView);
+  };
+
+  const navigateGame = (subTab: 'map' | 'games' | 'room' | 'collection') => {
+    GlobalAudioManager.stopAll();
+    setActiveTab('game');
+    setGameSubTab(subTab);
+  };
 
   // Sync state whenever active child changes
   const refreshChildData = (childId: string) => {
@@ -92,6 +123,7 @@ export default function App() {
   };
 
   const handleSwitchChild = (childId: string) => {
+    GlobalAudioManager.stopAll();
     StorageService.setActiveChildId(childId);
     setChildrenList(StorageService.getChildren());
     refreshChildData(childId);
@@ -101,43 +133,40 @@ export default function App() {
     GlobalAudioManager.stopAll();
     if (actionType === 'dengar') {
       setActiveTab('tahfiz');
-      setTahfizSubView('dengar');
+      navigateTahfiz('dengar');
     } else if (actionType === 'ziadah') {
       setActiveTab('tahfiz');
-      setTahfizSubView('ziadah_config');
+      navigateTahfiz('ziadah_config');
     } else if (actionType === 'murojaah') {
       setActiveTab('tahfiz');
-      setTahfizSubView('murojaah');
+      navigateTahfiz('murojaah');
     } else if (actionType === 'hafalan') {
       setActiveTab('tahfiz');
-      setTahfizSubView('hafalan');
+      navigateTahfiz('hafalan');
     } else if (actionType === 'tilawah') {
       setActiveTab('alquran');
-      setAlQuranSubView('tilawah');
+      navigateAlQuran('tilawah');
     } else if (actionType === 'iqra') {
       setActiveTab('alquran');
-      setAlQuranSubView('iqra');
+      navigateAlQuran('iqra');
     } else if (actionType === 'tajwid') {
       setActiveTab('alquran');
-      setAlQuranSubView('tajwid');
+      navigateAlQuran('tajwid');
     } else if (actionType === 'vocab' || actionType === 'bahasa') {
       setActiveTab('alquran');
-      setAlQuranSubView('bahasa');
+      navigateAlQuran('bahasa');
     } else if (actionType === 'tafsir') {
       setActiveTab('alquran');
-      setAlQuranSubView('tafsir');
+      navigateAlQuran('tafsir');
     } else if (actionType === 'asbab') {
       setActiveTab('alquran');
-      setAlQuranSubView('asbab');
+      navigateAlQuran('asbab');
     } else if (actionType === 'game') {
-      setActiveTab('game');
-      setGameSubTab('games');
+      navigateGame('games');
     } else if (actionType === 'room') {
-      setActiveTab('game');
-      setGameSubTab('room');
+      navigateGame('room');
     } else if (actionType === 'map') {
-      setActiveTab('game');
-      setGameSubTab('map');
+      navigateGame('map');
     }
   };
 
@@ -146,9 +175,9 @@ export default function App() {
     GlobalAudioManager.stopAll();
     setActiveTab('tahfiz');
     if (lastSession.mode === 'dengar') {
-      setTahfizSubView('dengar');
+      navigateTahfiz('dengar');
     } else if (lastSession.mode === 'hafalan') {
-      setTahfizSubView('hafalan');
+      navigateTahfiz('hafalan');
     } else {
       // Find matching block for instantaneous seamless practice
       const allBlocks = getBlocksForSurah(lastSession.surahNumber, 114);
@@ -160,9 +189,9 @@ export default function App() {
           ayahRepeats: 3,
           blockRepeats: 3,
         });
-        setTahfizSubView('ziadah_player');
+        navigateTahfiz('ziadah_player');
       } else {
-        setTahfizSubView('ziadah_config');
+        navigateTahfiz('ziadah_config');
       }
     }
   };
@@ -173,8 +202,9 @@ export default function App() {
     ayahRepeats: number;
     blockRepeats: number;
   }) => {
+    GlobalAudioManager.stopAll();
     setActivePracticeConfig(config);
-    setTahfizSubView('ziadah_player');
+    navigateTahfiz('ziadah_player');
   };
 
   const handleMarkBlocksMemorized = (surahNumber: number, blockNumbers: number[]) => {
@@ -194,27 +224,27 @@ export default function App() {
     if (tahfizSubView === 'dengar') {
       headerTitle = 'Dengar Murottal';
       headerSubtitle = 'Langkah 1: Kenali Nada';
-      onBackHandler = () => setTahfizSubView('home');
+      onBackHandler = () => navigateTahfiz('home');
     } else if (tahfizSubView === 'latihan_menu') {
       headerTitle = 'Pilih Mode Latihan';
       headerSubtitle = 'Langkah 2: Latihan Bertahap';
-      onBackHandler = () => setTahfizSubView('home');
+      onBackHandler = () => navigateTahfiz('home');
     } else if (tahfizSubView === 'ziadah_config') {
       headerTitle = 'Ziadah — Hafalan Baru';
       headerSubtitle = 'Atur Blok & Pengulangan';
-      onBackHandler = () => setTahfizSubView('latihan_menu');
+      onBackHandler = () => navigateTahfiz('latihan_menu');
     } else if (tahfizSubView === 'ziadah_player') {
       headerTitle = 'Latihan Hafalan';
       headerSubtitle = 'Fokus Melafalkan';
-      onBackHandler = () => setTahfizSubView('ziadah_config');
+      onBackHandler = () => navigateTahfiz('ziadah_config');
     } else if (tahfizSubView === 'murojaah') {
       headerTitle = 'Murojaah';
       headerSubtitle = 'Teks Dibuka Bertahap';
-      onBackHandler = () => setTahfizSubView('latihan_menu');
+      onBackHandler = () => navigateTahfiz('latihan_menu');
     } else if (tahfizSubView === 'hafalan') {
       headerTitle = 'Uji Hafalan / Setoran';
       headerSubtitle = 'Langkah 3: Uji Mandiri Tanpa Teks';
-      onBackHandler = () => setTahfizSubView('home');
+      onBackHandler = () => navigateTahfiz('home');
     }
   } else if (activeTab === 'alquran' && alQuranSubView !== null) {
     if (alQuranSubView === 'iqra') {
@@ -236,7 +266,7 @@ export default function App() {
       headerTitle = 'Asbabun Nuzul';
       headerSubtitle = 'Kisah di Balik Surah';
     }
-    onBackHandler = () => setAlQuranSubView(null);
+    onBackHandler = () => navigateAlQuran(null);
   } else if (activeTab === 'game') {
     headerTitle = 'Peta Dunia & Petualangan';
     headerSubtitle = 'Sahabat, Dunia & Game';
@@ -269,21 +299,15 @@ export default function App() {
               ayahProgressList={ayahProgressList}
               onNavigateToTahfizStep={(step) => {
                 setActiveTab('tahfiz');
-                setTahfizSubView(step === 'latihan' ? 'latihan_menu' : step);
+                navigateTahfiz(step === 'latihan' ? 'latihan_menu' : step);
               }}
               onResumeLastSession={handleResumeLastSession}
               onOpenMurojaahDue={() => {
                 setActiveTab('tahfiz');
-                setTahfizSubView('murojaah');
+                navigateTahfiz('murojaah');
               }}
-              onOpenRoom={() => {
-                setActiveTab('game');
-                setGameSubTab('room');
-              }}
-              onOpenWorldMap={() => {
-                setActiveTab('game');
-                setGameSubTab('map');
-              }}
+              onOpenRoom={() => navigateGame('room')}
+              onOpenWorldMap={() => navigateGame('map')}
               onRefreshCompanion={() => refreshChildData(activeChild.id)}
               onNavigateToModule={handleNavigateToModule}
             />
@@ -297,7 +321,7 @@ export default function App() {
                   activeChild={activeChild}
                   lastSession={lastSession}
                   onSelectStep={(step) => {
-                    setTahfizSubView(step === 'latihan' ? 'latihan_menu' : step);
+                    navigateTahfiz(step === 'latihan' ? 'latihan_menu' : step);
                   }}
                   onResumeLastSession={handleResumeLastSession}
                 />
@@ -308,20 +332,20 @@ export default function App() {
                   initialSurahNumber={lastSession.surahNumber}
                   initialBlockNumber={lastSession.blockNumber}
                   onProceedToLatihan={(surahNum, blockNum) => {
-                    setTahfizSubView('ziadah_config');
+                    navigateTahfiz('ziadah_config');
                   }}
-                  onBack={() => setTahfizSubView('home')}
+                  onBack={() => navigateTahfiz('home')}
                 />
               )}
 
               {tahfizSubView === 'latihan_menu' && (
                 <LatihanMenu
-                  onSelectZiadah={() => setTahfizSubView('ziadah_config')}
-                  onSelectMurojaah={() => setTahfizSubView('murojaah')}
+                  onSelectZiadah={() => navigateTahfiz('ziadah_config')}
+                  onSelectMurojaah={() => navigateTahfiz('murojaah')}
                   lastSession={lastSession}
                   learningBlocksCount={blockProgressList.filter((b) => b.state === 'LEARNING').length}
                   memorizedBlocksCount={blockProgressList.filter((b) => b.state === 'MEMORIZED').length}
-                  onResumeLastPractice={() => setTahfizSubView('ziadah_config')}
+                  onResumeLastPractice={() => navigateTahfiz('ziadah_config')}
                 />
               )}
 
@@ -331,7 +355,7 @@ export default function App() {
                   blockProgressList={blockProgressList}
                   onStartPractice={handleStartPractice}
                   onMarkBlocksMemorized={handleMarkBlocksMemorized}
-                  onBack={() => setTahfizSubView('latihan_menu')}
+                  onBack={() => navigateTahfiz('latihan_menu')}
                 />
               )}
 
@@ -344,9 +368,9 @@ export default function App() {
                   blockRepeats={activePracticeConfig.blockRepeats}
                   onFinishSession={() => {
                     refreshChildData(activeChild.id);
-                    setTahfizSubView('home');
+                    navigateTahfiz('home');
                   }}
-                  onBack={() => setTahfizSubView('ziadah_config')}
+                  onBack={() => navigateTahfiz('ziadah_config')}
                 />
               )}
 
@@ -357,9 +381,9 @@ export default function App() {
                   initialBlockNumber={lastSession.blockNumber}
                   onFinishMurojaah={() => {
                     refreshChildData(activeChild.id);
-                    setTahfizSubView('home');
+                    navigateTahfiz('home');
                   }}
-                  onBack={() => setTahfizSubView('latihan_menu')}
+                  onBack={() => navigateTahfiz('latihan_menu')}
                 />
               )}
 
@@ -369,9 +393,9 @@ export default function App() {
                   initialSurahNumber={lastSession.surahNumber}
                   onFinishHafalan={() => {
                     refreshChildData(activeChild.id);
-                    setTahfizSubView('home');
+                    navigateTahfiz('home');
                   }}
-                  onBack={() => setTahfizSubView('home')}
+                  onBack={() => navigateTahfiz('home')}
                 />
               )}
             </>
@@ -382,7 +406,7 @@ export default function App() {
             <>
               {alQuranSubView === null && (
                 <AlQuranHub
-                  onSelectSubmodule={(mod) => setAlQuranSubView(mod)}
+                  onSelectSubmodule={(mod) => navigateAlQuran(mod)}
                   iqraProgressCount={StorageService.getCompletedIqra(activeChild.id).length}
                   tajwidProgressCount={StorageService.getCompletedTajwid(activeChild.id).length}
                   vocabCount={StorageService.getMasteredVocab(activeChild.id).length}
@@ -390,22 +414,22 @@ export default function App() {
                 />
               )}
               {alQuranSubView === 'iqra' && (
-                <IqraModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <IqraModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'tajwid' && (
-                <TajwidModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <TajwidModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'tilawah' && (
-                <TilawahModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <TilawahModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'bahasa' && (
-                <BahasaQuranModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <BahasaQuranModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'tafsir' && (
-                <TafsirModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <TafsirModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'asbab' && (
-                <AsbabNuzulModule childId={activeChild.id} onBack={() => setAlQuranSubView(null)} />
+                <AsbabNuzulModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
             </>
           )}
@@ -416,11 +440,12 @@ export default function App() {
               childId={activeChild.id}
               initialTab={gameSubTab}
               onNavigateToLand={(tab, subView) => {
+                GlobalAudioManager.stopAll();
                 setActiveTab(tab);
                 if (tab === 'tahfiz' && subView) {
-                  setTahfizSubView(subView);
+                  navigateTahfiz(subView);
                 } else if (tab === 'alquran' && subView) {
-                  setAlQuranSubView(subView as any);
+                  navigateAlQuran(subView as any);
                 }
               }}
             />
@@ -442,13 +467,12 @@ export default function App() {
         <BottomNavigation
           activeTab={activeTab}
           onTabChange={(tab) => {
-            setActiveTab(tab);
             if (tab === 'tahfiz' && tahfizSubView === 'ziadah_player') {
-              // Preserve session
-            } else if (tab === 'tahfiz') {
-              setTahfizSubView('home');
-            } else if (tab === 'alquran') {
-              setAlQuranSubView(null);
+              // Preserve session but stop any ongoing sound
+              GlobalAudioManager.stopAll();
+              setActiveTab(tab);
+            } else {
+              navigateToTab(tab);
             }
           }}
           murojaahDueCount={weakAyahsCount}

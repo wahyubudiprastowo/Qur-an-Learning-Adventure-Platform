@@ -15,7 +15,7 @@ import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getBlocksForSurah } from '../../data/blocksData';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
-import { QuranAudioPlayer, PlaybackState, AudioProgressInfo } from '../../services/audioService';
+import { QuranAudioPlayer, PlaybackState, AudioProgressInfo, GlobalAudioManager } from '../../services/audioService';
 import { AyahData, MemorizationBlock } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
@@ -116,7 +116,13 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
       setCompanionPulseTrigger((prev) => prev + 1);
     };
 
+    const unsubStop = GlobalAudioManager.addStopListener(() => {
+      setPlaybackState('IDLE');
+      setActiveWordIndex(null);
+    });
+
     return () => {
+      unsubStop();
       player.destroy();
     };
   }, []);

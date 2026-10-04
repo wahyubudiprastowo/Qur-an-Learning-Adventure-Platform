@@ -42,13 +42,15 @@ export class GlobalAudioManager {
 
   /**
    * Called immediately before or when any audio starts playing.
-   * Pauses and resets all other audio sources across all modules.
+   * Hard-stops and resets all other audio sources across all modules.
    */
   static notifyPlayStarted(source: QuranAudioPlayer | HTMLAudioElement) {
-    // 1. Pause and stop all other QuranAudioPlayer instances (Ziadah, Dengar, Murojaah)
+    // 1. Hard-stop and disarm all other QuranAudioPlayer instances (Ziadah, Dengar, Murojaah)
     for (const player of this.activePlayers) {
       if (player !== source) {
-        player.pause();
+        try {
+          player.stop();
+        } catch (e) {}
       }
     }
 
@@ -74,7 +76,7 @@ export class GlobalAudioManager {
   }
 
   /**
-   * Stops all active audio across the app (invoked on navigation, tab switch, etc.)
+   * Stops and hard-terminates all active audio across the app (invoked on navigation, tab switch, etc.)
    */
   static stopAll() {
     for (const player of this.activePlayers) {
@@ -129,6 +131,7 @@ export class QuranAudioPlayer {
 
   private isFallingBack: boolean = false;
   private currentPlayToken: number = 0;
+  private isDestroyed: boolean = false;
 
   // Listeners
   public onStateChange?: (state: PlaybackState) => void;
@@ -143,54 +146,71 @@ export class QuranAudioPlayer {
     this.setupListeners();
   }
 
+  private handlePlayEvent = () => {
+    if (this.isDestroyed) return;
+    GlobalAudioManager.notifyPlayStarted(this);
+    this.state = 'PLAYING';
+    this.onStateChange?.('PLAYING');
+  };
+
+  private handlePauseEvent = () => {
+    if (this.isDestroyed) return;
+    if (this.state !== 'ENDED' && this.state !== 'ERROR' && this.state !== 'IDLE') {
+      this.state = 'PAUSED';
+      this.onStateChange?.('PAUSED');
+    }
+  };
+
+  private handleTimeUpdateEvent = () => {
+    if (this.isDestroyed || this.state !== 'PLAYING') return;
+    this.onProgressUpdate?.({
+      currentTimeMs: Math.round(this.audio.currentTime * 1000),
+      durationMs: Math.round((this.audio.duration || 0) * 1000),
+      surahNumber: this.surahNumber,
+      ayahNumber: this.currentAyah,
+      currentAyahRepeat: this.currentAyahRepeat,
+      totalAyahRepeat: this.targetAyahRepeats,
+      currentBlockRepeat: this.currentBlockRepeat,
+      totalBlockRepeat: this.targetBlockRepeats,
+    });
+  };
+
+  private handleEndedEvent = () => {
+    if (this.isDestroyed || this.state !== 'PLAYING') return;
+    this.handleAyahEnded();
+  };
+
+  private handleErrorEvent = (e: any) => {
+    if (this.isDestroyed || this.state === 'IDLE' || !this.audio.src) return;
+    console.warn('Audio error on src:', this.audio.src, e);
+    if (!this.isFallingBack) {
+      this.isFallingBack = true;
+      const fallbackUrl = getAyahAudioFallbackUrl(this.reciterId, this.surahNumber, this.currentAyah);
+      if (this.audio.src !== fallbackUrl && !this.isDestroyed) {
+        this.audio.src = fallbackUrl;
+        this.audio.play().catch(() => {});
+        return;
+      }
+    }
+    this.state = 'ERROR';
+    this.onStateChange?.('ERROR');
+    this.onError?.('Gagal memuat audio qari. Silakan coba lagi.');
+  };
+
   private setupListeners() {
-    this.audio.addEventListener('play', () => {
-      GlobalAudioManager.notifyPlayStarted(this);
-      this.state = 'PLAYING';
-      this.onStateChange?.('PLAYING');
-    });
+    this.audio.addEventListener('play', this.handlePlayEvent);
+    this.audio.addEventListener('pause', this.handlePauseEvent);
+    this.audio.addEventListener('timeupdate', this.handleTimeUpdateEvent);
+    this.audio.addEventListener('ended', this.handleEndedEvent);
+    this.audio.addEventListener('error', this.handleErrorEvent);
+  }
 
-    this.audio.addEventListener('pause', () => {
-      if (this.state !== 'ENDED' && this.state !== 'ERROR') {
-        this.state = 'PAUSED';
-        this.onStateChange?.('PAUSED');
-      }
-    });
-
-    this.audio.addEventListener('timeupdate', () => {
-      if (this.state === 'PLAYING') {
-        this.onProgressUpdate?.({
-          currentTimeMs: Math.round(this.audio.currentTime * 1000),
-          durationMs: Math.round((this.audio.duration || 0) * 1000),
-          surahNumber: this.surahNumber,
-          ayahNumber: this.currentAyah,
-          currentAyahRepeat: this.currentAyahRepeat,
-          totalAyahRepeat: this.targetAyahRepeats,
-          currentBlockRepeat: this.currentBlockRepeat,
-          totalBlockRepeat: this.targetBlockRepeats,
-        });
-      }
-    });
-
-    this.audio.addEventListener('ended', () => {
-      this.handleAyahEnded();
-    });
-
-    this.audio.addEventListener('error', (e) => {
-      console.warn('Audio error on src:', this.audio.src, e);
-      if (!this.isFallingBack) {
-        this.isFallingBack = true;
-        const fallbackUrl = getAyahAudioFallbackUrl(this.reciterId, this.surahNumber, this.currentAyah);
-        if (this.audio.src !== fallbackUrl) {
-          this.audio.src = fallbackUrl;
-          this.audio.play().catch(() => {});
-          return;
-        }
-      }
-      this.state = 'ERROR';
-      this.onStateChange?.('ERROR');
-      this.onError?.('Gagal memuat audio qari. Silakan coba lagi.');
-    });
+  private removeListeners() {
+    this.audio.removeEventListener('play', this.handlePlayEvent);
+    this.audio.removeEventListener('pause', this.handlePauseEvent);
+    this.audio.removeEventListener('timeupdate', this.handleTimeUpdateEvent);
+    this.audio.removeEventListener('ended', this.handleEndedEvent);
+    this.audio.removeEventListener('error', this.handleErrorEvent);
   }
 
   public setConfiguration(params: {
@@ -362,8 +382,20 @@ export class QuranAudioPlayer {
   }
 
   public destroy(): void {
+    this.isDestroyed = true;
+    this.currentPlayToken++;
     GlobalAudioManager.unregisterPlayer(this);
-    this.stop();
-    this.audio.src = '';
+    this.removeListeners();
+    this.onStateChange = undefined;
+    this.onProgressUpdate = undefined;
+    this.onAyahChange = undefined;
+    this.onBlockCycleComplete = undefined;
+    this.onError = undefined;
+    try {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+      this.audio.src = '';
+    } catch (e) {}
+    this.state = 'IDLE';
   }
 }

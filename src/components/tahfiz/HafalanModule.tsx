@@ -68,11 +68,12 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const recorderRef = useRef<AudioRecordingService | null>(null);
   const timerRef = useRef<any>(null);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const audioAssistRef = useRef<HTMLAudioElement | null>(null);
 
   const surahMeta = SURAHS_METADATA.find((s) => s.number === selectedSurahNumber) || SURAHS_METADATA[0];
   const currentAyah = ayahs[currentAyahIndex];
 
-  // Initialize Recorder
+  // Initialize Recorder & Audio Stop Listeners
   useEffect(() => {
     const recorder = new AudioRecordingService();
     recorderRef.current = recorder;
@@ -80,9 +81,33 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     recorder.onStateChange = (state) => setRecordingState(state);
     recorder.onVolumeChange = (vol) => setAudioVolume(vol);
 
+    const unsubStop = GlobalAudioManager.addStopListener(() => {
+      if (audioAssistRef.current) {
+        audioAssistRef.current.onended = null;
+        audioAssistRef.current.onerror = null;
+        GlobalAudioManager.unregisterRawAudio(audioAssistRef.current);
+        try {
+          audioAssistRef.current.pause();
+          audioAssistRef.current.src = '';
+        } catch (e) {}
+        audioAssistRef.current = null;
+      }
+    });
+
     return () => {
+      unsubStop();
       recorder.cleanup();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (audioAssistRef.current) {
+        audioAssistRef.current.onended = null;
+        audioAssistRef.current.onerror = null;
+        GlobalAudioManager.unregisterRawAudio(audioAssistRef.current);
+        try {
+          audioAssistRef.current.pause();
+          audioAssistRef.current.src = '';
+        } catch (e) {}
+        audioAssistRef.current = null;
+      }
     };
   }, []);
 
@@ -199,8 +224,6 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   };
 
   // Assistance handlers
-  const audioAssistRef = useRef<HTMLAudioElement | null>(null);
-
   const handlePlayAyah = () => {
     addAssistance('play_ayah');
     if (audioAssistRef.current) {

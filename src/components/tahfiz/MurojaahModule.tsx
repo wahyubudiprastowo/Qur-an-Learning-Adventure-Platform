@@ -14,7 +14,7 @@ import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getBlocksForSurah } from '../../data/blocksData';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
-import { QuranAudioPlayer, PlaybackState } from '../../services/audioService';
+import { QuranAudioPlayer, PlaybackState, GlobalAudioManager } from '../../services/audioService';
 import { RECALL_MODES, RecallMode, getDeterministicHiddenIndices } from '../../services/murojaahHiding';
 import { StorageService } from '../../services/storageService';
 import { AyahData, MemorizationBlock } from '../../types';
@@ -86,7 +86,12 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
       }
     };
 
+    const unsubStop = GlobalAudioManager.addStopListener(() => {
+      setPlaybackState('IDLE');
+    });
+
     return () => {
+      unsubStop();
       player.destroy();
     };
   }, []);
