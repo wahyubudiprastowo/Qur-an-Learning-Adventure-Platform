@@ -108,6 +108,20 @@ export const DailyQuestsCard: React.FC<DailyQuestsCardProps> = ({
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
+
+              {/* Reward Pills: Star, XP, and Pet Happiness Boost */}
+              <div className="flex items-center gap-1.5 mt-2 pt-1.5 border-t border-slate-100/80 text-[10px] font-bold">
+                <span className="text-[#8C9BA7]">Hadiah Petualangan:</span>
+                <span className="bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                  ⭐ +{quest.starReward}
+                </span>
+                <span className="bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                  ✨ +{quest.xpReward} XP
+                </span>
+                <span className="bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.2 rounded-md flex items-center gap-0.5">
+                  💖 +{quest.happinessReward || 15}% Bahagia
+                </span>
+              </div>
             </div>
           );
         })}

@@ -203,20 +203,35 @@ export class CompanionService {
       }
     }
 
-    // 3 friendly quests
+    // 3 non-punitive Daily Quests: Listen to Surah, Practice Tajwid, and Hafalan/Murojaah
     const defaultQuests: DailyQuest[] = [
       {
         id: 'quest-dengar',
-        title: 'Lentera Nada (Echo Journey)',
-        subtitle: 'Dengar lantunan qari di Dengar / Tilawah',
+        title: 'Dengarkan 1 Surah (Listen to 1 Surah)',
+        subtitle: 'Dengar lantunan qari merdu di Dengar / Tilawah',
         icon: '🎧',
         current: 0,
-        target: 3,
-        unit: 'ayat',
+        target: 1,
+        unit: 'surah',
         completed: false,
-        xpReward: 15,
+        xpReward: 20,
         starReward: 3,
+        happinessReward: 15,
         actionType: 'dengar',
+      },
+      {
+        id: 'quest-tajwid',
+        title: 'Latihan Tajwid (Practice Tajwid)',
+        subtitle: 'Pelajari hukum tajwid atau kuis makhraj huruf',
+        icon: '🔤',
+        current: 0,
+        target: 1,
+        unit: 'materi',
+        completed: false,
+        xpReward: 25,
+        starReward: 4,
+        happinessReward: 15,
+        actionType: 'tajwid',
       },
       {
         id: 'quest-latihan',
@@ -227,22 +242,10 @@ export class CompanionService {
         target: 1,
         unit: 'sesi',
         completed: false,
-        xpReward: 25,
+        xpReward: 30,
         starReward: 5,
+        happinessReward: 20,
         actionType: 'murojaah',
-      },
-      {
-        id: 'quest-wawasan',
-        title: 'Tunas Ilmu (Growing Wisdom)',
-        subtitle: 'Pelajari Iqra, Tajwid, atau Kosakata Qur\'an',
-        icon: '🌱',
-        current: 0,
-        target: 2,
-        unit: 'materi',
-        completed: false,
-        xpReward: 15,
-        starReward: 3,
-        actionType: 'vocab',
       },
     ];
 
@@ -264,24 +267,35 @@ export class CompanionService {
 
     let changed = false;
     quests.forEach((q) => {
-      // Map related actions (e.g. ziadah counts for murojaah/latihan quest; tajwid/iqra counts for wawasan)
+      // Map related actions
       const isMatch =
         q.actionType === actionType ||
+        (q.id === 'quest-tajwid' && ['tajwid', 'iqra', 'vocab'].includes(actionType)) ||
         (q.id === 'quest-latihan' && ['ziadah', 'murojaah', 'hafalan'].includes(actionType)) ||
-        (q.id === 'quest-wawasan' && ['iqra', 'tajwid', 'vocab'].includes(actionType));
+        (q.id === 'quest-dengar' && ['dengar'].includes(actionType));
 
       if (isMatch && !q.completed) {
         q.current = Math.min(q.target, q.current + amount);
         if (q.current >= q.target) {
           q.completed = true;
-          // Award quest bonus
+          // Award quest bonus to child points
           StorageService.recordPoints(
             childId,
             'PRACTICE_AYAH',
             q.xpReward,
             q.starReward,
-            `Menyelesaikan Petualangan Hari Ini: ${q.title}`
+            `Menyelesaikan Misi Harian: ${q.title}`
           );
+
+          // Maintain pet's happiness and growth state directly
+          const companion = this.getCompanionData(childId);
+          const boost = q.happinessReward || 15;
+          companion.happiness = Math.min(100, (companion.happiness ?? 80) + boost);
+          companion.energy = Math.min(100, (companion.energy ?? 75) + 10);
+          companion.xp = (companion.xp || 0) + (q.xpReward || 15);
+          companion.mood = 'joyful';
+          companion.dialogueMessage = `MasyaAllah! Misi harian "${q.title}" tuntas! ${companion.name} makin gembira (+${boost}% Bahagia), bertumbuh kuat, dan penuh berkah! 🌟💖`;
+          this.saveCompanionData(companion);
         }
         changed = true;
       }
@@ -312,9 +326,20 @@ export class CompanionService {
         'COMPLETE_BLOCK',
         40,
         30,
-        'Bonus Tuntas Seluruh Petualangan Hari Ini'
+        'Bonus Tuntas Seluruh Misi Harian'
       );
       localStorage.setItem(`bonus_claimed_${childId}_${today}`, 'true');
+
+      // Boost companion vitals to 100% and trigger celebrating expression
+      const companion = this.getCompanionData(childId);
+      companion.happiness = 100;
+      companion.energy = 100;
+      companion.hunger = Math.min(100, (companion.hunger ?? 70) + 20);
+      companion.mood = 'celebrating';
+      companion.expression = 'celebrating';
+      companion.dialogueMessage = `Allahu Akbar! Tabarakallah! Semua misi harian tuntas diselesaikan! ${companion.name} merayakannya dengan sukacita penuh bintang! 🎉🏆✨`;
+      this.saveCompanionData(companion);
+
       return true;
     }
     return false;

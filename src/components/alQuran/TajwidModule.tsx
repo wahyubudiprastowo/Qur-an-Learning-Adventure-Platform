@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, CheckCircle2, HelpCircle, BookOpen, Star, Volume2 } from 'lucide-react';
 import { TAJWID_CURRICULUM } from '../../data/tajwidData';
 import { StorageService } from '../../services/storageService';
+import { CompanionService } from '../../services/companionService';
 import { TajwidTopic } from '../../types';
 import { Button } from '../common/Button';
 
@@ -36,6 +37,13 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
     if (index === activeTopic.quiz.correctIndex) {
       StorageService.markTajwidCompleted(childId, activeTopic.id);
       setCompletedTopicIds(StorageService.getCompletedTajwid(childId));
+      CompanionService.recordActivity(
+        childId,
+        'tajwid',
+        20,
+        3,
+        `Latihan Tajwid: ${activeTopic.name}`
+      );
     }
   };
 

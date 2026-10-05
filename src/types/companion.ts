@@ -92,7 +92,19 @@ export interface StageConfig {
   unlockedAbility: string;
 }
 
-export interface DailyQuest {
+export type MissionActionType =
+  | 'dengar'
+  | 'tajwid'
+  | 'murojaah'
+  | 'ziadah'
+  | 'hafalan'
+  | 'iqra'
+  | 'vocab'
+  | 'feed'
+  | 'water'
+  | 'game';
+
+export interface DailyMission {
   id: string;
   title: string;
   subtitle: string;
@@ -101,10 +113,13 @@ export interface DailyQuest {
   target: number;
   unit: string;
   completed: boolean;
-  xpReward: number;
-  starReward: number;
-  actionType: 'murojaah' | 'dengar' | 'ziadah' | 'hafalan' | 'iqra' | 'tajwid' | 'vocab' | 'game';
+  xpReward: number; // Pet Growth XP
+  starReward: number; // Child Stars
+  happinessReward: number; // Pet Happiness Boost
+  actionType: MissionActionType;
 }
+
+export type DailyQuest = DailyMission;
 
 export interface RoomDecoration {
   id: string;
