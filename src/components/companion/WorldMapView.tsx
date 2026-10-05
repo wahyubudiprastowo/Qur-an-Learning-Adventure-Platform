@@ -35,6 +35,24 @@ import { CompanionService } from '../../services/companionService';
 import { ACHIEVEMENTS_CATALOG } from '../../data/levelsAndAchievements';
 import { StorageService } from '../../services/storageService';
 import { AdventureTrailMap } from './AdventureTrailMap';
+import { CompanionSprite } from './CompanionSprite';
+import { WorldLandVisual } from './WorldLandVisuals';
+import {
+  PrayerRugVisual,
+  BloomingTreeVisual,
+  LanternVisual,
+  TelescopeVisual,
+  QuranBookVisual,
+} from './ObjectVisuals';
+
+const renderDecorationVisual = (id: string, fallbackIcon: string, size = 42) => {
+  if (id === 'carpet-bintang') return <PrayerRugVisual size={size} />;
+  if (id === 'tanaman-cahaya') return <BloomingTreeVisual size={size} />;
+  if (id === 'lampu-kubah') return <LanternVisual size={size} />;
+  if (id === 'teropong-bintang') return <TelescopeVisual size={size} />;
+  if (id === 'kitab-mushaf') return <QuranBookVisual size={size} />;
+  return <span className="text-3xl">{fallbackIcon}</span>;
+};
 
 interface WorldMapViewProps {
   child: ChildProfile;
@@ -291,7 +309,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                         <div
                           className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${land.color} text-white flex items-center justify-center text-3xl shadow-sm shrink-0 group-hover:scale-105 transition-transform`}
                         >
-                          {isLocked ? '🔒' : land.icon}
+                          <WorldLandVisual landId={land.id} size={46} isLocked={isLocked} />
                         </div>
 
                         {/* Content */}
@@ -421,10 +439,10 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                 return (
                   <div
                     key={itemId}
-                    className="p-2.5 bg-white/80 backdrop-blur-xs rounded-2xl border border-white shadow-xs text-3xl animate-in zoom-in-50"
+                    className="p-2 bg-white/90 backdrop-blur-xs rounded-2xl border border-white shadow-xs animate-in zoom-in-50 flex items-center justify-center"
                     title={dec.name}
                   >
-                    {dec.icon}
+                    {renderDecorationVisual(dec.id, dec.icon, 44)}
                   </div>
                 );
               })}
@@ -436,8 +454,13 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
               className="my-3 flex flex-col items-center justify-center cursor-pointer select-none relative z-10 group"
               title="Sentuh untuk menyapa Lumi!"
             >
-              <div className="text-7xl group-hover:scale-110 active:scale-95 transition-transform filter drop-shadow-lg">
-                {stageConfig.avatarIcon}
+              <div className="group-hover:scale-105 active:scale-95 transition-transform filter drop-shadow-lg flex items-center justify-center">
+                <CompanionSprite
+                  species={companion.species || 'lumi'}
+                  stage={stageConfig.id}
+                  mood={companion.mood || 'content'}
+                  size={135}
+                />
               </div>
               <h3 className="text-base font-black text-[#164C68] font-heading mt-2">
                 {companion.name} ({stageConfig.name})
@@ -534,7 +557,9 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="text-2xl">{dec.icon}</span>
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                        {renderDecorationVisual(dec.id, dec.icon, 34)}
+                      </div>
                       <div>
                         <h5 className="text-xs font-bold text-[#164C68]">{dec.name}</h5>
                         <p className="text-[10px] text-[#8C9BA7]">{dec.unlockRequirement}</p>
@@ -604,8 +629,12 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                         : 'border-slate-200 opacity-50 bg-slate-50'
                     }`}
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-[#EEF8FF] border border-[#C9E1ED] flex items-center justify-center text-3xl shrink-0">
-                      {isUnlocked ? stage.avatarIcon : '🔒'}
+                    <div className="w-14 h-14 rounded-2xl bg-[#EEF8FF] border border-[#C9E1ED] flex items-center justify-center shrink-0 overflow-hidden">
+                      {isUnlocked ? (
+                        <CompanionSprite species={companion.species || 'lumi'} stage={stage.id} size={48} />
+                      ) : (
+                        <span className="text-2xl">🔒</span>
+                      )}
                     </div>
 
                     <div className="flex-1">
@@ -754,9 +783,9 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div
-                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center text-2xl shadow-xs`}
+                  className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center shadow-xs p-1`}
                 >
-                  {selectedLand.icon}
+                  <WorldLandVisual landId={selectedLand.id} size={46} />
                 </div>
                 <button
                   onClick={() => setSelectedLand(null)}

@@ -6,6 +6,7 @@ import { COMPANION_SPECIES_LIST } from '../../data/companionData';
 import { CompanionService } from '../../services/companionService';
 import { StorageService } from '../../services/storageService';
 import { Button } from '../common/Button';
+import { CompanionSprite } from '../companion/CompanionSprite';
 
 interface ChildProfileModalProps {
   isOpen: boolean;
@@ -112,7 +113,9 @@ export const ChildProfileModal: React.FC<ChildProfileModalProps> = ({
                   }`}
                   title={pet.description}
                 >
-                  <span className="text-2xl">{pet.avatarIcon}</span>
+                  <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                    <CompanionSprite species={pet.id} stage="hatchling" size={36} />
+                  </div>
                   <span className="text-[9px] font-black text-[#164C68] truncate max-w-[50px] block">
                     {pet.name.split(' ')[0]}
                   </span>

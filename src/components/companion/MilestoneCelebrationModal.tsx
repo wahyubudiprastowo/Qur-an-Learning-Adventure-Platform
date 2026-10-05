@@ -2,6 +2,8 @@ import React from 'react';
 import { Sparkles, Star, Award, Heart, CheckCircle2 } from 'lucide-react';
 import { StageConfig } from '../../types/companion';
 import { Button } from '../common/Button';
+import { CompanionSprite } from './CompanionSprite';
+import { RewardStarVisual } from './ObjectVisuals';
 
 interface MilestoneCelebrationModalProps {
   isOpen: boolean;
@@ -42,9 +44,9 @@ export const MilestoneCelebrationModal: React.FC<MilestoneCelebrationModalProps>
         </div>
 
         {/* Animated Avatar Icon */}
-        <div className="py-2">
-          <div className="text-7xl animate-bounce filter drop-shadow-xl inline-block">
-            {stage.avatarIcon}
+        <div className="py-2 flex flex-col items-center justify-center">
+          <div className="animate-bounce filter drop-shadow-xl inline-block">
+            <CompanionSprite stage={stage.id} mood="celebrating" size={135} />
           </div>
           <h2 className="text-xl font-black text-[#164C68] font-heading mt-2">
             {stage.name} (Tingkat {level})

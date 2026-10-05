@@ -19,6 +19,9 @@ import confetti from 'canvas-confetti';
 import { ChildProfile } from '../../types';
 import { CompanionData, WorldLand, StageConfig } from '../../types/companion';
 import { WORLD_LANDS, getStageForXp } from '../../data/companionData';
+import { CompanionSprite } from './CompanionSprite';
+import { WorldLandVisual } from './WorldLandVisuals';
+import { RewardStarVisual, RewardOrbVisual } from './ObjectVisuals';
 
 interface AdventureTrailMapProps {
   child: ChildProfile;
@@ -290,9 +293,9 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
           {/* Shortcut to child's level */}
           <button
             onClick={handleJumpToMyLevel}
-            className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-black text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+            className="py-1 px-3 rounded-xl bg-gradient-to-r from-[#08B9EF] to-[#07a6d7] text-white font-black text-xs shadow-sm hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <span>{stageConfig.avatarIcon}</span>
+            <CompanionSprite species={companion.species || 'lumi'} stage={stageConfig.id} mood="content" size={20} />
             <span>Posisiku</span>
           </button>
         </div>
@@ -388,10 +391,12 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
               whileTap={{ scale: 0.9 }}
               onClick={() => handleOpenChest(1)}
               className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 border-2 border-white shadow-lg flex flex-col items-center justify-center cursor-pointer relative"
-              title="Peti Hadiah Kejutan!"
+              title="Peti Hadiah Kejutan Bintang!"
             >
-              <span className="text-2xl">{openedChest === 1 ? '💎' : '🎁'}</span>
-              <span className="text-[9px] font-black text-[#164C68] bg-white/90 px-1 rounded-full -bottom-2 absolute border border-amber-300">
+              <div className="flex items-center justify-center">
+                {openedChest === 1 ? <RewardOrbVisual size={32} /> : <RewardStarVisual size={32} />}
+              </div>
+              <span className="text-[9px] font-black text-[#164C68] bg-white/90 px-1 rounded-full -bottom-2 absolute border border-amber-300 shadow-xs">
                 {openedChest === 1 ? 'Terbuka' : 'Bonus'}
               </span>
             </motion.button>
@@ -411,10 +416,12 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
               whileTap={{ scale: 0.9 }}
               onClick={() => handleOpenChest(2)}
               className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-purple-400 to-pink-300 border-2 border-white shadow-lg flex flex-col items-center justify-center cursor-pointer relative"
-              title="Peti Hadiah Kejutan!"
+              title="Peti Hadiah Kejutan Orb Cahaya!"
             >
-              <span className="text-2xl">{openedChest === 2 ? '👑' : '🎁'}</span>
-              <span className="text-[9px] font-black text-[#164C68] bg-white/90 px-1 rounded-full -bottom-2 absolute border border-purple-300">
+              <div className="flex items-center justify-center">
+                {openedChest === 2 ? <RewardStarVisual size={32} /> : <RewardOrbVisual size={32} />}
+              </div>
+              <span className="text-[9px] font-black text-[#164C68] bg-white/90 px-1 rounded-full -bottom-2 absolute border border-purple-300 shadow-xs">
                 {openedChest === 2 ? 'Terbuka' : 'Bonus'}
               </span>
             </motion.button>
@@ -519,8 +526,8 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
                       </motion.div>
 
                       {/* Mascot Character Avatar */}
-                      <div className="text-3xl filter drop-shadow-[0_6px_8px_rgba(0,0,0,0.35)]">
-                        {stageConfig.avatarIcon}
+                      <div className="filter drop-shadow-[0_6px_8px_rgba(0,0,0,0.35)] flex items-center justify-center">
+                        <CompanionSprite species={companion.species || 'lumi'} stage={stageConfig.id} mood="content" size={46} />
                       </div>
                     </motion.div>
                   )}
@@ -542,10 +549,10 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
                           ' shadow-[0_7px_0_#0f766e] text-white'
                     }`}
                   >
-                    {/* Island Icon or Padlock */}
-                    <span className="text-3xl filter drop-shadow-sm">
-                      {isLocked ? '🔒' : land.icon}
-                    </span>
+                    {/* 3D Island Diorama Visual matching uploaded PNGs */}
+                    <div className="w-13 h-13 sm:w-14 sm:h-14 flex items-center justify-center filter drop-shadow-sm">
+                      <WorldLandVisual landId={land.id} size={50} isLocked={isLocked} />
+                    </div>
 
                     {/* Level Number Ribbon */}
                     <div
@@ -679,9 +686,9 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
           {/* Biome Identity */}
           <div className="flex items-start gap-3.5">
             <div
-              className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${activeLand.color} text-white flex items-center justify-center text-3xl shadow-sm shrink-0`}
+              className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${activeLand.color} text-white flex items-center justify-center shadow-sm shrink-0 p-1`}
             >
-              {isLandLocked ? '🔒' : activeLand.icon}
+              <WorldLandVisual landId={activeLand.id} size={46} isLocked={isLandLocked} />
             </div>
 
             <div className="flex-1 min-w-0">

@@ -33,6 +33,8 @@ import {
   getSpeciesStageAvatar,
 } from '../../data/companionData';
 import { CompanionService } from '../../services/companionService';
+import { CompanionSprite } from './CompanionSprite';
+import { RewardStarVisual } from './ObjectVisuals';
 
 interface LivingCompanionCardProps {
   child: ChildProfile;
@@ -378,7 +380,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
         <div className="flex flex-col items-center shrink-0">
           <div
             onClick={companion.isSleeping || mood === 'sleeping' ? handleToggleSleep : handlePet}
-            className={`relative cursor-pointer select-none group flex flex-col items-center justify-center p-3 rounded-2xl border shadow-sm hover:scale-105 active:scale-95 transition-all duration-300 w-32 h-32 ${
+            className={`relative cursor-pointer select-none group flex flex-col items-center justify-center p-2 rounded-3xl border shadow-sm hover:scale-105 active:scale-95 transition-all duration-300 w-36 h-36 ${
               mood === 'celebrating'
                 ? 'bg-gradient-to-b from-amber-100/90 via-yellow-50 to-white border-amber-400 ring-4 ring-amber-300/50 shadow-lg shadow-amber-300/30'
                 : mood === 'thoughtful'
@@ -401,7 +403,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
           >
             {/* Sleeping Floating Zzz animation */}
             {(companion.isSleeping || mood === 'sleeping') && (
-              <div className="absolute top-2 right-3 pointer-events-none">
+              <div className="absolute top-2 right-3 pointer-events-none z-20">
                 <motion.span
                   animate={{ y: [0, -18], opacity: [0, 1, 0], x: [0, 6, 12] }}
                   transition={{ repeat: Infinity, duration: 2.2, ease: 'easeOut' }}
@@ -427,36 +429,36 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
               )}
             </AnimatePresence>
 
-            {/* Living Avatar with Frame-based animations & Transitions */}
+            {/* 3D Living Companion Avatar with Keyframe Animations & Transitions */}
             <motion.div
               animate={
                 isJoyfulFeeding
                   ? {
-                      y: [0, -30, 4, -22, 2, -10, 0],
-                      scale: [1, 1.35, 0.9, 1.25, 0.95, 1.1, 1],
-                      rotate: [0, -14, 14, -8, 8, -4, 0],
+                      y: [0, -25, 4, -18, 2, -8, 0],
+                      scale: [1, 1.25, 0.95, 1.2, 0.98, 1.05, 1],
+                      rotate: [0, -12, 12, -8, 8, -4, 0],
                     }
                   : mood === 'celebrating'
                   ? {
-                      y: [0, -28, 4, -22, 2, -10, 0],
-                      scale: [1, 1.35, 0.95, 1.25, 1],
-                      rotate: [0, -18, 18, -12, 12, 0],
+                      y: [0, -22, 4, -16, 2, -6, 0],
+                      scale: [1, 1.25, 0.95, 1.15, 1],
+                      rotate: [0, -14, 14, -8, 8, 0],
                     }
                   : mood === 'thoughtful'
                   ? {
-                      y: [0, -6, 0],
-                      rotate: [0, -6, 0, 6, 0],
-                      scale: [1, 1.05, 1],
+                      y: [0, -5, 0],
+                      rotate: [0, -4, 0, 4, 0],
+                      scale: [1, 1.04, 1],
                     }
                   : companion.isSleeping || mood === 'sleeping'
                   ? {
-                      y: [0, 4, 0],
-                      scale: [1, 0.96, 1],
-                      rotate: [-2, 2, -2],
+                      y: [0, 3, 0],
+                      scale: [1, 0.97, 1],
+                      rotate: [-1.5, 1.5, -1.5],
                     }
                   : hunger < 35
-                  ? { y: [0, -5, 0], x: [-1, 1, -1] }
-                  : { y: [0, -6, 0] }
+                  ? { y: [0, -4, 0], x: [-1, 1, -1] }
+                  : { y: [0, -5, 0] }
               }
               transition={
                 isJoyfulFeeding
@@ -467,11 +469,17 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
                   ? { repeat: Infinity, duration: 3.2, ease: 'easeInOut' }
                   : { repeat: Infinity, duration: (companion.isSleeping || mood === 'sleeping') ? 3.5 : 2.4, ease: 'easeInOut' }
               }
-              className={`text-6xl filter drop-shadow-md py-1 relative ${
-                (companion.isSleeping || mood === 'sleeping') ? 'opacity-85' : ''
+              className={`w-28 h-28 flex items-center justify-center filter drop-shadow-md py-1 relative ${
+                (companion.isSleeping || mood === 'sleeping') ? 'opacity-90' : ''
               }`}
             >
-              {currentAvatar}
+              <CompanionSprite
+                species={species}
+                stage={stageConfig.id}
+                mood={mood}
+                isFeeding={isJoyfulFeeding}
+                size={120}
+              />
 
               {/* Celebrating floating particles & crown */}
               {mood === 'celebrating' && (
@@ -751,6 +759,126 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
         </div>
       </div>
 
+      {/* --- 2B. JENJANG TUMBUH SAHABAT (SESUAI EXP BELAJAR AL-QUR'AN) --- */}
+      <div className="bg-white/90 backdrop-blur-md border border-[#C9E1ED] rounded-2xl p-3.5 relative z-10 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-amber-500 font-black text-sm">🌱</span>
+            <div>
+              <h4 className="text-xs font-black text-[#164C68] font-heading">
+                Jenjang Tumbuh Sahabat ({speciesConfig.name})
+              </h4>
+              <p className="text-[10px] text-[#8C9BA7] font-medium">
+                Wujud sahabat berevolusi otomatis mengikuti perolehan EXP belajarmu
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-black text-[#08B9EF] bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 rounded-full inline-block">
+              Total {companion.xp} EXP
+            </span>
+          </div>
+        </div>
+
+        {/* 4 Evolutionary Learning Tiers (Roadmap Alami Berdasarkan EXP Belajar) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+          {[
+            {
+              id: 'egg',
+              name: 'Telur Cahaya',
+              stageId: 'egg' as const,
+              expRange: '0 - 99 EXP',
+              minXp: 0,
+              maxXp: 99,
+              desc: 'Menyimpan cahaya ayat pertama',
+              icon: '🥚',
+            },
+            {
+              id: 'hatchling',
+              name: 'Bayi Lumi',
+              stageId: 'hatchling' as const,
+              expRange: '100 - 349 EXP',
+              minXp: 100,
+              maxXp: 349,
+              desc: 'Menetas & gemar mendengar tartil',
+              icon: '🐣',
+            },
+            {
+              id: 'explorer',
+              name: 'Penjelajah Muda',
+              stageId: 'explorer' as const,
+              expRange: '350 - 1999 EXP',
+              minXp: 350,
+              maxXp: 1999,
+              desc: 'Syal toska & tas petualang ayat',
+              icon: '🧭',
+            },
+            {
+              id: 'guardian',
+              name: 'Penjaga Cahaya',
+              stageId: 'guardian' as const,
+              expRange: '2000+ EXP',
+              minXp: 2000,
+              maxXp: 999999,
+              desc: 'Jubah toska agung & bintang berkilau',
+              icon: '🛡️',
+            },
+          ].map((tier) => {
+            const isCurrent =
+              stageConfig.id === tier.stageId ||
+              (tier.stageId === 'explorer' && (stageConfig.id === 'little' || stageConfig.id === 'explorer')) ||
+              (tier.stageId === 'guardian' && (stageConfig.id === 'guardian' || stageConfig.id === 'master'));
+            const isPassed = companion.xp > tier.maxXp;
+            const xpNeeded = tier.minXp - companion.xp;
+
+            return (
+              <div
+                key={tier.id}
+                className={`p-2.5 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                  isCurrent
+                    ? 'bg-gradient-to-b from-cyan-50/90 via-sky-50/50 to-white border-[#08B9EF] ring-2 ring-[#08B9EF]/40 shadow-sm'
+                    : isPassed
+                    ? 'bg-emerald-50/40 border-emerald-200/80 text-slate-700'
+                    : 'bg-slate-50/80 border-slate-200 opacity-65'
+                }`}
+              >
+                {/* Status Badge */}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xl select-none">{tier.icon}</span>
+                  {isCurrent ? (
+                    <span className="text-[9px] font-black bg-[#08B9EF] text-white px-2 py-0.2 rounded-full shadow-xs animate-pulse">
+                      Wujud Aktif
+                    </span>
+                  ) : isPassed ? (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
+                      <CheckCircle2 size={10} />
+                      Tuntas
+                    </span>
+                  ) : (
+                    <span className="text-[8px] font-bold text-slate-500 bg-slate-200 px-1.5 py-0.2 rounded-full">
+                      -{xpNeeded} XP
+                    </span>
+                  )}
+                </div>
+
+                {/* Tier Info */}
+                <div>
+                  <h5 className={`text-xs font-black leading-tight ${isCurrent ? 'text-[#164C68]' : 'text-slate-700'}`}>
+                    {tier.name}
+                  </h5>
+                  <p className="text-[9px] font-bold text-[#08B9EF] mt-0.5">
+                    {tier.expRange}
+                  </p>
+                  <p className="text-[9px] text-[#8C9BA7] leading-snug mt-1 font-medium line-clamp-2">
+                    {tier.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* --- 3. KEBUN BELAJAR MINGGUAN (INTERACTIVE HABIT GARDEN) --- */}
       <div className="bg-white/85 border border-[#C9E1ED] rounded-2xl p-3.5 relative z-10 space-y-2.5">
         {/* Header & Purpose Tooltip */}
@@ -958,8 +1086,8 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
                           : 'border-slate-200 hover:border-cyan-300 bg-white'
                       }`}
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs text-3xl flex items-center justify-center shrink-0">
-                        {pet.avatarIcon}
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-white to-cyan-50 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
+                        <CompanionSprite species={pet.id} stage="hatchling" size={48} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">

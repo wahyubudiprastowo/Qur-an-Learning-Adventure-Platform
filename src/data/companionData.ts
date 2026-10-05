@@ -14,12 +14,12 @@ import {
 export const COMPANION_SPECIES_LIST: CompanionSpeciesConfig[] = [
   {
     id: 'lumi',
-    name: 'Kucing Cahaya',
+    name: 'Lumi (Sahabat Cahaya)',
     defaultName: 'Lumi',
-    avatarIcon: '🐱',
-    color: 'from-cyan-400 to-blue-500',
-    description: 'Suka nada tartil merdu dan selalu berputar riang saat mendengar bacaan surah Al-Qur\'an.',
-    nature: 'Penyayang & Suka Tartil',
+    avatarIcon: '✨',
+    color: 'from-cyan-400 to-teal-500',
+    description: 'Sahabat lembut seputih awan dengan mahkota jambul pirus bercahaya, syal toska bintang, dan tas petualang Al-Qur\'an.',
+    nature: 'Penyayang, Cerdas & Khusyuk',
     favoriteFood: 'Kurma Ajwa Manis',
   },
   {

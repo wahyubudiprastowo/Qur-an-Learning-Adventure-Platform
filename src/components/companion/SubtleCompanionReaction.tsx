@@ -3,6 +3,8 @@ import { Sparkles, Heart } from 'lucide-react';
 import { CompanionData } from '../../types/companion';
 import { getStageForXp } from '../../data/companionData';
 
+import { CompanionSprite } from './CompanionSprite';
+
 interface SubtleCompanionReactionProps {
   companion: CompanionData;
   pulseTrigger?: number; // whenever this number changes, trigger gentle micro celebration
@@ -37,14 +39,19 @@ export const SubtleCompanionReaction: React.FC<SubtleCompanionReactionProps> = (
 
       {/* Floating subtle mascot badge */}
       <div
-        className={`w-11 h-11 rounded-2xl bg-white/90 backdrop-blur-md border-2 shadow-md flex items-center justify-center text-2xl transition-all duration-300 ${
+        className={`w-12 h-12 rounded-2xl bg-white/95 backdrop-blur-md border-2 shadow-md flex items-center justify-center transition-all duration-300 overflow-hidden ${
           showPulse
             ? 'scale-110 border-[#81E850] ring-4 ring-emerald-200'
             : 'border-[#C9E1ED] hover:scale-105'
         }`}
         title={`Teman Belajarmu: ${companion.name} (${stageConfig.name})`}
       >
-        <span className="filter drop-shadow-xs">{stageConfig.avatarIcon}</span>
+        <CompanionSprite
+          species={companion.species || 'lumi'}
+          stage={stageConfig.id}
+          mood={companion.mood || 'content'}
+          size={42}
+        />
       </div>
     </div>
   );
