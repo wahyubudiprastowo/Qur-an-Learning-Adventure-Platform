@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Headphones, Mic, Award, Play, ChevronRight, Sparkles, BookOpen } from 'lucide-react';
 import { ChildProfile } from '../../types';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
+import { CardShareButton } from '../common/CardShareButton';
+import { ShareModal } from '../common/ShareModal';
 
 interface TahfizHomeProps {
   activeChild: ChildProfile;
@@ -23,6 +25,8 @@ export const TahfizHome: React.FC<TahfizHomeProps> = ({
   onSelectStep,
   onResumeLastSession,
 }) => {
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
   return (
     <div className="space-y-4 pb-20 animate-in fade-in duration-200">
       {/* Hero Banner Card */}
@@ -42,7 +46,16 @@ export const TahfizHome: React.FC<TahfizHomeProps> = ({
       </div>
 
       {/* Continue Last Session Card (Matches Screenshot Al-Kahf) */}
-      <div className="bg-gradient-to-r from-[#FF7A50] to-[#FF946F] text-white rounded-3xl p-5 shadow-[0_6px_18px_rgba(255,122,80,0.25)] relative overflow-hidden flex items-center justify-between">
+      <div className="bg-gradient-to-r from-[#FF7A50] to-[#FF946F] text-white rounded-3xl p-5 shadow-[0_6px_18px_rgba(255,122,80,0.25)] relative overflow-hidden flex items-center justify-between group">
+        {/* Card Share Button (Hidden on desktop until hover, sleek on mobile) */}
+        <CardShareButton
+          onShare={(e) => {
+            e.stopPropagation();
+            setIsShareModalOpen(true);
+          }}
+          title="Bagikan Sesi Hafalan Ini"
+        />
+
         <div className="space-y-1 relative z-10">
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/25 text-[11px] font-bold tracking-tight">
             <span className="animate-spin text-[10px]">↻</span> Lanjutkan
@@ -151,6 +164,18 @@ export const TahfizHome: React.FC<TahfizHomeProps> = ({
           <strong className="font-bold">Ikuti urutan:</strong> dengar dulu sampai hafal nadanya, lalu latih bertahap sampai lancar, dan rekam hafalanmu untuk dapat bintang!
         </p>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={{
+          title: `Hafalan Qur'an ${activeChild.name}: Surah ${lastSession.surahName}`,
+          text: `Alhamdulillah! Ananda ${activeChild.name} sedang menghafal Surah ${lastSession.surahName} (Ayat ${lastSession.startAyah}–${lastSession.endAyah}) di Cahaya Tahfiz. Yuk ikut dukung semangat belajarnya!`,
+          category: "Target Hafalan Qur'an",
+          badge: `Surah ${lastSession.surahName}`,
+        }}
+      />
     </div>
   );
 };

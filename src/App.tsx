@@ -29,9 +29,12 @@ import { ChildProfileModal } from './components/akun/ChildProfileModal';
 import { QuickChildSwitcherModal } from './components/akun/QuickChildSwitcherModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { ProVsFreeModal } from './components/subscription/ProVsFreeModal';
+import { PaymentCheckoutModal } from './components/subscription/PaymentCheckoutModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
+import { FloatingSocialShareDock } from './components/common/FloatingSocialShareDock';
+import { ShareModal, SharePayload } from './components/common/ShareModal';
 
 export default function App() {
   // Navigation Tabs
@@ -43,8 +46,8 @@ export default function App() {
   // Al-Quran Submodule
   const [alQuranSubView, setAlQuranSubView] = useState<AlQuranSubmodule>(null);
 
-  // Sub-tab for Game / World Map ('map' | 'games' | 'room' | 'collection')
-  const [gameSubTab, setGameSubTab] = useState<'map' | 'games' | 'room' | 'collection'>('map');
+  // Sub-tab for Game / World Map ('map' | 'games' | 'room' | 'collection' | 'leaderboard')
+  const [gameSubTab, setGameSubTab] = useState<'map' | 'games' | 'room' | 'collection' | 'leaderboard'>('map');
 
   // Active User & Child Profile State
   const [userAccount, setUserAccount] = useState<UserAccount>(() => StorageService.getUserAccount());
@@ -74,8 +77,12 @@ export default function App() {
   const [showQuickChildSwitcher, setShowQuickChildSwitcher] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('register');
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'switch'>('register');
   const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
 
   const [companion, setCompanion] = useState(() =>
     CompanionService.getCompanionData(activeChild.id)
@@ -163,7 +170,7 @@ export default function App() {
     setAlQuranSubView(subView);
   };
 
-  const navigateGame = (subTab: 'map' | 'games' | 'room' | 'collection') => {
+  const navigateGame = (subTab: 'map' | 'games' | 'room' | 'collection' | 'leaderboard' = 'map') => {
     GlobalAudioManager.stopAll();
     setActiveTab('game');
     setGameSubTab(subTab);
@@ -224,6 +231,8 @@ export default function App() {
       navigateGame('room');
     } else if (actionType === 'map') {
       navigateGame('map');
+    } else if (actionType === 'leaderboard') {
+      navigateGame('leaderboard');
     }
   };
 
@@ -511,6 +520,8 @@ export default function App() {
             <GameHub
               childId={activeChild.id}
               initialTab={gameSubTab}
+              userAccount={userAccount}
+              onOpenUpgradeModal={() => setShowPlanModal(true)}
               onNavigateToLand={(tab, subView) => {
                 GlobalAudioManager.stopAll();
                 setActiveTab(tab);
@@ -588,6 +599,22 @@ export default function App() {
           onPlanChanged={(updated) => {
             setUserAccount(updated);
           }}
+          onOpenCheckout={(planId) => {
+            setCheckoutPlanId(planId);
+            setShowCheckoutModal(true);
+          }}
+        />
+
+        {/* Payment Checkout Modal */}
+        <PaymentCheckoutModal
+          isOpen={showCheckoutModal}
+          onClose={() => setShowCheckoutModal(false)}
+          selectedPlanId={checkoutPlanId}
+          userAccount={userAccount}
+          onSuccess={(updated) => {
+            setUserAccount(updated);
+            setShowCheckoutModal(false);
+          }}
         />
 
         {/* Hijalearn-style Auth & Registration Modal */}
@@ -601,6 +628,28 @@ export default function App() {
             setChildrenList(StorageService.getChildren());
             setActiveChild(StorageService.getActiveChild());
           }}
+        />
+
+        {/* Floating Social Share Dock (Collapsible, Parroto-style) */}
+        <FloatingSocialShareDock
+          onOpenShareModal={(payload) => {
+            setSharePayload(
+              payload || {
+                title: "Cahaya Tahfiz - Belajar & Hafalan Al-Qur'an Anak Berbasis AI",
+                text: `Dampingi anak belajar tartil, makhraj, dan menghafal Al-Qur'an bersama Sahabat 3D Lumi di Cahaya Tahfiz!`,
+                url: typeof window !== 'undefined' ? window.location.href : 'https://cahaya-tahfiz.app',
+                category: "Aplikasi Edukasi Tahfiz",
+              }
+            );
+            setShowShareModal(true);
+          }}
+        />
+
+        {/* Global Share Modal */}
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          payload={sharePayload}
         />
       </div>
     </div>

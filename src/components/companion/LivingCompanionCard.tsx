@@ -35,6 +35,8 @@ import {
 import { CompanionService } from '../../services/companionService';
 import { CompanionSprite } from './CompanionSprite';
 import { RewardStarVisual } from './ObjectVisuals';
+import { CardShareButton } from '../common/CardShareButton';
+import { ShareModal, SharePayload } from '../common/ShareModal';
 
 interface LivingCompanionCardProps {
   child: ChildProfile;
@@ -156,6 +158,20 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   const [selectedGardenDay, setSelectedGardenDay] = useState<number | null>(null);
   const [isJoyfulFeeding, setIsJoyfulFeeding] = useState<boolean>(false);
   const [happinessSurge, setHappinessSurge] = useState<number | null>(null);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+
+  const handleShareCompanionCard = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const bloomed = (companion.gardenDays || []).filter(Boolean).length;
+    setSharePayload({
+      title: `Sahabat Qur'an ${child.name}: ${companion.name} (${stageConfig.name})`,
+      text: `Alhamdulillah! Sahabat Qur'an ${companion.name} saat ini berada di wujud ${stageConfig.name} dengan ${companion.xp} EXP dan ${bloomed}/7 hari mekar di Kebun Belajar Cahaya Tahfiz!`,
+      category: "Tamagotchi Sahabat Tahfiz",
+      badge: `${stageConfig.name} • Lv. ${companion.level}`,
+    });
+    setIsShareModalOpen(true);
+  };
 
   const species = companion.species || 'lumi';
   const speciesConfig = getCompanionSpeciesConfig(species);
@@ -375,7 +391,13 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
       </div>
 
       {/* --- 2. INTERACTIVE TAMAGOTCHI HABITAT & SPRITE --- */}
-      <div className="bg-white/85 backdrop-blur-md border border-[#C9E1ED] rounded-3xl p-4 relative z-10 flex flex-col md:flex-row items-center gap-4">
+      <div className="bg-white/85 backdrop-blur-md border border-[#C9E1ED] rounded-3xl p-4 relative z-10 flex flex-col md:flex-row items-center gap-4 group">
+        {/* Card Share Button (Hidden on desktop until hover, sleek on mobile) */}
+        <CardShareButton
+          onShare={handleShareCompanionCard}
+          title="Bagikan Sahabat Qur'an Ini"
+          className="top-3 right-3"
+        />
         {/* Tamagotchi Mascot Sprite with Emotive Animations and Transitions */}
         <div className="flex flex-col items-center shrink-0">
           <div
@@ -1221,6 +1243,13 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 };

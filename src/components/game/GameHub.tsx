@@ -25,6 +25,7 @@ import { GlobalAudioManager } from '../../services/audioService';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
 import { WorldMapView } from '../companion/WorldMapView';
+import { UserAccount } from '../../types';
 
 export type GameType =
   | 'continue_ayah'
@@ -39,15 +40,27 @@ export type GameType =
 
 interface GameHubProps {
   childId: string;
-  initialTab?: 'map' | 'games' | 'room' | 'collection';
+  initialTab?: 'map' | 'games' | 'room' | 'collection' | 'leaderboard';
   onNavigateToLand?: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
+  userAccount?: UserAccount;
+  onOpenUpgradeModal?: () => void;
 }
 
 export function removeHarakat(text: string): string {
   return text.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
 }
 
-export const GameHub: React.FC<GameHubProps> = ({ childId, initialTab, onNavigateToLand }) => {
+export const GameHub: React.FC<GameHubProps> = ({
+  childId,
+  initialTab,
+  onNavigateToLand,
+  userAccount,
+  onOpenUpgradeModal,
+}) => {
+  const currentUserAccount = userAccount || StorageService.getUserAccount();
+  const isPro = currentUserAccount.planTier === 'pro' || currentUserAccount.entitlement === 'active' || currentUserAccount.entitlement === 'trial';
+  const PRO_GAME_IDS = ['continue_ayah', 'arabic_matching', 'tajwid_class', 'guess_surah'];
+
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [score, setScore] = useState<number>(0);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
@@ -125,6 +138,28 @@ export const GameHub: React.FC<GameHubProps> = ({ childId, initialTab, onNavigat
       'game',
       activeGame || 'game'
     );
+
+    const gameTitles: Record<string, string> = {
+      continue_ayah: 'Sambung Ayat (PVP)',
+      arrange_ayah: 'Susun Ayat',
+      missing_word: 'Hujan Kata',
+      hijaiyah_sound: 'Lebah Ejaan',
+      arabic_matching: 'Cocokkan Kata & Arti',
+      tajwid_class: 'Klasifikasi Tajwid',
+      guess_surah: 'Detektif Surah',
+      audio_to_ayah: 'Dengar & Pilih Ayat',
+    };
+    const title = activeGame ? gameTitles[activeGame] || activeGame : 'Mini-Game Qur\'an';
+    StorageService.addActivity({
+      userName: activeChild?.name || 'Santri Cilik',
+      userAvatar: activeChild?.avatar || '🌟',
+      userLevel: activeChild?.level || 1,
+      gameId: activeGame || 'game',
+      gameName: title,
+      gameIcon: '🎮',
+      score: score + bonusScore,
+      actionText: `meraih ${score + bonusScore} poin di ${title}`,
+    });
 
     CompanionService.recordActivity(childId, 'game', earnedXp, earnedStars);
     setCompanionStateVersion((v) => v + 1);
@@ -330,6 +365,10 @@ export const GameHub: React.FC<GameHubProps> = ({ childId, initialTab, onNavigat
 
   // Start selected game
   const handleStartGame = (gameId: GameType) => {
+    if (gameId && PRO_GAME_IDS.includes(gameId) && !isPro) {
+      onOpenUpgradeModal?.();
+      return;
+    }
     setActiveGame(gameId);
     setCurrentQuestionIndex(0);
     setScore(0);
@@ -1420,6 +1459,8 @@ export const GameHub: React.FC<GameHubProps> = ({ childId, initialTab, onNavigat
       child={activeChild}
       companion={companion}
       initialTab={initialTab}
+      userAccount={currentUserAccount}
+      onOpenUpgradeModal={onOpenUpgradeModal}
       onNavigateToLand={(tab, subView) => {
         onNavigateToLand?.(tab, subView);
       }}

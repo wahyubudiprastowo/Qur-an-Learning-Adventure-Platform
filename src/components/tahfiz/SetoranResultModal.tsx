@@ -15,6 +15,8 @@ import {
 import { ScoreAnalysisResult } from '../../services/scoringEngine';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { Button } from '../common/Button';
+import { CardShareButton } from '../common/CardShareButton';
+import { ShareModal } from '../common/ShareModal';
 
 export interface RecordedAyahItem {
   ayahNumber: number;
@@ -47,6 +49,7 @@ export const SetoranResultModal: React.FC<SetoranResultModalProps> = ({
   const [playingChildAyah, setPlayingChildAyah] = useState<number | null>(null);
   const [playingQariAyah, setPlayingQariAyah] = useState<number | null>(null);
   const audioPlayerRef = React.useRef<HTMLAudioElement | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
 
   // Calculate Overall Average Score
   const totalScore = results.reduce((acc, r) => acc + r.scoreResult.overallScore, 0);
@@ -105,16 +108,25 @@ export const SetoranResultModal: React.FC<SetoranResultModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl relative my-8 animate-in zoom-in-95 duration-200">
-        {/* Close Button */}
-        <button
-          onClick={() => {
-            stopAllAudio();
-            onClose();
-          }}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#EEF8FF] text-[#164C68] flex items-center justify-center hover:bg-slate-200 transition-colors"
-        >
-          <X size={18} />
-        </button>
+        {/* Share Button & Close Button */}
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+          <CardShareButton
+            variant="inline"
+            size="md"
+            onShare={() => setIsShareModalOpen(true)}
+            title="Bagikan Hasil Setoran"
+            className="w-9 h-9 bg-[#EEF8FF] text-[#164C68] hover:bg-[#08B9EF] hover:text-white border border-[#C9E1ED]"
+          />
+          <button
+            onClick={() => {
+              stopAllAudio();
+              onClose();
+            }}
+            className="w-9 h-9 rounded-full bg-[#EEF8FF] text-[#164C68] flex items-center justify-center hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Modal Header */}
         <div className="text-center mb-5">
@@ -277,6 +289,18 @@ export const SetoranResultModal: React.FC<SetoranResultModalProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Share Modal */}
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          payload={{
+            title: `Setoran Hafalan: Surah ${surahName}`,
+            text: `Alhamdulillah! Ananda berhasil menuntaskan setoran hafalan Surah ${surahName} dengan skor kelancaran ${overallPercentage}% di aplikasi Cahaya Tahfiz!`,
+            category: "Prestasi Tahfiz Anak",
+            badge: `${overallPercentage}% Kelancaran`,
+          }}
+        />
       </div>
     </div>
   );

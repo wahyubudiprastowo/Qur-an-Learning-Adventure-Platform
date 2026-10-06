@@ -21,6 +21,7 @@ import { ParentDashboardModal } from './ParentDashboardModal';
 import { ChildProfileModal } from './ChildProfileModal';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 import { ProVsFreeModal } from '../subscription/ProVsFreeModal';
+import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
 import { AuthModal } from '../auth/AuthModal';
 
 interface AkunHomeProps {
@@ -42,6 +43,8 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
   const [showWeeklyReportModal, setShowWeeklyReportModal] = useState<boolean>(false);
   const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
+  const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
@@ -334,6 +337,22 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         onClose={() => setShowPlanModal(false)}
         userAccount={userAccount}
         onPlanChanged={() => onRefreshData()}
+        onOpenCheckout={(planId) => {
+          setCheckoutPlanId(planId);
+          setShowCheckoutModal(true);
+        }}
+      />
+
+      {/* Payment Checkout Modal */}
+      <PaymentCheckoutModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        selectedPlanId={checkoutPlanId}
+        userAccount={userAccount}
+        onSuccess={() => {
+          setShowCheckoutModal(false);
+          onRefreshData();
+        }}
       />
 
       {/* Hijalearn-style Auth Modal */}

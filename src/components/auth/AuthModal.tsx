@@ -2,19 +2,20 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
-  Eye,
-  EyeOff,
+  Mail,
+  Phone,
+  ArrowRight,
+  ShieldCheck,
+  User,
+  Users,
+  LogOut,
   CheckCircle2,
   Sparkles,
-  Phone,
-  Mail,
-  User,
+  Smartphone,
   Lock,
-  Heart,
-  BookOpen,
-  Mic,
-  ShieldCheck,
-  ChevronRight,
+  Globe,
+  KeyRound,
+  Check,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserAccount } from '../../types';
@@ -22,552 +23,629 @@ import { StorageService } from '../../services/storageService';
 
 interface AuthModalProps {
   isOpen: boolean;
-  initialMode?: 'login' | 'register';
+  initialMode?: 'login' | 'register' | 'switch';
   onClose: () => void;
   onAuthSuccess: (account: UserAccount) => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
-  initialMode = 'register',
+  initialMode = 'login',
   onClose,
   onAuthSuccess,
 }) => {
-  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'switch'>(initialMode);
+  const [authChannel, setAuthChannel] = useState<'google' | 'whatsapp' | 'email'>('google');
 
-  // Form Fields (Inspired by Hijalearn.id parent & child onboarding)
-  const [parentName, setParentName] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [childName, setChildName] = useState('');
-  const [childAgeGroup, setChildAgeGroup] = useState<string>('6-8 thn');
-  const [learningTarget, setLearningTarget] = useState<string>('juz30');
-  const [agreedTerms, setAgreedTerms] = useState(true);
-  const [rememberMe, setRememberMe] = useState(true);
+  // Input states
+  const [emailInput, setEmailInput] = useState<string>('wahyubudiprastowo@gmail.com');
+  const [passwordInput, setPasswordInput] = useState<string>('••••••••');
+  const [whatsappInput, setWhatsappInput] = useState<string>('081288882026');
+  const [parentNameInput, setParentNameInput] = useState<string>('Wahyu Budi Prastowo');
+  const [childNameInput, setChildNameInput] = useState<string>('Aisyah');
 
-  // Feedback states
+  // WhatsApp OTP simulation state
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [otpCode, setOtpCode] = useState<string>('202688');
+
+  // Notices
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const validate = (): boolean => {
+  const allUsers = StorageService.getAllUsers();
+  const currentAccount = StorageService.getUserAccount();
+
+  // Fast One-Tap Google / Gmail Sign In
+  const handleGoogleLogin = (customEmail?: string, customName?: string) => {
     setErrorMessage(null);
+    const targetEmail = customEmail || emailInput.trim() || 'wahyubudiprastowo@gmail.com';
+    const targetName = customName || parentNameInput.trim() || 'Wahyu Budi Prastowo';
 
-    if (mode === 'register') {
-      if (!parentName.trim()) {
-        setErrorMessage('Nama Ayah/Bunda wajib diisi.');
-        return false;
-      }
-      if (!email.trim() || !email.includes('@')) {
-        setErrorMessage('Format email belum valid.');
-        return false;
-      }
-      if (!whatsapp.trim() || whatsapp.trim().length < 9) {
-        setErrorMessage('Nomor WhatsApp aktif wajib diisi (minimal 9 digit).');
-        return false;
-      }
-      if (password.length < 8) {
-        setErrorMessage('Kata sandi minimal 8 karakter demi keamanan akun keluarga.');
-        return false;
-      }
-      if (!agreedTerms) {
-        setErrorMessage('Silakan setujui ketentuan layanan untuk melanjutkan.');
-        return false;
-      }
-    } else {
-      // Login validation
-      if (!email.trim()) {
-        setErrorMessage('Email atau nomor WhatsApp wajib diisi.');
-        return false;
-      }
-      if (!password || password.length < 6) {
-        setErrorMessage('Kata sandi harus diisi.');
-        return false;
-      }
-    }
-
-    return true;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    if (mode === 'register') {
-      const targetLabel =
-        learningTarget === 'juz30'
-          ? 'Hafalan Juz 30'
-          : learningTarget === 'iqra'
-          ? 'Iqra & Huruf Hijaiyah'
-          : 'Tartil & Makhraj AI';
-
-      const account = StorageService.registerUser(
-        parentName,
-        email,
-        whatsapp,
-        childName,
-        targetLabel
-      );
-
-      setSuccessMessage(
-        `Alhamdulillah! Akun keluarga ${parentName} berhasil didaftarkan.`
-      );
-
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 80,
-          origin: { y: 0.5 },
-          colors: ['#22C55E', '#10B981', '#38BDF8', '#FBBF24'],
-        });
-      } catch {
-        // Ignore
-      }
-
-      setTimeout(() => {
-        onAuthSuccess(account);
-        onClose();
-      }, 1000);
-    } else {
-      const account = StorageService.loginUser(email, parentName || undefined);
-      setSuccessMessage('Selamat datang kembali! Masuk berhasil.');
-      setTimeout(() => {
-        onAuthSuccess(account);
-        onClose();
-      }, 900);
-    }
-  };
-
-  const handleGoogleAuth = () => {
-    const defaultEmail = email.trim() || 'keluarga.quran@gmail.com';
-    const defaultName = parentName.trim() || 'Orang Tua Hafiz';
-    const account = StorageService.registerUser(
-      defaultName,
-      defaultEmail,
-      whatsapp || '081234567890',
-      childName || 'Aisyah',
-      'Hafalan Juz 30'
-    );
-
-    setSuccessMessage(`Berhasil terhubung dengan Google (${defaultEmail})!`);
-
+    const account = StorageService.loginWithProvider(targetEmail, 'google', targetName);
+    
     try {
       confetti({
-        particleCount: 40,
+        particleCount: 50,
         spread: 70,
         origin: { y: 0.5 },
-        colors: ['#4285F4', '#34A853', '#FBBC05', '#EA4335'],
+        colors: ['#08B9EF', '#FFD83E', '#81E850', '#EA4335'],
       });
-    } catch {
-      // Ignore
-    }
+    } catch {}
 
+    setSuccessNotice(`Berhasil masuk dengan Akun Google (${targetEmail})! Selamat datang, ${account.parentName}.`);
     setTimeout(() => {
       onAuthSuccess(account);
       onClose();
     }, 1000);
   };
 
+  // WhatsApp OTP Login
+  const handleSendWhatsAppOtp = () => {
+    if (!whatsappInput || whatsappInput.replace(/\D/g, '').length < 9) {
+      setErrorMessage('Masukkan nomor WhatsApp yang valid (minimal 9 digit).');
+      return;
+    }
+    setErrorMessage(null);
+    setOtpSent(true);
+    setSuccessNotice(`Kode OTP 6-digit berhasil dikirim via WhatsApp ke ${whatsappInput}! (Gunakan kode: 202688)`);
+  };
+
+  const handleVerifyWhatsAppOtp = () => {
+    if (otpCode !== '202688' && otpCode.length !== 6) {
+      setErrorMessage('Kode OTP salah. Masukkan kode 202688 untuk verifikasi tes.');
+      return;
+    }
+    const cleanWa = whatsappInput.trim();
+    const account = StorageService.loginWithProvider(
+      cleanWa,
+      'whatsapp',
+      parentNameInput.trim() || 'Keluarga WhatsApp'
+    );
+
+    try {
+      confetti({
+        particleCount: 45,
+        spread: 60,
+        origin: { y: 0.5 },
+      });
+    } catch {}
+
+    setSuccessNotice(`Verifikasi WhatsApp Berhasil! Selamat datang, ${account.parentName}.`);
+    setTimeout(() => {
+      onAuthSuccess(account);
+      onClose();
+    }, 1000);
+  };
+
+  // Standard Email Login or Register
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMessage('Silakan masukkan format alamat email yang valid.');
+      return;
+    }
+
+    const account = StorageService.loginWithProvider(
+      cleanEmail,
+      'email',
+      parentNameInput.trim() || undefined
+    );
+
+    if (childNameInput.trim()) {
+      const activeChild = StorageService.getActiveChild();
+      if (activeChild) {
+        StorageService.updateChild(activeChild.id, { name: childNameInput.trim() });
+      }
+    }
+
+    try {
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.5 },
+      });
+    } catch {}
+
+    setSuccessNotice(`Berhasil masuk dengan email! Selamat datang, ${account.parentName}.`);
+    setTimeout(() => {
+      onAuthSuccess(account);
+      onClose();
+    }, 1000);
+  };
+
+  // Switch between existing registered users on device
+  const handleSwitchAccount = (userId: string) => {
+    const updated = StorageService.switchAccount(userId);
+    setSuccessNotice(`Beralih ke akun ${updated.parentName}.`);
+    setTimeout(() => {
+      onAuthSuccess(updated);
+      onClose();
+    }, 800);
+  };
+
+  const handleLogout = () => {
+    const guest = StorageService.logoutUser();
+    setSuccessNotice('Berhasil keluar dari akun.');
+    setTimeout(() => {
+      onAuthSuccess(guest);
+      onClose();
+    }, 800);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-md overflow-y-auto">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 14 }}
+        initial={{ opacity: 0, scale: 0.96, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 14 }}
-        className="bg-[#0B132B] text-slate-100 border border-[#1E293B] rounded-3xl max-w-lg w-full max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden font-sans"
+        exit={{ opacity: 0, scale: 0.96, y: 15 }}
+        className="bg-white rounded-3xl border border-[#C9E1ED] shadow-2xl max-w-3xl w-full overflow-hidden my-4 relative font-sans"
       >
-        {/* Decorative Ambient Glow */}
-        <div className="absolute -top-24 -right-24 w-52 h-52 bg-[#22C55E]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-52 h-52 bg-[#0284C7]/15 rounded-full blur-3xl pointer-events-none" />
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+        >
+          <X size={16} />
+        </button>
 
-        {/* Top Header Section */}
-        <div className="p-5 sm:p-6 pb-3 border-b border-[#1E293B] shrink-0 relative">
-          <button
-            onClick={onClose}
-            aria-label="Tutup"
-            className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#1E293B] text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors cursor-pointer z-10"
-          >
-            <X size={17} />
-          </button>
-
-          {/* Logo & Platform Name */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-2xl">✨</span>
-            <span className="text-lg font-black font-heading tracking-tight text-white">
-              Cahaya<span className="text-[#22C55E]">Tahfiz</span>
-            </span>
-            <span className="text-[10px] font-bold bg-[#22C55E]/20 text-[#22C55E] border border-[#22C55E]/30 px-2 py-0.5 rounded-full">
-              Hijalearn Platform
-            </span>
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-black text-white font-heading tracking-tight">
-            {mode === 'register' ? 'Buat Akun Belajar Keluarga' : 'Selamat Datang Kembali!'}
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            {mode === 'register'
-              ? 'Daftar gratis untuk simpan rapor hafalan, koreksi makhraj AI & pantau progres anak.'
-              : 'Masuk untuk melanjutkan petualangan Al-Qur\'an si kecil.'}
-          </p>
-
-          {/* Mode Switch Tabs (Hijalearn style tabs) */}
-          <div className="mt-4 grid grid-cols-2 gap-2 bg-[#111C35] p-1 rounded-2xl border border-[#223554]">
-            <button
-              type="button"
-              onClick={() => {
-                setMode('register');
-                setErrorMessage(null);
-              }}
-              className={`py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                mode === 'register'
-                  ? 'bg-[#22C55E] text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <span>Daftar Akun Baru</span>
-              <span className="text-[9px] bg-slate-950/20 px-1.5 py-0.2 rounded-full font-bold">
-                Gratis
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setMode('login');
-                setErrorMessage(null);
-              }}
-              className={`py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                mode === 'login'
-                  ? 'bg-slate-700 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sudah Punya Akun? Masuk
-            </button>
-          </div>
-        </div>
-
-        {/* Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-          {/* Success Message Banner */}
-          {successMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-300 font-bold"
-            >
-              <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-              <span>{successMessage}</span>
-            </motion.div>
-          )}
-
-          {/* Error Message Banner */}
-          {errorMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-rose-950/80 border border-rose-500/50 rounded-2xl flex items-center gap-2.5 text-xs text-rose-300 font-bold"
-            >
-              <span className="text-rose-400 shrink-0">⚠️</span>
-              <span>{errorMessage}</span>
-            </motion.div>
-          )}
-
-          {/* Quick Highlight of Free Benefits (Hijalearn style assurance) */}
-          {mode === 'register' && (
-            <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-3 text-xs space-y-1.5">
-              <div className="text-[11px] font-black text-emerald-400 flex items-center gap-1.5">
-                <Sparkles size={14} />
-                <span>KEUNTUNGAN AKUN CAHAYA TAHFIZ (100% GRATIS)</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400">✓</span>
-                  <span>Juz 30 Lengkap 37 Surah</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400">✓</span>
-                  <span>Deteksi Suara AI Tartil</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400">✓</span>
-                  <span>Pet Tamagotchi Interaktif</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-emerald-400">✓</span>
-                  <span>Simpan Rapor di Cloud</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {/* REGISTER FIELDS */}
-            {mode === 'register' && (
-              <>
-                {/* 1. Nama Orang Tua */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Nama Ayah / Bunda <span className="text-rose-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      value={parentName}
-                      onChange={(e) => setParentName(e.target.value)}
-                      placeholder="Contoh: Bunda Sarah / Ayah Rahman"
-                      className="w-full bg-[#111C35] border border-[#223554] focus:border-[#22C55E] focus:ring-1 focus:ring-[#22C55E] text-white placeholder-slate-500 rounded-2xl pl-10 pr-4 py-3 text-xs font-medium outline-hidden transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* 2. Nomor WhatsApp */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1 flex items-center justify-between">
-                    <span>Nomor WhatsApp Aktif <span className="text-rose-400">*</span></span>
-                    <span className="text-[10px] text-emerald-400 font-semibold">Untuk Rapor & Update</span>
-                  </label>
-                  <div className="relative">
-                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      placeholder="Contoh: 081234567890"
-                      className="w-full bg-[#111C35] border border-[#223554] focus:border-[#22C55E] focus:ring-1 focus:ring-[#22C55E] text-white placeholder-slate-500 rounded-2xl pl-10 pr-4 py-3 text-xs font-medium outline-hidden transition-all"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Email (Both modes) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[500px]">
+          {/* LEFT COLUMN: MAIN AUTH / REGISTER / SWITCHER */}
+          <div className="md:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-4">
             <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                Alamat Email <span className="text-rose-400">*</span>
-              </label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="keluarga@email.com"
-                  className="w-full bg-[#111C35] border border-[#223554] focus:border-[#22C55E] focus:ring-1 focus:ring-[#22C55E] text-white placeholder-slate-500 rounded-2xl pl-10 pr-4 py-3 text-xs font-medium outline-hidden transition-all"
-                />
+              {/* Header Title */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">🕌</span>
+                <h2 className="text-xl sm:text-2xl font-black text-[#164C68] font-heading tracking-tight">
+                  {activeTab === 'login'
+                    ? 'Masuk Akun Keluarga'
+                    : activeTab === 'register'
+                    ? 'Daftar Akun Baru'
+                    : 'Pilih Akun Tersimpan'}
+                </h2>
               </div>
-            </div>
+              <p className="text-xs text-[#8C9BA7] font-medium leading-relaxed">
+                {activeTab === 'switch'
+                  ? 'Ganti profil pengguna atau masuk sebagai anggota keluarga lain di perangkat ini.'
+                  : 'Sinkronisasi riwayat hafalan anak, status paket PRO, & ranking antar perangkat.'}
+              </p>
 
-            {/* Password (Both modes) */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                Kata Sandi <span className="text-rose-400">*</span>
-              </label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'register' ? 'Minimal 8 karakter' : 'Masukkan kata sandi'}
-                  className="w-full bg-[#111C35] border border-[#223554] focus:border-[#22C55E] focus:ring-1 focus:ring-[#22C55E] text-white placeholder-slate-500 rounded-2xl pl-10 pr-11 py-3 text-xs font-medium outline-hidden transition-all"
-                />
+              {/* Main Mode Segmented Control */}
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-2xl mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
-                  title={showPassword ? 'Sembunyikan' : 'Tampilkan'}
+                  onClick={() => setActiveTab('login')}
+                  className={`py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'login'
+                      ? 'bg-white text-[#164C68] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  Masuk
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('register')}
+                  className={`py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'register'
+                      ? 'bg-white text-[#164C68] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Daftar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('switch')}
+                  className={`py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    activeTab === 'switch'
+                      ? 'bg-[#164C68] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Users size={12} />
+                  <span>Akun ({allUsers.length})</span>
                 </button>
               </div>
-            </div>
 
-            {/* REGISTER ONLY: Child details & target */}
-            {mode === 'register' && (
-              <div className="pt-2 border-t border-[#1E293B] space-y-3">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  DATA PROFIL ANAK (BISA DIUBAH NANTI)
+              {/* Feedback messages */}
+              {errorMessage && (
+                <div className="mt-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-in fade-in">
+                  {errorMessage}
                 </div>
-
-                {/* Nama Panggilan Anak */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Nama Panggilan Anak
-                  </label>
-                  <input
-                    type="text"
-                    value={childName}
-                    onChange={(e) => setChildName(e.target.value)}
-                    placeholder="Contoh: Aisyah / Fatih"
-                    className="w-full bg-[#111C35] border border-[#223554] focus:border-[#22C55E] focus:ring-1 focus:ring-[#22C55E] text-white placeholder-slate-500 rounded-2xl px-4 py-2.5 text-xs font-medium outline-hidden transition-all"
-                  />
+              )}
+              {successNotice && (
+                <div className="mt-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold animate-in fade-in flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <span>{successNotice}</span>
                 </div>
+              )}
 
-                {/* Usia Anak Pills */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Kelompok Usia Anak
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {['3-5 thn', '6-8 thn', '9-12 thn', '> 12 thn'].map((age) => (
+              {/* TAB CONTENT: SWITCH ACCOUNTS (MULTI-USER) */}
+              {activeTab === 'switch' && (
+                <div className="mt-4 space-y-2.5">
+                  <span className="text-[11px] font-black text-[#8C9BA7] uppercase tracking-wider block">
+                    Daftar Akun di Perangkat Ini
+                  </span>
+
+                  <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                    {allUsers.map((u) => {
+                      const isCurrent = u.id === currentAccount.id;
+                      return (
+                        <div
+                          key={u.id}
+                          className={`p-3 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                            isCurrent
+                              ? 'border-[#08B9EF] bg-cyan-50/60 shadow-xs ring-1 ring-cyan-200'
+                              : 'border-slate-200 hover:border-slate-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-xl shrink-0 border border-slate-200">
+                              {u.authProvider === 'google' ? '🌐' : u.authProvider === 'whatsapp' ? '💬' : '👤'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-black text-[#164C68] truncate">
+                                  {u.parentName}
+                                </span>
+                                {isCurrent && (
+                                  <span className="text-[9px] font-black bg-[#08B9EF] text-white px-1.5 py-0.2 rounded-md">
+                                    AKTIF
+                                  </span>
+                                )}
+                                <span
+                                  className={`text-[9px] font-black px-1.5 py-0.2 rounded-md ${
+                                    u.planTier === 'pro'
+                                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {u.planTier === 'pro' ? '👑 PRO' : 'FREE'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#8C9BA7] truncate block">
+                                {u.email || u.whatsapp || 'Akun Tamu'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {!isCurrent ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchAccount(u.id)}
+                              className="px-3 py-1.5 rounded-xl bg-[#164C68] hover:bg-[#08B9EF] text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                            >
+                              Pilih
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 shrink-0">
+                              <Check size={14} /> Digunakan
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('register')}
+                      className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer text-center"
+                    >
+                      + Tambah Akun Baru
+                    </button>
+                    {currentAccount.isRegistered && (
                       <button
                         type="button"
-                        key={age}
-                        onClick={() => setChildAgeGroup(age)}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                          childAgeGroup === age
-                            ? 'bg-[#08B9EF] text-white border-[#08B9EF]'
-                            : 'bg-[#111C35] text-slate-400 border-[#223554] hover:text-white'
-                        }`}
+                        onClick={handleLogout}
+                        className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
                       >
-                        {age}
+                        <LogOut size={13} />
+                        <span>Keluar</span>
                       </button>
-                    ))}
+                    )}
                   </div>
                 </div>
+              )}
 
-                {/* Target Belajar Awal */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Target Utama Belajar
-                  </label>
+              {/* TAB CONTENT: LOGIN / REGISTER CHANNELS */}
+              {activeTab !== 'switch' && (
+                <div className="mt-4 space-y-4">
+                  {/* Channel Switcher Tabs */}
                   <div className="grid grid-cols-3 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setLearningTarget('juz30')}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between ${
-                        learningTarget === 'juz30'
-                          ? 'bg-emerald-950/70 border-[#22C55E] text-white'
-                          : 'bg-[#111C35] border-[#223554] text-slate-400'
+                      onClick={() => setAuthChannel('google')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        authChannel === 'google'
+                          ? 'border-[#08B9EF] bg-cyan-50/60 text-[#08B9EF] shadow-2xs font-black'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="text-base">📖</span>
-                      <span className="text-[10px] font-black mt-1 leading-tight">Tahfiz Juz 30</span>
+                      <span>🌐</span>
+                      <span>Google / Gmail</span>
                     </button>
-
                     <button
                       type="button"
-                      onClick={() => setLearningTarget('iqra')}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between ${
-                        learningTarget === 'iqra'
-                          ? 'bg-emerald-950/70 border-[#22C55E] text-white'
-                          : 'bg-[#111C35] border-[#223554] text-slate-400'
+                      onClick={() => setAuthChannel('whatsapp')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        authChannel === 'whatsapp'
+                          ? 'border-[#25D366] bg-emerald-50/60 text-[#25D366] shadow-2xs font-black'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="text-base">🔤</span>
-                      <span className="text-[10px] font-black mt-1 leading-tight">Iqra & Huruf</span>
+                      <span>💬</span>
+                      <span>WhatsApp</span>
                     </button>
-
                     <button
                       type="button"
-                      onClick={() => setLearningTarget('makhraj')}
-                      className={`p-2 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between ${
-                        learningTarget === 'makhraj'
-                          ? 'bg-emerald-950/70 border-[#22C55E] text-white'
-                          : 'bg-[#111C35] border-[#223554] text-slate-400'
+                      onClick={() => setAuthChannel('email')}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        authChannel === 'email'
+                          ? 'border-[#164C68] bg-slate-100 text-[#164C68] shadow-2xs font-black'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="text-base">🎙️</span>
-                      <span className="text-[10px] font-black mt-1 leading-tight">Makhraj Tartil</span>
+                      <span>📧</span>
+                      <span>Email</span>
                     </button>
                   </div>
+
+                  {/* 1. GOOGLE SIGN-IN */}
+                  {authChannel === 'google' && (
+                    <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div className="text-center space-y-1">
+                        <span className="text-xs font-bold text-slate-700 block">
+                          Masuk Cepat dengan Akun Google
+                        </span>
+                        <p className="text-[11px] text-slate-500">
+                          Satu klik tanpa ribet mengingat kata sandi.
+                        </p>
+                      </div>
+
+                      {/* Fast Google Account Button (matching user's actual email) */}
+                      <button
+                        type="button"
+                        onClick={() => handleGoogleLogin('wahyubudiprastowo@gmail.com', 'Wahyu Budi Prastowo')}
+                        className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 border-2 border-slate-300 text-slate-800 text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2.5 transition-all group"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24">
+                          <path
+                            fill="#4285F4"
+                            d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                          />
+                          <path
+                            fill="#34A853"
+                            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                          />
+                          <path
+                            fill="#FBBC05"
+                            d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.97 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+                          />
+                          <path
+                            fill="#EA4335"
+                            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                          />
+                        </svg>
+                        <span className="truncate">
+                          Lanjutkan sebagai Wahyu Budi (wahyubudiprastowo@gmail.com)
+                        </span>
+                      </button>
+
+                      {/* Custom google email input if desired */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[10px] font-bold text-slate-500 block">
+                          Atau gunakan akun Google / Gmail lainnya:
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            placeholder="nama.kamu@gmail.com"
+                            className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#08B9EF]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleGoogleLogin(emailInput)}
+                            className="px-3 py-2 rounded-xl bg-[#08B9EF] text-white text-xs font-bold cursor-pointer"
+                          >
+                            Masuk
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. WHATSAPP SIGN-IN */}
+                  {authChannel === 'whatsapp' && (
+                    <div className="space-y-3 p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200">
+                      <div>
+                        <label className="text-xs font-bold text-emerald-950 block mb-1">
+                          Nomor WhatsApp Orang Tua
+                        </label>
+                        <div className="flex gap-2">
+                          <span className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-black text-slate-700 flex items-center">
+                            🇮🇩 +62
+                          </span>
+                          <input
+                            type="tel"
+                            value={whatsappInput}
+                            onChange={(e) => setWhatsappInput(e.target.value)}
+                            placeholder="81288882026"
+                            className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#25D366]"
+                          />
+                        </div>
+                      </div>
+
+                      {activeTab === 'register' && (
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                            Nama Wali / Orang Tua
+                          </label>
+                          <input
+                            type="text"
+                            value={parentNameInput}
+                            onChange={(e) => setParentNameInput(e.target.value)}
+                            placeholder="Bunda Sarah / Ayah Hendra"
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                          />
+                        </div>
+                      )}
+
+                      {!otpSent ? (
+                        <button
+                          type="button"
+                          onClick={handleSendWhatsAppOtp}
+                          className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-black shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <Smartphone size={14} />
+                          <span>Kirim Kode OTP ke WhatsApp</span>
+                        </button>
+                      ) : (
+                        <div className="space-y-2 pt-1 animate-in fade-in">
+                          <label className="text-xs font-bold text-emerald-950 block">
+                            Masukkan 6-Digit Kode OTP WhatsApp (Gunakan: 202688)
+                          </label>
+                          <input
+                            type="text"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value)}
+                            maxLength={6}
+                            className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-center text-lg font-mono font-black tracking-widest text-[#164C68] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleVerifyWhatsAppOtp}
+                            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            <span>Verifikasi & Masuk Akun</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. EMAIL SIGN-IN */}
+                  {authChannel === 'email' && (
+                    <form onSubmit={handleEmailSubmit} className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Alamat Email
+                        </label>
+                        <input
+                          type="email"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          placeholder="keluarga@email.com"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#08B9EF]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Kata Sandi
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          placeholder="Minimal 6 karakter"
+                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#08B9EF]"
+                        />
+                      </div>
+
+                      {activeTab === 'register' && (
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 block mb-1">
+                            Nama Orang Tua
+                          </label>
+                          <input
+                            type="text"
+                            value={parentNameInput}
+                            onChange={(e) => setParentNameInput(e.target.value)}
+                            placeholder="Ayah / Bunda"
+                            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-[#08B9EF]"
+                          />
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 rounded-xl bg-[#164C68] hover:bg-[#08B9EF] text-white text-xs font-black shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <span>{activeTab === 'register' ? 'Daftar Sekarang' : 'Masuk dengan Email'}</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </form>
+                  )}
                 </div>
-
-                {/* Terms agreement checkbox */}
-                <div className="pt-1">
-                  <label className="flex items-start gap-2.5 text-[11px] text-slate-400 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={agreedTerms}
-                      onChange={(e) => setAgreedTerms(e.target.checked)}
-                      className="mt-0.5 rounded border-[#223554] text-[#22C55E] focus:ring-[#22C55E] bg-[#111C35]"
-                    />
-                    <span>
-                      Saya setuju dengan{' '}
-                      <span className="text-emerald-400 font-bold hover:underline">Ketentuan Layanan</span> dan{' '}
-                      <span className="text-emerald-400 font-bold hover:underline">Kebijakan Privasi</span> Cahaya Tahfiz.
-                    </span>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* LOGIN EXTRAS: Ingat Saya & Lupa Sandi */}
-            {mode === 'login' && (
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-0.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-[#223554] text-[#22C55E] focus:ring-[#22C55E] bg-[#111C35]"
-                  />
-                  <span>Ingat saya</span>
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() => setErrorMessage('Tautan reset sandi telah dikirim ke email atau WhatsApp Anda.')}
-                  className="text-[#22C55E] hover:underline font-bold cursor-pointer"
-                >
-                  Lupa sandi?
-                </button>
-              </div>
-            )}
-
-            {/* Primary Action Button (Hijalearn Emerald Green CTA) */}
-            <button
-              type="submit"
-              className="w-full mt-3 py-3.5 px-4 rounded-2xl bg-[#22C55E] hover:bg-[#16A34A] text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/25 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span>{mode === 'register' ? 'DAFTAR AKUN SEKARANG' : 'MASUK KE AKUN'}</span>
-              <ChevronRight size={18} strokeWidth={3} />
-            </button>
-          </form>
-
-          {/* DIVIDER: ATAU */}
-          <div className="relative my-3 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#1E293B]" />
+              )}
             </div>
-            <span className="relative bg-[#0B132B] px-3 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-              ATAU
-            </span>
+
+            {/* Bottom info */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-[#8C9BA7]">
+              <span>Privasi data santri 100% terjaga</span>
+              <button
+                type="button"
+                onClick={onClose}
+                className="font-bold text-[#164C68] hover:underline cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
 
-          {/* GOOGLE SIGN IN BUTTON */}
-          <button
-            onClick={handleGoogleAuth}
-            type="button"
-            className="w-full py-3 px-4 rounded-2xl bg-[#111C35] hover:bg-[#182647] border border-[#223554] text-white font-extrabold text-xs flex items-center justify-center gap-2.5 transition-all cursor-pointer active:scale-98"
-          >
-            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span className="tracking-wide">
-              {mode === 'register' ? 'DAFTAR DENGAN GOOGLE' : 'MASUK DENGAN GOOGLE'}
-            </span>
-          </button>
+          {/* RIGHT COLUMN: BENEFITS & MASCOT */}
+          <div className="md:col-span-5 bg-gradient-to-br from-[#164C68] via-[#0E3D55] to-[#08B9EF] p-6 text-white flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-1.5 bg-white/15 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-xs">
+                <Sparkles size={12} className="text-amber-300" />
+                <span>Multi-Akun & Sinkronisasi Cloud</span>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black font-heading leading-snug">
+                  Belajar & Menghafal Al-Qur'an Lebih Tenang Bersama Keluarga
+                </h3>
+                <p className="text-xs text-cyan-100 font-medium mt-1 leading-relaxed">
+                  Semua kemajuan hafalan, level Sahabat 3D Lumi, dan bintang mutqin tersimpan otomatis.
+                </p>
+              </div>
+
+              {/* Checklist */}
+              <div className="space-y-2.5 pt-2 text-xs">
+                {[
+                  'Bisa login lewat Gmail, WhatsApp, & Email',
+                  'Ganti akun multi-wali murid di 1 HP',
+                  'Akses 8 arena mini-game edukatif',
+                  'Laporan hafalan mingguan visual',
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-emerald-400 text-slate-950 flex items-center justify-center text-[10px] font-black shrink-0">
+                      ✓
+                    </div>
+                    <span className="text-white/90 font-medium">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white/10 rounded-2xl p-3.5 backdrop-blur-xs border border-white/20 mt-4 text-center">
+              <span className="text-2xl block mb-1">🌟</span>
+              <p className="text-[11px] font-bold text-white">
+                "Sebaik-baik kalian adalah orang yang belajar Al-Qur'an dan mengajarkannya."
+              </p>
+              <span className="text-[10px] text-cyan-200 block mt-0.5">(HR. Bukhari)</span>
+            </div>
+          </div>
         </div>
       </motion.div>
     </div>

@@ -16,8 +16,9 @@ import {
   X,
   Map as MapIcon,
   LayoutList,
+  Trophy,
 } from 'lucide-react';
-import { ChildProfile } from '../../types';
+import { ChildProfile, UserAccount } from '../../types';
 import {
   CompanionData,
   WorldLand,
@@ -36,7 +37,6 @@ import { ACHIEVEMENTS_CATALOG } from '../../data/levelsAndAchievements';
 import { StorageService } from '../../services/storageService';
 import { AdventureTrailMap } from './AdventureTrailMap';
 import { CompanionSprite } from './CompanionSprite';
-import { WorldLandVisual } from './WorldLandVisuals';
 import {
   PrayerRugVisual,
   BloomingTreeVisual,
@@ -44,6 +44,9 @@ import {
   TelescopeVisual,
   QuranBookVisual,
 } from './ObjectVisuals';
+import { CardShareButton } from '../common/CardShareButton';
+import { ShareModal, SharePayload } from '../common/ShareModal';
+import { LeaderboardAndActivityView } from '../game/LeaderboardAndActivityView';
 
 const renderDecorationVisual = (id: string, fallbackIcon: string, size = 42) => {
   if (id === 'carpet-bintang') return <PrayerRugVisual size={size} />;
@@ -57,11 +60,13 @@ const renderDecorationVisual = (id: string, fallbackIcon: string, size = 42) => 
 interface WorldMapViewProps {
   child: ChildProfile;
   companion: CompanionData;
-  initialTab?: 'map' | 'games' | 'room' | 'collection';
+  initialTab?: 'map' | 'games' | 'room' | 'collection' | 'leaderboard';
   onNavigateToLand: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
   onRefreshCompanion: () => void;
   // Mini-game launcher
   onLaunchMiniGame: (gameId: string) => void;
+  userAccount?: UserAccount;
+  onOpenUpgradeModal?: () => void;
 }
 
 export const WorldMapView: React.FC<WorldMapViewProps> = ({
@@ -71,13 +76,28 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
   onNavigateToLand,
   onRefreshCompanion,
   onLaunchMiniGame,
+  userAccount,
+  onOpenUpgradeModal,
 }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection'>(initialTab);
+  const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection' | 'leaderboard'>(initialTab);
   const [selectedLand, setSelectedLand] = useState<WorldLand | null>(null);
   const [mapFilter, setMapFilter] = useState<'all' | 'tahfiz' | 'alquran'>('all');
   const [mapViewMode, setMapViewMode] = useState<'trail' | 'cards'>('trail');
   const [collectionSubTab, setCollectionSubTab] = useState<'stages' | 'cards' | 'badges' | 'plants'>('stages');
   const [roomActionNotice, setRoomActionNotice] = useState<string | null>(null);
+  const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [lockedGamePrompt, setLockedGamePrompt] = useState<{ title: string; desc: string } | null>(null);
+
+  const currentUserAccount = userAccount || StorageService.getUserAccount();
+  const isPro = currentUserAccount.planTier === 'pro' || currentUserAccount.entitlement === 'active' || currentUserAccount.entitlement === 'trial';
+  const PRO_GAME_IDS = ['continue_ayah', 'arabic_matching', 'tajwid_class', 'guess_surah'];
+
+  const handleShareCard = (payload: SharePayload, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSharePayload(payload);
+    setIsShareModalOpen(true);
+  };
 
   useEffect(() => {
     if (initialTab) {
@@ -104,8 +124,8 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* 4-Tab Main Navigation Header */}
-      <div className="bg-white border border-[#C9E1ED] rounded-3xl p-1.5 shadow-xs grid grid-cols-4 gap-1 text-center">
+      {/* 5-Tab Main Navigation Header */}
+      <div className="bg-white border border-[#C9E1ED] rounded-3xl p-1.5 shadow-xs grid grid-cols-5 gap-1 text-center">
         <button
           onClick={() => setActiveMainTab('map')}
           className={`py-2 px-1 rounded-2xl text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
@@ -115,7 +135,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           }`}
         >
           <Compass size={18} />
-          <span className="text-[11px] font-heading">Peta Dunia</span>
+          <span className="text-[10px] sm:text-[11px] font-heading truncate">Peta Dunia</span>
         </button>
 
         <button
@@ -127,7 +147,19 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           }`}
         >
           <Gamepad2 size={18} />
-          <span className="text-[11px] font-heading">Arena Game</span>
+          <span className="text-[10px] sm:text-[11px] font-heading truncate">Arena Game</span>
+        </button>
+
+        <button
+          onClick={() => setActiveMainTab('leaderboard')}
+          className={`py-2 px-1 rounded-2xl text-xs font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+            activeMainTab === 'leaderboard'
+              ? 'bg-[#FFD83E] text-amber-950 shadow-sm'
+              : 'text-[#8C9BA7] hover:text-[#164C68]'
+          }`}
+        >
+          <Trophy size={18} />
+          <span className="text-[10px] sm:text-[11px] font-heading truncate">Peringkat</span>
         </button>
 
         <button
@@ -139,7 +171,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           }`}
         >
           <Home size={18} />
-          <span className="text-[11px] font-heading">Kamar Lumi</span>
+          <span className="text-[10px] sm:text-[11px] font-heading truncate">Kamar</span>
         </button>
 
         <button
@@ -151,7 +183,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           }`}
         >
           <BookOpen size={18} />
-          <span className="text-[11px] font-heading">Koleksi</span>
+          <span className="text-[10px] sm:text-[11px] font-heading truncate">Koleksi</span>
         </button>
       </div>
 
@@ -304,12 +336,28 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                           : 'border-[#C9E1ED] hover:border-[#08B9EF]'
                       }`}
                     >
+                      {/* Card Share Button */}
+                      <CardShareButton
+                        onShare={(e) =>
+                          handleShareCard(
+                            {
+                              title: `Jelajahi Wilayah ${land.name} di Cahaya Tahfiz`,
+                              text: `${land.tagline} • ${land.description}`,
+                              category: "Peta Petualangan Tahfiz",
+                              badge: `Wilayah #${idx + 1}`,
+                            },
+                            e
+                          )
+                        }
+                        title={`Bagikan Wilayah ${land.name}`}
+                      />
+
                       <div className="flex items-start gap-4">
                         {/* Glowing Emblemed Avatar */}
                         <div
                           className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${land.color} text-white flex items-center justify-center text-3xl shadow-sm shrink-0 group-hover:scale-105 transition-transform`}
                         >
-                          <WorldLandVisual landId={land.id} size={46} isLocked={isLocked} />
+                          {isLocked ? '🔒' : land.icon}
                         </div>
 
                         {/* Content */}
@@ -372,57 +420,281 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
       {activeMainTab === 'games' && (
         <div className="space-y-4 animate-in fade-in">
           {/* Header */}
-          <div className="bg-gradient-to-r from-orange-400 to-amber-500 text-white rounded-3xl p-5 shadow-md flex items-center justify-between">
+          <div className="bg-gradient-to-r from-orange-400 via-amber-500 to-yellow-500 text-white rounded-3xl p-5 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[11px] text-orange-100 font-bold uppercase tracking-wider">
-                Taman Bermain Anak
+                Taman Bermain Santri
               </span>
               <h2 className="text-xl font-black font-heading tracking-tight mt-0.5">
                 8 Arena Mini-Game Al-Qur'an
               </h2>
-              <p className="text-xs text-orange-100 font-medium mt-1">
+              <p className="text-xs text-orange-100 font-medium mt-0.5">
                 Kuis ceria tanpa tekanan dengan materi Al-Qur'an terverifikasi!
               </p>
+
+              {/* Status Access Badge */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span
+                  className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                    isPro
+                      ? 'bg-amber-300 text-amber-950 border-amber-200'
+                      : 'bg-white/20 text-white border-white/30'
+                  }`}
+                >
+                  {isPro
+                    ? '👑 Status: PRO AKTIF (Semua 8 Game Terbuka)'
+                    : 'Status: Paket FREE (4 Terbuka • 4 Khusus PRO)'}
+                </span>
+
+                {!isPro && onOpenUpgradeModal && (
+                  <button
+                    onClick={onOpenUpgradeModal}
+                    className="text-[10px] font-black bg-white hover:bg-orange-50 text-orange-950 px-3 py-0.5 rounded-full shadow-xs cursor-pointer transition-colors"
+                  >
+                    Buka Semua dengan PRO 👑
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="text-4xl p-2 bg-white/20 rounded-2xl backdrop-blur-xs">
+
+            <div className="text-4xl p-2 bg-white/20 rounded-2xl backdrop-blur-xs self-start sm:self-auto">
               🎮
             </div>
           </div>
 
           {/* Games Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {[
-              { id: 'continue_ayah', title: 'Sambung Ayat', desc: 'Tebak lanjutan potongan ayat berikutnya', icon: '🔗', color: 'from-cyan-400 to-blue-500' },
-              { id: 'arrange_ayah', title: 'Susun Ayat', desc: 'Urutkan kata menjadi ayat yang tepat', icon: '🧩', color: 'from-emerald-400 to-teal-500' },
-              { id: 'missing_word', title: 'Kata yang Hilang', desc: 'Isi bagian ayat yang tersembunyi', icon: '🔍', color: 'from-orange-400 to-amber-500' },
-              { id: 'arabic_matching', title: 'Cocokkan Kata & Arti', desc: 'Pasangkan kata Arab dengan maknanya', icon: '🎯', color: 'from-purple-400 to-indigo-500' },
-              { id: 'hijaiyah_sound', title: 'Tebak Suara Huruf', desc: 'Dengar bunyi huruf hijaiyah lalu tebak', icon: '🎧', color: 'from-yellow-400 to-amber-500' },
-              { id: 'tajwid_class', title: 'Klasifikasi Tajwid', desc: 'Kenali hukum nun sukun & makhraj', icon: '🏷️', color: 'from-teal-400 to-cyan-600' },
-              { id: 'guess_surah', title: 'Tebak Nama Surah', desc: 'Cari tahu surah dari ciri dan kisahnya', icon: '💡', color: 'from-blue-400 to-indigo-500' },
-              { id: 'audio_to_ayah', title: 'Dengar & Pilih Ayat', desc: 'Dengar lantunan qari lalu tentukan ayatnya', icon: '🎵', color: 'from-rose-400 to-pink-500' },
-            ].map((game) => (
-              <div
-                key={game.id}
-                onClick={() => onLaunchMiniGame(game.id)}
-                className="bg-white border-2 border-[#C9E1ED] hover:border-[#08B9EF] rounded-3xl p-4 shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center gap-3.5 group select-none"
-              >
+              {
+                id: 'continue_ayah',
+                title: 'Sambung Ayat',
+                isProOnly: true,
+                defaultTag: 'PVP ONLINE',
+                desc: 'Duel sambung ayat Al-Qur\'an seru melawan waktu dan teman!',
+                icon: '🔗',
+                badgeBg: 'bg-rose-500',
+                bannerGradient: 'from-blue-600 via-indigo-600 to-cyan-500',
+                illustration: '⚔️ 📖',
+              },
+              {
+                id: 'arrange_ayah',
+                title: 'Susun Ayat',
+                isProOnly: false,
+                defaultTag: 'PEMAIN TUNGGAL',
+                desc: 'Ketik & urutkan kata menjadi ayat yang tepat sebelum waktu habis!',
+                icon: '🧩',
+                badgeBg: 'bg-sky-600',
+                bannerGradient: 'from-cyan-600 via-sky-600 to-indigo-700',
+                illustration: '🚀 ✨',
+              },
+              {
+                id: 'missing_word',
+                title: 'Hujan Kata',
+                isProOnly: false,
+                defaultTag: 'PEMAIN TUNGGAL',
+                desc: 'Baca arti lafaz yang jatuh, ingat kata Arabnya lalu ketik tepat!',
+                icon: '🔍',
+                badgeBg: 'bg-emerald-600',
+                bannerGradient: 'from-teal-600 via-emerald-600 to-cyan-700',
+                illustration: '🌧️ ⛵',
+              },
+              {
+                id: 'hijaiyah_sound',
+                title: 'Lebah Ejaan',
+                isProOnly: false,
+                defaultTag: 'PEMAIN TUNGGAL',
+                desc: 'Dengar pelafalan makhraj qari dan ketik kata dengan ejaan sempurna.',
+                icon: '🎧',
+                badgeBg: 'bg-amber-600',
+                bannerGradient: 'from-amber-500 via-yellow-500 to-orange-600',
+                illustration: '🐝 🍯',
+              },
+              {
+                id: 'arabic_matching',
+                title: 'Cocokkan Kata & Arti',
+                isProOnly: true,
+                defaultTag: 'BARU',
+                desc: 'Pasangkan kartu kata Arab dengan terjemahannya secara cepat.',
+                icon: '🎯',
+                badgeBg: 'bg-purple-600',
+                bannerGradient: 'from-purple-600 via-pink-600 to-indigo-600',
+                illustration: '🍎 🍉',
+              },
+              {
+                id: 'tajwid_class',
+                title: 'Klasifikasi Tajwid',
+                isProOnly: true,
+                defaultTag: 'TANTANGAN',
+                desc: 'Kelompokkan hukum nun sukun, idgham, dan makhraj ke keranjang yang tepat.',
+                icon: '🏷️',
+                badgeBg: 'bg-teal-600',
+                bannerGradient: 'from-emerald-500 via-teal-600 to-sky-700',
+                illustration: '🌉 🕊️',
+              },
+              {
+                id: 'guess_surah',
+                title: 'Detektif Surah',
+                isProOnly: true,
+                defaultTag: 'BARU',
+                desc: 'Buka petunjuk rahasia dan tebak nama surah Al-Qur\'an.',
+                icon: '💡',
+                badgeBg: 'bg-blue-600',
+                bannerGradient: 'from-blue-600 via-indigo-600 to-purple-700',
+                illustration: '🔍 📜',
+              },
+              {
+                id: 'audio_to_ayah',
+                title: 'Dengar & Pilih Ayat',
+                isProOnly: false,
+                defaultTag: 'PEMAIN TUNGGAL',
+                desc: 'Simak tartil merdu Syaikh qari lalu pilih ayat yang sedang dibaca.',
+                icon: '🎵',
+                badgeBg: 'bg-pink-600',
+                bannerGradient: 'from-rose-500 via-pink-500 to-purple-600',
+                illustration: '🎧 🌟',
+              },
+            ].map((game) => {
+              const isGameLocked = game.isProOnly && !isPro;
+
+              return (
                 <div
-                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${game.color} text-white flex items-center justify-center text-2xl shadow-xs shrink-0 group-hover:scale-105 transition-transform`}
+                  key={game.id}
+                  onClick={() => {
+                    if (isGameLocked) {
+                      setLockedGamePrompt({
+                        title: game.title,
+                        desc: game.desc,
+                      });
+                    } else {
+                      onLaunchMiniGame(game.id);
+                    }
+                  }}
+                  className={`bg-white border-2 rounded-3xl overflow-hidden shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col group select-none relative ${
+                    isGameLocked
+                      ? 'border-amber-300 hover:border-amber-400'
+                      : 'border-[#C9E1ED] hover:border-[#08B9EF]'
+                  }`}
                 >
-                  {game.icon}
+                  {/* 1. Card Banner Image / Illustration */}
+                  <div
+                    className={`w-full h-28 sm:h-32 bg-gradient-to-br ${game.bannerGradient} relative p-3 flex flex-col justify-between overflow-hidden`}
+                  >
+                    {/* Subtle Background Pattern & Glow */}
+                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/15 rounded-full blur-md pointer-events-none" />
+                    <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+
+                    {/* LOCK OVERLAY IF GAME IS LOCKED */}
+                    {isGameLocked && (
+                      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-[2px] z-15 flex flex-col items-center justify-center text-white text-center p-2 animate-in fade-in">
+                        <div className="w-8 h-8 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center font-black shadow-md mb-1">
+                          <Lock size={16} />
+                        </div>
+                        <span className="text-[11px] font-black text-amber-300 tracking-wide">
+                          Khusus Paket PRO 👑
+                        </span>
+                        <span className="text-[9px] text-slate-300">Ketuk untuk Buka</span>
+                      </div>
+                    )}
+
+                    {/* Top Row: Mode Tag & Share Button */}
+                    <div className="flex items-center justify-between relative z-10">
+                      <span
+                        className={`text-[9px] font-black px-2.5 py-0.5 rounded-full shadow-xs tracking-wider uppercase ${
+                          isGameLocked
+                            ? 'bg-amber-500 text-white'
+                            : game.isProOnly && isPro
+                            ? 'bg-amber-400 text-amber-950 font-black'
+                            : 'bg-emerald-600 text-white'
+                        }`}
+                      >
+                        {isGameLocked
+                          ? '👑 KHUSUS PRO'
+                          : game.isProOnly && isPro
+                          ? '✨ PRO AKTIF'
+                          : '✓ GRATIS'}
+                      </span>
+
+                      {/* Image Card Share Button */}
+                      <CardShareButton
+                        onShare={(e) =>
+                          handleShareCard(
+                            {
+                              title: `Main Game ${game.title} di Cahaya Tahfiz!`,
+                              text: `${game.desc} Mari belajar Al-Qur'an dengan cara menyenangkan bersama keluarga.`,
+                              category: "Arena Game Al-Qur'an",
+                              badge: game.defaultTag,
+                            },
+                            e
+                          )
+                        }
+                        title={`Bagikan Game ${game.title}`}
+                      />
+                    </div>
+
+                    {/* Center Illustration Sprites */}
+                    <div className="flex items-center justify-center relative z-10 text-3xl sm:text-4xl filter drop-shadow-md group-hover:scale-110 transition-transform duration-300">
+                      <span>{game.illustration}</span>
+                    </div>
+
+                    {/* Bottom subtle indicator */}
+                    <div className="text-[10px] text-white/80 font-bold flex items-center gap-1 relative z-10">
+                      <span>{game.icon}</span>
+                      <span>Arena Edukasi</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Card Content & Action Button */}
+                  <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-sm font-black text-[#164C68] font-heading group-hover:text-[#08B9EF] transition-colors leading-tight">
+                          {game.title}
+                        </h3>
+                        {isGameLocked && <Lock size={12} className="text-amber-500 shrink-0" />}
+                      </div>
+                      <p className="text-xs text-[#8C9BA7] font-medium mt-1 line-clamp-2 leading-relaxed">
+                        {game.desc}
+                      </p>
+                    </div>
+
+                    {/* Action Button styled according to Locked vs Free */}
+                    <div className="pt-1">
+                      {isGameLocked ? (
+                        <div className="w-full py-2 px-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-colors">
+                          <Lock size={13} />
+                          <span>BUKA DENGAN PRO</span>
+                        </div>
+                      ) : (
+                        <div className="w-full py-2 px-3 rounded-2xl bg-[#08B9EF] group-hover:bg-[#069bc9] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-colors">
+                          <span>MAIN SEKARANG</span>
+                          <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-black text-[#164C68] font-heading group-hover:text-[#08B9EF] transition-colors">
-                    {game.title}
-                  </h3>
-                  <p className="text-xs text-[#8C9BA7] font-medium line-clamp-1">
-                    {game.desc}
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-[#8C9BA7] group-hover:translate-x-1 transition-transform" />
-              </div>
-            ))}
+              );
+            })}
           </div>
+        </div>
+      )}
+
+      {/* --- TAB 3: PAPAN PERINGKAT & AKTIVITAS LIVE --- */}
+      {activeMainTab === 'leaderboard' && (
+        <div className="animate-in fade-in space-y-4">
+          <LeaderboardAndActivityView
+            childId={child.id}
+            onOpenGame={(gameId) => {
+              if (PRO_GAME_IDS.includes(gameId) && !isPro) {
+                setLockedGamePrompt({
+                  title: 'Arena Game PRO',
+                  desc: 'Game ini memerlukan paket Cahaya Tahfiz PRO aktif.',
+                });
+              } else {
+                onLaunchMiniGame(gameId);
+              }
+            }}
+          />
         </div>
       )}
 
@@ -621,7 +893,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                 return (
                   <div
                     key={stage.id}
-                    className={`bg-white border-2 rounded-3xl p-4 shadow-xs transition-all flex items-center gap-3.5 ${
+                    className={`bg-white border-2 rounded-3xl p-4 shadow-xs transition-all flex items-center gap-3.5 relative group ${
                       isCurrent
                         ? 'border-[#08B9EF] ring-2 ring-cyan-200 bg-cyan-50/20'
                         : isUnlocked
@@ -629,12 +901,24 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                         : 'border-slate-200 opacity-50 bg-slate-50'
                     }`}
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-[#EEF8FF] border border-[#C9E1ED] flex items-center justify-center shrink-0 overflow-hidden">
-                      {isUnlocked ? (
-                        <CompanionSprite species={companion.species || 'lumi'} stage={stage.id} size={48} />
-                      ) : (
-                        <span className="text-2xl">🔒</span>
-                      )}
+                    {isUnlocked && (
+                      <CardShareButton
+                        onShare={(e) =>
+                          handleShareCard(
+                            {
+                              title: `Tahap Evolusi Lumi: ${stage.name}`,
+                              text: `"${stage.storyQuote}". Kemampuan: ${stage.unlockedAbility}`,
+                              category: "Evolusi Sahabat Tahfiz",
+                              badge: stage.name,
+                            },
+                            e
+                          )
+                        }
+                        title={`Bagikan Tahap ${stage.name}`}
+                      />
+                    )}
+                    <div className="w-14 h-14 rounded-2xl bg-[#EEF8FF] border border-[#C9E1ED] flex items-center justify-center text-3xl shrink-0">
+                      {isUnlocked ? stage.avatarIcon : '🔒'}
                     </div>
 
                     <div className="flex-1">
@@ -676,10 +960,26 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                   return (
                     <div
                       key={card.id}
-                      className={`bg-white border-2 rounded-3xl p-4 shadow-xs space-y-2 transition-all ${
+                      className={`bg-white border-2 rounded-3xl p-4 shadow-xs space-y-2 transition-all relative group ${
                         isUnlocked ? 'border-[#C9E1ED]' : 'border-slate-200 opacity-60'
                       }`}
                     >
+                      {isUnlocked && (
+                        <CardShareButton
+                          onShare={(e) =>
+                            handleShareCard(
+                              {
+                                title: `Kartu Hikmah: Surah ${card.surahName}`,
+                                text: `${card.badgeTitle}: "${card.keyWisdom}". Dipelajari di Cahaya Tahfiz.`,
+                                category: "Koleksi Hikmah Surah",
+                                badge: `Surah ${card.surahName}`,
+                              },
+                              e
+                            )
+                          }
+                          title={`Bagikan Kartu ${card.surahName}`}
+                        />
+                      )}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-2xl">{card.icon}</span>
@@ -783,9 +1083,9 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div
-                  className={`w-14 h-14 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center shadow-xs p-1`}
+                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${selectedLand.color} text-white flex items-center justify-center text-2xl shadow-xs`}
                 >
-                  <WorldLandVisual landId={selectedLand.id} size={46} />
+                  {selectedLand.icon}
                 </div>
                 <button
                   onClick={() => setSelectedLand(null)}
@@ -828,6 +1128,87 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Locked Game Prompt Modal */}
+      <AnimatePresence>
+        {lockedGamePrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.94, y: 20, opacity: 0 }}
+              className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-2 border-amber-300 space-y-4 text-center relative overflow-hidden"
+            >
+              <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-900 border-2 border-amber-300 flex items-center justify-center text-3xl mx-auto shadow-sm">
+                👑
+              </div>
+
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-3 py-1 rounded-full border border-amber-300">
+                  Fitur Eksklusif Paket PRO
+                </span>
+                <h3 className="text-lg font-black text-[#164C68] font-heading mt-2">
+                  Game {lockedGamePrompt.title} Masih Terkunci
+                </h3>
+                <p className="text-xs text-[#8C9BA7] font-medium mt-1 leading-relaxed">
+                  {lockedGamePrompt.desc}
+                </p>
+              </div>
+
+              {/* Benefits list */}
+              <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3.5 text-left text-xs space-y-1.5 text-slate-700">
+                <span className="font-bold text-amber-900 block mb-1">
+                  Keuntungan Cahaya Tahfiz PRO:
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>Buka seluruh 8 Arena Mini-Game & PVP Online</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>Akses 30 Juz Mushaf & Analisis Suara AI Tartil</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-600 font-bold">✓</span>
+                  <span>Multi-Profil Anak & Laporan Kemajuan Mingguan</span>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={() => {
+                    setLockedGamePrompt(null);
+                    onOpenUpgradeModal?.();
+                  }}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-500 hover:to-amber-700 text-amber-950 font-black text-xs shadow-md shadow-amber-500/25 cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-101"
+                >
+                  <Sparkles size={16} />
+                  <span>Lihat Paket PRO & Buka Sekarang</span>
+                </button>
+
+                <button
+                  onClick={() => setLockedGamePrompt(null)}
+                  className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs cursor-pointer transition-colors"
+                >
+                  Coba Game Gratis Dulu
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        payload={sharePayload}
+      />
     </div>
   );
 };

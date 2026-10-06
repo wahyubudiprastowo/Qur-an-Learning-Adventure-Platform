@@ -7,11 +7,22 @@ import {
   AyahRecording,
   PracticeSessionItem,
   PointsEventType,
+  PaymentTransaction,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
+import {
+  UserActivityItem,
+  LeaderboardPlayerItem,
+  INITIAL_RECENT_ACTIVITIES,
+  INITIAL_LEADERBOARD_PLAYERS,
+} from '../data/leaderboardAndActivityData';
 
 const STORAGE_KEYS = {
   USER_ACCOUNT: 'cahaya_tahfiz_user_account',
+  ALL_USERS: 'cahaya_tahfiz_all_users',
+  PAYMENT_HISTORY: 'cahaya_tahfiz_payment_history',
+  RECENT_ACTIVITIES: 'cahaya_tahfiz_recent_activities',
+  LEADERBOARD: 'cahaya_tahfiz_leaderboard',
   CHILDREN_PROFILES: 'cahaya_tahfiz_children_profiles',
   ACTIVE_CHILD_ID: 'cahaya_tahfiz_active_child_id',
   LAST_SESSION: 'cahaya_tahfiz_last_session_',
@@ -75,11 +86,50 @@ const DEFAULT_CHILDREN: ChildProfile[] = [
 ];
 
 export class StorageService {
-  // --- Account & Profiles ---
+  // --- Multi-User Account Management ---
+  static getAllUsers(): UserAccount[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.ALL_USERS);
+    if (!raw) {
+      const initial = [DEFAULT_USER];
+      localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(initial));
+      return initial;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [DEFAULT_USER];
+    }
+  }
+
+  static saveUserToRegistry(account: UserAccount) {
+    const users = this.getAllUsers();
+    const idx = users.findIndex((u) => u.id === account.id || u.email === account.email);
+    if (idx >= 0) {
+      users[idx] = { ...users[idx], ...account };
+    } else {
+      users.push(account);
+    }
+    localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(users));
+  }
+
+  static switchAccount(userId: string): UserAccount {
+    const users = this.getAllUsers();
+    const target = users.find((u) => u.id === userId);
+    if (target) {
+      localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(target));
+      if (target.activeChildId) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_CHILD_ID, target.activeChildId);
+      }
+      return target;
+    }
+    return this.getUserAccount();
+  }
+
   static getUserAccount(): UserAccount {
     const data = localStorage.getItem(STORAGE_KEYS.USER_ACCOUNT);
     if (!data) {
       localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(DEFAULT_USER));
+      this.saveUserToRegistry(DEFAULT_USER);
       return DEFAULT_USER;
     }
     return JSON.parse(data);
@@ -89,6 +139,7 @@ export class StorageService {
     const current = this.getUserAccount();
     const updated = { ...current, ...updates };
     localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    this.saveUserToRegistry(updated);
     return updated;
   }
 
@@ -100,15 +151,19 @@ export class StorageService {
     targetGoal?: string
   ): UserAccount {
     const current = this.getUserAccount();
+    const newUserId = 'usr-' + Date.now().toString(36);
     const updated: UserAccount = {
       ...current,
+      id: newUserId,
       parentName: name.trim() || current.parentName,
       email: email.trim().toLowerCase() || current.email,
       whatsapp: whatsapp?.trim() || current.whatsapp,
       targetGoal: targetGoal?.trim() || current.targetGoal,
       isRegistered: true,
+      authProvider: 'email',
     };
     localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    this.saveUserToRegistry(updated);
 
     // If childName provided, customize active child or create profile
     if (childName && childName.trim()) {
@@ -123,18 +178,65 @@ export class StorageService {
     return updated;
   }
 
-  static loginUser(identifier: string, parentName?: string): UserAccount {
-    const current = this.getUserAccount();
+  static loginWithProvider(
+    identifier: string,
+    provider: 'email' | 'whatsapp' | 'google' | 'apple',
+    parentName?: string
+  ): UserAccount {
+    const users = this.getAllUsers();
     const isEmail = identifier.includes('@');
-    const updated: UserAccount = {
-      ...current,
-      email: isEmail ? identifier.trim().toLowerCase() : current.email,
-      whatsapp: !isEmail ? identifier.trim() : current.whatsapp,
-      parentName: parentName ? parentName.trim() : current.parentName,
+    const existing = users.find(
+      (u) =>
+        (isEmail && u.email.toLowerCase() === identifier.toLowerCase()) ||
+        (!isEmail && u.whatsapp === identifier) ||
+        (provider === 'google' && u.email.toLowerCase() === identifier.toLowerCase())
+    );
+
+    if (existing) {
+      const updated: UserAccount = {
+        ...existing,
+        isRegistered: true,
+        authProvider: provider,
+        parentName: parentName || existing.parentName,
+      };
+      localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+      this.saveUserToRegistry(updated);
+      return updated;
+    }
+
+    // New user registration via provider
+    const newAccount: UserAccount = {
+      id: 'usr-' + Date.now().toString(36),
+      email: isEmail ? identifier.trim().toLowerCase() : `${identifier.replace(/\D/g, '')}@whatsapp.user`,
+      whatsapp: !isEmail ? identifier.trim() : '',
+      parentName: parentName || (provider === 'google' ? 'Pengguna Google' : provider === 'whatsapp' ? 'Sahabat WhatsApp' : 'Bunda Sarah'),
+      activeChildId: 'child-aisyah',
+      pin: '2026',
+      entitlement: 'free',
+      planTier: 'free',
       isRegistered: true,
+      authProvider: provider,
+      entitlementExpiry: '2027-12-31',
+      createdAt: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
-    return updated;
+
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(newAccount));
+    this.saveUserToRegistry(newAccount);
+    return newAccount;
+  }
+
+  static logoutUser(): UserAccount {
+    const guestUser: UserAccount = {
+      ...DEFAULT_USER,
+      id: 'guest-' + Date.now().toString(36),
+      parentName: 'Tamu / Belum Masuk',
+      email: '',
+      isRegistered: false,
+      planTier: 'free',
+      entitlement: 'free',
+    };
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(guestUser));
+    return guestUser;
   }
 
   static setPlanTier(tier: 'free' | 'pro'): UserAccount {
@@ -146,7 +248,99 @@ export class StorageService {
       entitlementExpiry: tier === 'pro' ? '2027-12-31' : '2099-12-31',
     };
     localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    this.saveUserToRegistry(updated);
     return updated;
+  }
+
+  // --- Payment History & Transactions ---
+  static getPaymentHistory(): PaymentTransaction[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.PAYMENT_HISTORY);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+
+  static recordPayment(tx: PaymentTransaction) {
+    const history = this.getPaymentHistory();
+    history.unshift(tx);
+    localStorage.setItem(STORAGE_KEYS.PAYMENT_HISTORY, JSON.stringify(history));
+
+    // Automatically elevate user to PRO
+    this.setPlanTier('pro');
+
+    // Add activity record
+    this.addActivity({
+      userName: StorageService.getUserAccount().parentName,
+      actionText: `berhasil mengaktifkan ${tx.planName}!`,
+      score: 1000,
+    });
+  }
+
+  // --- Live Activity Feed & Leaderboard ---
+  static getRecentActivities(): UserActivityItem[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.RECENT_ACTIVITIES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.RECENT_ACTIVITIES, JSON.stringify(INITIAL_RECENT_ACTIVITIES));
+      return INITIAL_RECENT_ACTIVITIES;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return INITIAL_RECENT_ACTIVITIES;
+    }
+  }
+
+  static addActivity(item: Partial<UserActivityItem>) {
+    const activities = this.getRecentActivities();
+    const activeChild = this.getActiveChild();
+    const newAct: UserActivityItem = {
+      id: 'act-' + Date.now(),
+      userName: item.userName || activeChild?.name || 'Santri Cilik',
+      userAvatar: item.userAvatar || activeChild?.avatar || '🌟',
+      userLevel: item.userLevel || activeChild?.level || 1,
+      gameId: item.gameId || 'tahfiz',
+      gameName: item.gameName || 'Hafalan Qur\'an',
+      gameIcon: item.gameIcon || '⭐',
+      score: item.score || 100,
+      timeAgoText: 'Baru saja',
+      timestamp: Date.now(),
+      actionText: item.actionText || `meraih ${item.score || 100} poin`,
+    };
+    activities.unshift(newAct);
+    localStorage.setItem(STORAGE_KEYS.RECENT_ACTIVITIES, JSON.stringify(activities.slice(0, 30)));
+  }
+
+  static getLeaderboard(): LeaderboardPlayerItem[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.LEADERBOARD);
+    const activeChild = this.getActiveChild();
+    let players: LeaderboardPlayerItem[] = INITIAL_LEADERBOARD_PLAYERS;
+
+    if (raw) {
+      try {
+        players = JSON.parse(raw);
+      } catch {
+        players = INITIAL_LEADERBOARD_PLAYERS;
+      }
+    }
+
+    if (activeChild) {
+      const exists = players.some((p) => p.userName.toLowerCase() === activeChild.name.toLowerCase());
+      if (!exists) {
+        players.push({
+          rank: players.length + 1,
+          userName: `${activeChild.name} (Kamu)`,
+          userAvatar: activeChild.avatar,
+          userLevel: activeChild.level,
+          score: activeChild.totalXp * 10,
+          isCurrentUser: true,
+        });
+      }
+    }
+
+    return players;
   }
 
   static getChildren(): ChildProfile[] {

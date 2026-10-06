@@ -19,6 +19,24 @@ export interface ChildProfile {
 
 export type PlanTier = 'free' | 'pro';
 
+export interface PaymentTransaction {
+  id: string;
+  userId: string;
+  planId: string;
+  planName: string;
+  amountUsd: number;
+  amountIdr: number;
+  paymentMethod: 'card' | 'paypal' | 'qris' | 'bank_va' | 'ewallet';
+  paymentMethodDetails?: string;
+  cardLast4?: string;
+  cardBrand?: string;
+  status: 'success' | 'pending' | 'failed';
+  invoiceNumber: string;
+  createdAt: string;
+  referralCode?: string;
+  discountApplied?: number;
+}
+
 export interface UserAccount {
   id: string;
   email: string;
@@ -32,6 +50,7 @@ export interface UserAccount {
   entitlementExpiry: string;
   createdAt: string;
   isRegistered?: boolean;
+  authProvider?: 'email' | 'whatsapp' | 'google' | 'apple';
 }
 
 export type BlockState = 'NOT_STARTED' | 'LEARNING' | 'MEMORIZED' | 'REVIEW_REQUIRED';

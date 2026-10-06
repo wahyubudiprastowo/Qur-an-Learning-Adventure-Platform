@@ -13,6 +13,7 @@ import {
   ChevronRight,
   TrendingUp,
   BarChart3,
+  Trophy,
 } from 'lucide-react';
 import { ChildProfile, ChildBlockProgress, ChildAyahProgress, UserAccount } from '../../types';
 import { CompanionData } from '../../types/companion';
@@ -21,6 +22,7 @@ import { LivingCompanionCard } from '../companion/LivingCompanionCard';
 import { DailyQuestsCard } from '../companion/DailyQuestsCard';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 import { WeeklyReportService } from '../../services/weeklyReportService';
+import { StorageService } from '../../services/storageService';
 
 interface BerandaHomeProps {
   child: ChildProfile;
@@ -237,6 +239,60 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
             onNavigateToModule={onNavigateToModule as any}
             onQuestsUpdated={onRefreshCompanion}
           />
+
+          {/* Live Recent User Activities & Leaderboard Preview Card */}
+          <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-4 sm:p-5 shadow-xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏆</span>
+                <div>
+                  <h4 className="text-sm font-black text-[#164C68] font-heading">
+                    Aktivitas Santri & Papan Peringkat
+                  </h4>
+                  <p className="text-[11px] text-[#8C9BA7]">
+                    Motivasi belajar & hafalan Qur'an nusantara
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                ● Live Feed
+              </span>
+            </div>
+
+            {/* Top 3 Live Activity Ticker */}
+            <div className="space-y-2">
+              {StorageService.getRecentActivities().slice(0, 3).map((act) => (
+                <div
+                  key={act.id}
+                  className="flex items-center justify-between p-2 rounded-2xl bg-slate-50/80 hover:bg-slate-100/80 transition-colors text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg shrink-0">{act.userAvatar}</span>
+                    <div className="min-w-0">
+                      <span className="font-extrabold text-[#164C68] truncate block">
+                        {act.userName}
+                      </span>
+                      <span className="text-[10px] text-slate-500 truncate block">
+                        {act.actionText}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-[#08B9EF] shrink-0 font-mono bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100">
+                    {act.timeAgoText}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => onNavigateToModule('leaderboard')}
+              className="w-full py-2.5 px-4 rounded-2xl bg-[#164C68] hover:bg-[#08B9EF] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Trophy size={14} />
+              <span>Buka Papan Peringkat Lengkap & Live Feed</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
 
           {/* Banner 1: Klasifikasi Fitur PRO vs FREE */}
           {onOpenPlanModal && (

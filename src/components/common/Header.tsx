@@ -10,7 +10,7 @@ interface HeaderProps {
   onSelectChild?: () => void;
   rightAction?: React.ReactNode;
   userAccount?: UserAccount;
-  onOpenAuth?: (mode: 'login' | 'register') => void;
+  onOpenAuth?: (mode: 'login' | 'register' | 'switch') => void;
   onOpenPlanModal?: () => void;
   activeTab?: NavigationTab;
   onTabChange?: (tab: NavigationTab) => void;
@@ -173,12 +173,13 @@ export const Header: React.FC<HeaderProps> = ({
                   </>
                 ) : (
                   <button
-                    onClick={() => onOpenAuth('login')}
-                    className="flex items-center gap-1 text-[11px] font-extrabold text-[#164C68] hover:text-[#08B9EF] bg-white border border-[#C9E1ED] px-2.5 py-1 rounded-xl shadow-xs cursor-pointer"
-                    title={`Akun: ${userAccount.parentName}`}
+                    onClick={() => onOpenAuth('switch')}
+                    className="flex items-center gap-1.5 text-[11px] font-extrabold text-[#164C68] hover:text-[#08B9EF] bg-white border border-[#C9E1ED] hover:border-[#08B9EF] px-2.5 py-1 rounded-xl shadow-xs cursor-pointer transition-colors"
+                    title={`Akun: ${userAccount.parentName} (${userAccount.authProvider || 'Email'}) - Klik untuk Ganti Akun`}
                   >
-                    <span>👤</span>
-                    <span className="max-w-[70px] truncate hidden sm:inline">{userAccount.parentName.split(' ')[0]}</span>
+                    <span>{userAccount.authProvider === 'google' ? '🌐' : userAccount.authProvider === 'whatsapp' ? '💬' : '👤'}</span>
+                    <span className="max-w-[80px] truncate hidden sm:inline">{userAccount.parentName.split(' ')[0]}</span>
+                    <span className="text-[9px] text-[#08B9EF] font-bold">⇄</span>
                   </button>
                 )}
               </div>
