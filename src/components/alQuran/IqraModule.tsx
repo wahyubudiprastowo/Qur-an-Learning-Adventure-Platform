@@ -25,10 +25,15 @@ import {
   GraduationCap,
   Headphones,
   Radio,
+  Flame,
+  ShieldCheck,
+  Crown,
 } from 'lucide-react';
 import { IQRA_CURRICULUM } from '../../data/iqraData';
 import { IQRA_1_PAGES, IqraBookPage, IqraPageItem } from '../../data/iqraBook1Data';
 import { IQRA_2_PAGES } from '../../data/iqraBook2Data';
+import { IQRA_3_PAGES } from '../../data/iqraBook3Data';
+import { IQRA_4_PAGES } from '../../data/iqraBook4Data';
 import { StorageService } from '../../services/storageService';
 import { IqraItem } from '../../types';
 
@@ -37,7 +42,9 @@ interface IqraModuleProps {
   onBack: () => void;
 }
 
-type JilidType = '1' | '2' | 'A' | '3' | '4';
+type JilidType = '1' | '2' | '3' | '4' | 'A';
+
+const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1.0, 1.25] as const;
 
 // Helper for Arabic transliteration when latin text is not explicitly provided
 function getArabicLatinGuide(arabic: string): string {
@@ -60,6 +67,14 @@ function getArabicLatinGuide(arabic: string): string {
     'كَا': 'Kaa', 'لَا': 'Laa', 'مَا': 'Maa', 'نَا': 'Naa', 'وَا': 'Waa',
     'هَا': 'Haa', 'يَا': 'Yaa', 'ءَا': 'Aa', 'دَنَى': 'Danaa', 'يَدَى': 'Yadaa',
     'رَنَى': 'Ranaa', 'فَتَى': 'Fataa', 'يَتَامَى': 'Yataamaa', 'فَطَغَى': 'Fathaghaa',
+    'بًا': 'Ban', 'تً': 'Tan', 'ثً': 'Tsan', 'جً': 'Jan', 'دًا': 'Dan', 'زًا': 'Zan',
+    'فً': 'Fan', 'كً': 'Kan', 'عًا': "'An", 'ظً': 'Zhan', 'يً': 'Yan', 'لًا': 'Lan',
+    'بٍ': 'Bin', 'تٍ': 'Tin', 'دٍ': 'Din', 'مٍ': 'Min', 'وٍ': 'Win', 'سٍ': 'Sin',
+    'بٌُ': 'Bun', 'سٌ': 'Sun', 'عَامِلٌ': "'Aamilun", 'سَابِقٌ': 'Saabiqun',
+    'أَمْ': 'Am', 'لَمْ': 'Lam', 'كَمْ': 'Kam', 'هَمْ': 'Ham',
+    'أَنْ': 'An', 'إِنْ': 'In', 'مَنْ': 'Man', 'عَنْ': "'An",
+    'أَبْ': 'Ab (Qalqalah)', 'أَجْ': 'Aj (Qalqalah)', 'أَدْ': 'Ad (Qalqalah)',
+    'أَطْ': 'Ath (Qalqalah)', 'أَقْ': 'Aq (Qalqalah)',
   };
 
   if (directMap[clean]) {
@@ -92,9 +107,7 @@ function playChime(freq = 659.25) {
     gain.connect(ctx.destination);
     osc.start();
     osc.stop(ctx.currentTime + 0.28);
-  } catch {
-    // Ignore audio context autoplay limitations
-  }
+  } catch {}
 }
 
 // Celebratory chime when finishing page or answering quiz correctly
@@ -133,7 +146,8 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
   // Auto-play / Pointer Walk state
   const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(false);
-  const [autoSpeed, setAutoSpeed] = useState<number>(1.0); // 0.75x, 1.0x, 1.25x
+  // Default speed set to 0.5 (calm, educational cadence as requested by user)
+  const [autoSpeed, setAutoSpeed] = useState<number>(0.5);
 
   // Audio Playback Mode: 'character' (individual character audio) vs 'full_page' (Sync & Listen full-page recitation)
   const [audioMode, setAudioMode] = useState<'character' | 'full_page'>('character');
@@ -141,6 +155,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   // Modal states
   const [showPagePicker, setShowPagePicker] = useState<boolean>(false);
   const [showGraduationModal, setShowGraduationModal] = useState<boolean>(false);
+  const [showBadgeModal, setShowBadgeModal] = useState<boolean>(false);
 
   // Interactive Quiz / Tantangan Tunjuk Cepat
   const [isQuizMode, setIsQuizMode] = useState<boolean>(false);
@@ -156,10 +171,12 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   // Auto-play timer ref
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Active book pages list
+  // Active book pages list (Jilid 1, 2, 3, 4)
   const currentPages: IqraBookPage[] = useMemo(() => {
     if (activeJilid === '1') return IQRA_1_PAGES;
     if (activeJilid === '2') return IQRA_2_PAGES;
+    if (activeJilid === '3') return IQRA_3_PAGES;
+    if (activeJilid === '4') return IQRA_4_PAGES;
     return [];
   }, [activeJilid]);
 
@@ -170,19 +187,36 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     return currentPages.find((p) => p.pageNumber === currentPageNum) || currentPages[0];
   }, [currentPages, currentPageNum]);
 
+  const isBookMode = activeJilid === '1' || activeJilid === '2' || activeJilid === '3' || activeJilid === '4';
+
   // Mastered count in current jilid
   const masteredPagesInJilid = useMemo(() => {
-    if (activeJilid === '1' || activeJilid === '2') {
+    if (isBookMode) {
       return currentPages.filter((p) => completedIds.includes(p.id)).length;
     }
     const jilidItems = IQRA_CURRICULUM.filter((item) => item.jilid === activeJilid);
     return jilidItems.filter((i) => completedIds.includes(i.id)).length;
-  }, [activeJilid, currentPages, completedIds]);
+  }, [isBookMode, activeJilid, currentPages, completedIds]);
 
   const totalInCurrentJilid = useMemo(() => {
-    if (activeJilid === '1' || activeJilid === '2') return currentPages.length;
+    if (isBookMode) return currentPages.length;
     return IQRA_CURRICULUM.filter((item) => item.jilid === activeJilid).length;
-  }, [activeJilid, currentPages]);
+  }, [isBookMode, activeJilid, currentPages]);
+
+  // Overall completed Iqra pages across all books
+  const totalCompletedAllIqra = useMemo(() => {
+    return completedIds.filter((id) => id.startsWith('iqra-')).length;
+  }, [completedIds]);
+
+  // Dynamic Interactive Badge Title
+  const currentBadgeTitle = useMemo(() => {
+    if (totalCompletedAllIqra >= 90) return 'Mahkota Hafizh Iqra 👑';
+    if (totalCompletedAllIqra >= 60) return 'Ksatria Sukun & Qalqalah ⚡';
+    if (totalCompletedAllIqra >= 40) return 'Bintang Kasrah & Dhommah 💎';
+    if (totalCompletedAllIqra >= 20) return 'Penjelajah Sambung & Mad 🌿';
+    if (totalCompletedAllIqra >= 5) return 'Perintis Alif Ba Ta 🌟';
+    return 'Santri Cilik Berbakat ✨';
+  }, [totalCompletedAllIqra]);
 
   // Reset pointer when page changes
   useEffect(() => {
@@ -216,6 +250,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       const clean = arabicText
         .replace(/=/g, ' ')
         .replace(/:/g, ' ')
+        .replace(/->/g, ' ')
         .replace(/الف/g, 'أَلِف')
         .replace(/باء/g, 'بَاء')
         .replace(/تاء/g, 'تَاء')
@@ -249,7 +284,20 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'ar-SA';
-      utterance.rate = Math.max(0.65, Math.min(1.2, speed * 0.85));
+
+      // Map speed gracefully to speech synthesis engine rate
+      const mappedRate =
+        speed === 0.25
+          ? 0.55
+          : speed === 0.5
+          ? 0.72
+          : speed === 0.75
+          ? 0.85
+          : speed === 1.0
+          ? 0.95
+          : 1.15;
+
+      utterance.rate = mappedRate;
       utterance.pitch = 1.05;
 
       const voices = window.speechSynthesis.getVoices();
@@ -357,8 +405,23 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       setPointedItem({ rowIdx: current.rowIdx, itemIdx: current.itemIdx });
       speakArabic(current.arabic, autoSpeed);
 
-      // Duration calculation
-      const delayMs = Math.round(1800 / autoSpeed);
+      // Duration calculation for auto-walk:
+      // 0.25x -> 6200ms (super calm)
+      // 0.5x -> 3400ms (calm & comfortable)
+      // 0.75x -> 2300ms
+      // 1.0x -> 1700ms
+      // 1.25x -> 1300ms
+      const delayMs =
+        autoSpeed === 0.25
+          ? 6200
+          : autoSpeed === 0.5
+          ? 3400
+          : autoSpeed === 0.75
+          ? 2300
+          : autoSpeed === 1.0
+          ? 1700
+          : 1300;
+
       autoPlayTimeoutRef.current = setTimeout(() => {
         runStep(index + 1);
       }, delayMs);
@@ -402,8 +465,16 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     setCompletedIds(updated);
     playSuccessFanfare();
 
-    // Check if finished final page of Jilid 1 or 2
-    if (itemId === 'iqra-1-p31' || itemId === 'iqra-1-p32' || itemId === 'iqra-2-p30') {
+    // Check if finished final page of current Jilid
+    if (
+      itemId === 'iqra-1-p31' ||
+      itemId === 'iqra-1-p32' ||
+      itemId === 'iqra-2-p30' ||
+      itemId === 'iqra-3-p29' ||
+      itemId === 'iqra-3-p30' ||
+      itemId === 'iqra-4-p29' ||
+      itemId === 'iqra-4-p30'
+    ) {
       setShowGraduationModal(true);
     }
   };
@@ -469,7 +540,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   return (
     <div className="space-y-4 pb-28 animate-in fade-in duration-200">
       {/* Top Header & Back Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#C9E1ED] text-xs font-bold text-[#164C68] hover:text-[#08B9EF] shadow-2xs transition-all cursor-pointer"
@@ -478,17 +549,34 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           <span>Kembali ke Menu Utama</span>
         </button>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-black text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full flex items-center gap-1">
-            <Sparkles size={13} />
-            <span>Sistem Tunjuk & Suara</span>
-          </span>
-        </div>
+        {/* UPGRADED INTERACTIVE IQRA BADGE */}
+        <button
+          type="button"
+          onClick={() => setShowBadgeModal(true)}
+          className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-400/25 to-orange-500/15 border-2 border-amber-300 hover:border-amber-500 shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
+          title="Klik untuk membuka Lencana & Prestasi Iqra Santri"
+        >
+          <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-500 text-amber-950 flex items-center justify-center font-bold text-sm shadow-xs group-hover:rotate-12 transition-transform">
+            🏆
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] font-black text-amber-800 uppercase tracking-wider">
+                Lencana Iqra Interaktif
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+            </div>
+            <span className="text-xs font-black text-[#164C68] group-hover:text-amber-900 transition-colors">
+              {currentBadgeTitle}
+            </span>
+          </div>
+          <Sparkles size={14} className="text-amber-500 group-hover:scale-125 transition-transform" />
+        </button>
       </div>
 
-      {/* Jilid Tabs Navigation */}
+      {/* Jilid Tabs Navigation (Jilid 1, 2, 3, 4, A) */}
       <div className="flex gap-1.5 p-1.5 bg-white border border-[#C9E1ED] rounded-2xl shadow-xs overflow-x-auto">
-        {(['1', '2', 'A', '3', '4'] as const).map((jilid) => {
+        {(['1', '2', '3', '4', 'A'] as const).map((jilid) => {
           const isActive = activeJilid === jilid;
           return (
             <button
@@ -497,7 +585,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 setActiveJilid(jilid);
                 setCurrentPageNum(1);
               }}
-              className={`flex-1 min-w-[70px] py-2 px-2.5 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 min-w-[75px] py-2 px-2.5 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
                 isActive
                   ? 'bg-gradient-to-r from-[#08B9EF] to-[#0596c7] text-white shadow-md shadow-cyan-500/25 scale-[1.02]'
                   : 'text-[#8C9BA7] hover:text-[#164C68] hover:bg-[#EEF8FF]/60'
@@ -511,7 +599,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   ? 'Iqra 1 (32 Hal)'
                   : jilid === '2'
                   ? 'Iqra 2 (30 Hal)'
-                  : `Jilid ${jilid}`}
+                  : jilid === '3'
+                  ? 'Iqra 3 (30 Hal)'
+                  : 'Iqra 4 (30 Hal)'}
               </span>
             </button>
           );
@@ -523,18 +613,22 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md bg-[#08B9EF] text-white text-[10px] font-black uppercase">
-              {activeJilid === '1' || activeJilid === '2' ? 'Buku Standar Asli' : 'Materi Pembelajaran'}
+              {isBookMode ? 'Buku Standar Asli' : 'Materi Pembelajaran'}
             </span>
             <h3 className="text-base font-black text-[#164C68] font-heading">
               {activeJilid === '1'
                 ? 'Buku Iqra 1: Fathah & Huruf Hijaiyah'
                 : activeJilid === '2'
-                ? 'Buku Iqra 2: Huruf Sambung & Mad'
+                ? 'Buku Iqra 2: Huruf Sambung & Mad Ashli'
+                : activeJilid === '3'
+                ? 'Buku Iqra 3: Kasrah, Dhommah & Mad Thabi`i'
+                : activeJilid === '4'
+                ? 'Buku Iqra 4: Tanwin, Lin, Sukun & Qalqalah'
                 : `Iqra Jilid ${activeJilid}`}
             </h3>
           </div>
           <p className="text-xs text-[#627D98] font-medium">
-            {activeJilid === '1' || activeJilid === '2'
+            {isBookMode
               ? `${masteredPagesInJilid} dari ${totalInCurrentJilid} halaman telah dikuasai`
               : `${masteredPagesInJilid} dari ${totalInCurrentJilid} topik selesai`}
           </p>
@@ -558,9 +652,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       </div>
 
       {/* ========================================================= */}
-      {/* SECTION A: BOOK MODE (Jilid 1 & Jilid 2)                 */}
+      {/* SECTION A: BOOK MODE (Jilid 1, 2, 3, 4)                  */}
       {/* ========================================================= */}
-      {(activeJilid === '1' || activeJilid === '2') && activePage && (
+      {isBookMode && activePage && (
         <div className="space-y-4">
           {/* Page Top Action Bar */}
           <div className="bg-white border border-[#C9E1ED] rounded-2xl p-2.5 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
@@ -630,6 +724,37 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
               </button>
             </div>
 
+            {/* Speed Selector (0.25x, 0.5x, 0.75x, 1.0x, 1.25x) */}
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-1 rounded-2xl">
+              <span className="text-[10px] font-black text-slate-500 px-1.5 hidden xl:inline">
+                Speed:
+              </span>
+              {SPEED_OPTIONS.map((speed) => (
+                <button
+                  key={speed}
+                  onClick={() => setAutoSpeed(speed)}
+                  className={`px-2 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                    autoSpeed === speed
+                      ? 'bg-amber-400 text-amber-950 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                  }`}
+                  title={
+                    speed === 0.25
+                      ? '0.25x (Sangat Santai & Lambat)'
+                      : speed === 0.5
+                      ? '0.5x (Santai • Paling Pas Untuk Anak)'
+                      : speed === 0.75
+                      ? '0.75x (Pelan)'
+                      : speed === 1.0
+                      ? '1.0x (Normal)'
+                      : '1.25x (Lancar)'
+                  }
+                >
+                  {speed}x
+                </button>
+              ))}
+            </div>
+
             {/* Quick Interactive Tool Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
               {/* Tantangan Tunjuk Cepat (Quiz) */}
@@ -680,7 +805,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                     </span>
                   </div>
                   <p className="text-[11px] text-[#627D98] font-medium">
-                    Sentuh kotak mana saja untuk memulai resitasi mengalir dari kotak tersebut, atau tekan tombol putar di samping.
+                    Sentuh kotak mana saja untuk memulai resitasi mengalir dari kotak tersebut, atau gunakan tombol putar di samping.
                   </p>
                 </div>
               </div>
@@ -708,13 +833,22 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   </button>
                 )}
 
-                <button
-                  onClick={() => setAutoSpeed((s) => (s === 0.75 ? 1.0 : s === 1.0 ? 1.25 : 0.75))}
-                  className="px-2.5 py-1.5 rounded-xl bg-white text-[#164C68] text-[11px] font-black border border-[#C9E1ED] hover:bg-slate-50 cursor-pointer"
-                  title="Ubah Kecepatan Resitasi"
-                >
-                  {autoSpeed}x
-                </button>
+                {/* Direct speed buttons inside banner */}
+                <div className="flex items-center gap-0.5 bg-white border border-[#C9E1ED] p-0.5 rounded-xl">
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => setAutoSpeed(speed)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-black cursor-pointer ${
+                        autoSpeed === speed
+                          ? 'bg-[#08B9EF] text-white'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}
@@ -782,12 +916,25 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
             {/* Authentic Ornate Book Border Decoration */}
             <div className="absolute inset-1.5 sm:inset-2.5 border border-[#E9DFC8] rounded-2xl pointer-events-none" />
 
-            {/* Book Page Top Header */}
+            {/* Book Page Top Header with Interactive Milestone Badge */}
             <div className="relative z-10 text-center space-y-1.5 pb-4 border-b border-[#E9DFC8]">
               <div className="flex items-center justify-between text-[11px] font-bold text-[#8C7A5B]">
-                <span>Iqra' Jilid {activeJilid}</span>
+                <button
+                  onClick={() => setShowBadgeModal(true)}
+                  className="flex items-center gap-1 hover:text-amber-800 cursor-pointer"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Iqra' Jilid {activeJilid}</span>
+                </button>
                 <span className="font-arabic text-sm text-[#5B492B]">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</span>
-                <span>Halaman {activePage.pageNumber}</span>
+                <button
+                  onClick={() => handleToggleMastery(activePage.id)}
+                  className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#F4EDE0] hover:bg-amber-100 text-[#5D4E37] cursor-pointer transition-colors"
+                  title="Klik untuk tandai kemahiran halaman"
+                >
+                  <span>Halaman {activePage.pageNumber}</span>
+                  {isCurrentPageMastered && <span>⭐</span>}
+                </button>
               </div>
 
               <h2 className="text-lg sm:text-xl font-black text-[#2B3E48] font-heading tracking-tight">
@@ -846,21 +993,33 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                         onClick={() => handlePointItem(rowIdx, itemIdx, item.arabic)}
                         className={`relative rounded-2xl p-3 sm:p-4 text-center cursor-pointer select-none transition-all duration-200 border-2 ${
                           isPointed
-                            ? 'bg-amber-100/90 border-amber-500 ring-4 ring-amber-400/80 shadow-[0_0_25px_rgba(251,191,36,0.7)] scale-[1.03] z-20'
+                            ? 'bg-amber-100/90 border-amber-500 ring-4 ring-amber-400/80 shadow-[0_0_28px_rgba(251,191,36,0.75)] scale-[1.03] z-20'
                             : 'bg-white hover:bg-amber-50/50 border-[#E2D6BF] hover:border-[#08B9EF] shadow-xs'
                         }`}
                       >
-                        {/* THE RADIANT GLOWING POINTER BADGE (👉 TUNJUK) */}
+                        {/* UPGRADED INTERACTIVE RADIANT POINTER BADGE */}
                         {isPointed && (
-                          <motion.div
-                            initial={{ scale: 0, y: -6 }}
-                            animate={{ scale: 1, y: 0 }}
-                            className="absolute -top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-gradient-to-r from-amber-500 to-amber-600 text-amber-950 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-md shadow-amber-500/40 whitespace-nowrap pointer-events-none"
+                          <motion.button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              speakArabic(item.arabic);
+                            }}
+                            initial={{ scale: 0, y: -8 }}
+                            animate={{ scale: [1, 1.05, 1], y: [0, -3, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.8 }}
+                            className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-amber-950 font-black text-[10px] px-3 py-0.5 rounded-full shadow-lg shadow-amber-500/50 whitespace-nowrap cursor-pointer border border-amber-200 active:scale-95"
+                            title="Klik untuk bunyikan ulang huruf ini"
                           >
-                            <span className="text-sm animate-bounce">👆</span>
-                            <span>TUNJUK</span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-200 animate-ping" />
-                          </motion.div>
+                            <span className="text-sm">👆</span>
+                            <span className="tracking-wide">TUNJUK</span>
+                            {/* Live Audio Visualizer Mini Bars */}
+                            <span className="flex items-center gap-0.5 ml-0.5 h-3">
+                              <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                              <span className="w-0.5 h-3 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                              <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce" />
+                            </span>
+                          </motion.button>
                         )}
 
                         {/* Arabic Letter / Word */}
@@ -934,6 +1093,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                     <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
                       {audioMode === 'full_page' ? '🎧 Sync & Listen' : '🔤 Per Karakter'}
                     </span>
+                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1 rounded">
+                      {autoSpeed}x
+                    </span>
                   </div>
                   <h4 className="text-sm font-black text-[#164C68]">
                     {currentPointedData.latin || currentPointedData.arabic}
@@ -978,7 +1140,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
           {/* Evaluation / Graduation prompt on end pages */}
           {((activeJilid === '1' && currentPageNum >= 31) ||
-            (activeJilid === '2' && currentPageNum >= 30)) && (
+            (activeJilid === '2' && currentPageNum >= 30) ||
+            (activeJilid === '3' && currentPageNum >= 29) ||
+            (activeJilid === '4' && currentPageNum >= 29)) && (
             <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border-2 border-emerald-300 rounded-3xl p-5 shadow-sm text-center space-y-2">
               <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white mx-auto flex items-center justify-center text-2xl shadow-md shadow-emerald-500/25">
                 🎓
@@ -986,7 +1150,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
               <h3 className="text-base font-black text-emerald-950 font-heading">
                 {activeJilid === '1'
                   ? 'Ujian Evaluasi Kelulusan Iqra Jilid 1!'
-                  : 'Ujian Evaluasi Kelulusan Iqra Jilid 2!'}
+                  : activeJilid === '2'
+                  ? 'Ujian Evaluasi Kelulusan Iqra Jilid 2!'
+                  : activeJilid === '3'
+                  ? 'Ujian Evaluasi Kelulusan Iqra Jilid 3!'
+                  : 'Ujian Evaluasi Kelulusan Iqra Jilid 4!'}
               </h3>
               <p className="text-xs text-emerald-800 max-w-md mx-auto leading-relaxed">
                 Jika ananda telah lancar membaca seluruh baris pada halaman ini tanpa tersendat,
@@ -1004,7 +1172,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   <span>
                     {activeJilid === '1'
                       ? 'Lulus Iqra 1 & Naik ke Iqra 2 🚀'
-                      : 'Lulus Iqra 2 & Naik ke Iqra 3 🚀'}
+                      : activeJilid === '2'
+                      ? 'Lulus Iqra 2 & Naik ke Iqra 3 🚀'
+                      : activeJilid === '3'
+                      ? 'Lulus Iqra 3 & Naik ke Iqra 4 🚀'
+                      : 'Lulus Iqra 4 & Naik ke Iqra 5 🚀'}
                   </span>
                 </button>
               </div>
@@ -1014,11 +1186,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       )}
 
       {/* ========================================================= */}
-      {/* SECTION B: LESSONS LIST (Jilid A, 3, 4)                  */}
+      {/* SECTION B: LESSONS LIST (Jilid A)                        */}
       {/* ========================================================= */}
-      {(activeJilid === 'A' || activeJilid === '3' || activeJilid === '4') && (
+      {activeJilid === 'A' && (
         <div className="space-y-3">
-          {IQRA_CURRICULUM.filter((item) => item.jilid === activeJilid).map((item) => {
+          {IQRA_CURRICULUM.filter((item) => item.jilid === 'A').map((item) => {
             const isMastered = completedIds.includes(item.id);
 
             return (
@@ -1192,7 +1364,177 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       </AnimatePresence>
 
       {/* ========================================================= */}
-      {/* MODAL 2: GRADUATION CONGRATULATIONS MODAL                 */}
+      {/* MODAL 2: INTERACTIVE IQRA BADGES & ACHIEVEMENT MODAL       */}
+      {/* ========================================================= */}
+      <AnimatePresence>
+        {showBadgeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border-2 border-amber-300"
+            >
+              {/* Header */}
+              <div className="p-5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 text-amber-950 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-white/90 text-amber-900 flex items-center justify-center text-2xl shadow-sm">
+                    🏆
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black font-heading leading-tight">
+                      Lencana & Prestasi Iqra Santri
+                    </h3>
+                    <p className="text-xs text-amber-900/80 font-bold mt-0.5">
+                      Pencapaian belajar membaca Al-Qur'an ananda
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowBadgeModal(false)}
+                  className="p-2 rounded-xl bg-black/10 hover:bg-black/20 text-amber-950 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Badges Content */}
+              <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                {/* Highlights Card */}
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-around text-center">
+                  <div>
+                    <span className="text-2xl font-black text-amber-700 block">
+                      {totalCompletedAllIqra}
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Halaman Dikuasai
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-amber-200" />
+                  <div>
+                    <span className="text-2xl font-black text-amber-700 block">
+                      {totalCompletedAllIqra * 15}
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Total XP Iqra
+                    </span>
+                  </div>
+                  <div className="w-px h-8 bg-amber-200" />
+                  <div>
+                    <span className="text-2xl font-black text-amber-700 block">
+                      {autoSpeed}x
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-900">
+                      Kecepatan Belajar
+                    </span>
+                  </div>
+                </div>
+
+                {/* List of Badges */}
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-black text-slate-500 uppercase tracking-wider">
+                    Daftar Lencana Kehormatan Santri
+                  </h4>
+
+                  {[
+                    {
+                      title: 'Perintis Alif Ba Ta',
+                      jilid: 'Iqra Jilid 1',
+                      desc: 'Mengenal huruf hijaiyah tunggal & harakat fathah',
+                      icon: '🌟',
+                      unlocked: totalCompletedAllIqra >= 5,
+                    },
+                    {
+                      title: 'Penakluk Sambung & Mad Ashli',
+                      jilid: 'Iqra Jilid 2',
+                      desc: 'Menguasai huruf sambung dan ayunan mad 2 harakat',
+                      icon: '🌿',
+                      unlocked: totalCompletedAllIqra >= 25,
+                    },
+                    {
+                      title: 'Ksatria Kasrah & Dhommah',
+                      jilid: 'Iqra Jilid 3',
+                      desc: 'Fasih membaca vokal I, U, dan Mad Thabi`i berangkai',
+                      icon: '💎',
+                      unlocked: totalCompletedAllIqra >= 50,
+                    },
+                    {
+                      title: 'Master Sukun & Qalqalah',
+                      jilid: 'Iqra Jilid 4',
+                      desc: 'Menguasai tanwin, lin, mim/nun mati, dan pantulan qalqalah',
+                      icon: '⚡',
+                      unlocked: totalCompletedAllIqra >= 80,
+                    },
+                    {
+                      title: 'Penunjuk Akurat',
+                      jilid: 'Kuis Tunjuk Cepat',
+                      desc: 'Menjawab tantangan tunjuk cepat dengan tepat',
+                      icon: '🎯',
+                      unlocked: quizStreak >= 3 || totalCompletedAllIqra >= 10,
+                    },
+                    {
+                      title: 'Pendengar Tartil',
+                      jilid: 'Fitur Sync & Listen',
+                      desc: 'Mendengarkan resitasi penuh halaman dengan fokus',
+                      icon: '🎧',
+                      unlocked: true,
+                    },
+                  ].map((badge, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-2xl border flex items-center gap-3.5 transition-all ${
+                        badge.unlocked
+                          ? 'bg-white border-amber-300 shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 opacity-60'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl shrink-0">
+                        {badge.icon}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h5 className="text-sm font-black text-[#164C68]">
+                            {badge.title}
+                          </h5>
+                          {badge.unlocked && (
+                            <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">
+                              Terbuka ✓
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {badge.desc}
+                        </p>
+                        <span className="text-[10px] font-black text-amber-700 block mt-1">
+                          {badge.jilid}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
+                <button
+                  onClick={() => setShowBadgeModal(false)}
+                  className="w-full py-3 rounded-2xl bg-[#08B9EF] hover:bg-[#07a6d7] text-white font-black text-xs cursor-pointer shadow-xs transition-colors"
+                >
+                  Tutup & Lanjutkan Mengaji
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ========================================================= */}
+      {/* MODAL 3: GRADUATION CONGRATULATIONS MODAL                 */}
       {/* ========================================================= */}
       <AnimatePresence>
         {showGraduationModal && (
@@ -1219,7 +1561,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 <p className="text-xs text-[#627D98] leading-relaxed">
                   {activeJilid === '1'
                     ? 'Masya Allah! Ananda telah berhasil menyelesaikan seluruh materi & evaluasi pada Iqra Jilid 1!'
-                    : 'Masya Allah! Ananda telah menguasai huruf sambung & bacaan mad pada Iqra Jilid 2!'}
+                    : activeJilid === '2'
+                    ? 'Masya Allah! Ananda telah menguasai huruf sambung & bacaan mad pada Iqra Jilid 2!'
+                    : activeJilid === '3'
+                    ? 'Masya Allah! Ananda telah menyelesaikan harakat kasrah, dhommah, dan mad thabi`i pada Iqra Jilid 3!'
+                    : 'Masya Allah! Ananda telah menguasai tanwin, lin, mim/nun sukun, dan qalqalah pada Iqra Jilid 4!'}
                 </p>
               </div>
 
@@ -1230,7 +1576,17 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <GraduationCap size={16} className="text-emerald-600" />
-                  <span>Siap Melangkah ke: Iqra Jilid {activeJilid === '1' ? '2' : '3'}!</span>
+                  <span>
+                    Siap Melangkah ke:{' '}
+                    {activeJilid === '1'
+                      ? 'Iqra Jilid 2'
+                      : activeJilid === '2'
+                      ? 'Iqra Jilid 3'
+                      : activeJilid === '3'
+                      ? 'Iqra Jilid 4'
+                      : 'Iqra Jilid 5 & Mushaf Al-Qur`an'}
+                    !
+                  </span>
                 </div>
               </div>
 
@@ -1243,12 +1599,26 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       setCurrentPageNum(1);
                     } else if (activeJilid === '2') {
                       setActiveJilid('3');
+                      setCurrentPageNum(1);
+                    } else if (activeJilid === '3') {
+                      setActiveJilid('4');
+                      setCurrentPageNum(1);
+                    } else if (activeJilid === '4') {
+                      onBack();
                     }
                   }}
                   className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs shadow-md shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-101"
                 >
                   <Sparkles size={16} />
-                  <span>Buka Iqra Jilid {activeJilid === '1' ? '2' : '3'} Sekarang</span>
+                  <span>
+                    {activeJilid === '1'
+                      ? 'Buka Iqra Jilid 2 Sekarang 🚀'
+                      : activeJilid === '2'
+                      ? 'Buka Iqra Jilid 3 Sekarang 🚀'
+                      : activeJilid === '3'
+                      ? 'Buka Iqra Jilid 4 Sekarang 🚀'
+                      : 'Lanjut ke Mushaf & Tilawah Al-Qur`an 🚀'}
+                  </span>
                 </button>
 
                 <button
