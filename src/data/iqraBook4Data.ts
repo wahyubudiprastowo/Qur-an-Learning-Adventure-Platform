@@ -3,12 +3,12 @@ import { IqraBookPage } from './iqraBook1Data';
 export const IQRA_4_PAGES: IqraBookPage[] = [
   {
     id: 'iqra-4-p1',
-    jilid: 2, // reuse IqraBookPage interface
+    jilid: 4,
     pageNumber: 1,
     title: 'Pengenalan Tanwin Fathah (ـً / Fathatain)',
     instruction: 'Hendaklah dibaca pendek bunyi "An", dan huruf Alif dianggap tidak ada.',
     focusLetters: ['بًا', 'تً', 'ثً', 'جً'],
-    headerPreview: { arabic: 'بًا (dibaca Ban pendek, alif tidak dibaca)', latin: 'Ban (Tanwin Fathah 1 Harakat)' },
+    headerPreview: { arabic: 'بًا', latin: 'Ban (Tanwin Fathah dibaca Ban pendek, alif tidak dibaca)' },
     rows: [
       { items: [{ arabic: 'بَ - بًا', isRed: true }, { arabic: 'تَ - تً', isRed: true }, { arabic: 'ثَ - ثً', isRed: true }, { arabic: 'جَ - جً', isRed: true }] },
       { items: [{ arabic: 'دَ - دًا' }, { arabic: 'زَ - زًا' }, { arabic: 'فَ - فً' }, { arabic: 'كَ - كً' }] },
@@ -20,7 +20,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p2',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 2,
     title: 'Latihan Membedakan Tanwin dan Mad',
     instruction: 'Hendaklah berhati-hati: bedakan mana bacaan mad (panjang) dan mana yang bukan mad (pendek).',
@@ -38,12 +38,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p3',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 3,
     title: 'Pengenalan Tanwin Kasrah (ـٍ / Kasratain)',
     instruction: 'Dua garis di bawah huruf dibaca "In" pendek satu harakat.',
     focusLetters: ['بٍ', 'تٍ', 'دٍ', 'مٍ'],
-    headerPreview: { arabic: 'بٍ (dibaca Bin pendek satu ketukan)', latin: 'Bin (Tanwin Kasrah)' },
+    headerPreview: { arabic: 'بٍ', latin: 'Bin (Tanwin Kasrah dibaca Bin pendek satu ketukan)' },
     rows: [
       { items: [{ arabic: 'تَ - تٍ', isRed: true }, { arabic: 'تٍ - تٍ' }, { arabic: 'دَ - دٍ' }, { arabic: 'دٍ - دٍ' }] },
       { items: [{ arabic: 'مَ - مًا' }, { arabic: 'مٍ - مٍ' }, { arabic: 'وَ - وَا' }, { arabic: 'وَ - وٍ' }] },
@@ -56,14 +56,14 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p4',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 4,
     title: 'Pengenalan Tanwin Dhommah (ـٌ / Dhommatain)',
     instruction: 'Tanda di atas huruf dibaca "Un" pendek satu harakat.',
-    focusLetters: ['بٌُ', 'سٌ', 'عَامِلٌ', 'سَابِقٌ'],
-    headerPreview: { arabic: 'بٌُ (dibaca Bun pendek)', latin: 'Bun (Tanwin Dhommah)' },
+    focusLetters: ['بٌ', 'سٌ', 'عَامِلٌ', 'سَابِقٌ'],
+    headerPreview: { arabic: 'بٌ', latin: 'Bun (Tanwin Dhommah dibaca Bun pendek)' },
     rows: [
-      { items: [{ arabic: 'بَ بِ بُ' }, { arabic: 'بَا بٍ بٌُ', isRed: true }] },
+      { items: [{ arabic: 'بَ بِ بُ' }, { arabic: 'بَا بٍ بٌ', isRed: true }] },
       { items: [{ arabic: 'سَ سِ سُ' }, { arabic: 'سَا سٍ سٌ', isRed: true }] },
       { items: [{ arabic: 'عَامِلُ' }, { arabic: 'عَامِلٍ' }, { arabic: 'سَابِقُ' }, { arabic: 'سَابِقٌ' }] },
       { items: [{ arabic: 'قَادِرُ' }, { arabic: 'قَادِرٍ' }, { arabic: 'نَاصِحُ' }, { arabic: 'نَاصِحٌ' }] },
@@ -74,7 +74,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p5',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 5,
     title: 'Latihan Campuran Tiga Tanwin (An - In - Un)',
     instruction: 'Cermati perbedaan bunyi harakat tanwin berturut-turut.',
@@ -93,7 +93,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p6',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 6,
     title: 'Membedakan Bacaan Panjang dan Pendek pada Tanwin',
     instruction: 'Tetap baca dengan tenang dan teliti.',
@@ -111,12 +111,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p7',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 7,
     title: 'Pengenalan Huruf Lin: Ya Sukun setelah Fathah (ـَيْ)',
     instruction: 'Fathah bertemu Ya sukun menghasilkan bunyi vokal "Ai" yang lembut (Lin).',
     focusLetters: ['دَيْنٌ', 'دَيْنٍ', 'عَيْنٌ', 'رِيحٌ'],
-    headerPreview: { arabic: 'دَيْنٌ  دَيْنٍ  (dibaca Dainun - Dainin)', latin: 'Dainun - Dainin (Huruf Lin Ya)' },
+    headerPreview: { arabic: 'دَيْنٌ  -  دَيْنٍ', latin: 'Dainun - Dainin (Huruf Lin Ya Sukun lembut)' },
     rows: [
       { items: [{ arabic: 'عَيْنٌ' }, { arabic: 'عَيْنٍ' }, { arabic: 'دَيْنٌ' }, { arabic: 'دَيْنٍ' }] },
       { items: [{ arabic: 'رِيحٌ' }, { arabic: 'رِيحٍ' }, { arabic: 'حِينٌ' }, { arabic: 'حَيْثُ' }] },
@@ -129,7 +129,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p8',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 8,
     title: 'Latihan Huruf Lin Ya pada Ayat Al-Qur\'an',
     instruction: 'Ulang-ulanglah sehingga tiada kekeliruan lagi.',
@@ -147,12 +147,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p9',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 9,
     title: 'Pengenalan Huruf Lin: Wawu Sukun setelah Fathah (ـَوْ)',
     instruction: 'Fathah bertemu Wawu sukun menghasilkan bunyi vokal "Au" yang lembut.',
     focusLetters: ['بَوْ', 'تَوْبًا', 'تَوْبَةً', 'يَوْمَ'],
-    headerPreview: { arabic: 'بَوْ  بَوْ (dibaca Bau - Bau)', latin: 'Bau - Bau (Huruf Lin Wawu)' },
+    headerPreview: { arabic: 'بَوْ  -  بَوْ', latin: 'Bau - Bau (Huruf Lin Wawu Sukun lembut)' },
     rows: [
       { items: [{ arabic: 'تَوْبًا' }, { arabic: 'تَوْبَةً' }, { arabic: 'يُوسُفَ' }, { arabic: 'يَوْمَ' }] },
       { items: [{ arabic: 'جُوعَ' }, { arabic: 'جَوْفَ' }, { arabic: 'لُوطٌ' }, { arabic: 'لَوْحٌ' }] },
@@ -165,7 +165,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p10',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 10,
     title: 'Pemantapan Lin dan Mad pada Kalimat Lengkap',
     instruction: 'Sekiranya berlaku kekeliruan, ulanglah yang keliru sahaja.',
@@ -183,12 +183,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p11',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 11,
     title: 'Pengenalan Mim Sukun / Saknah (ـمْ)',
     instruction: 'Bacaan Mim mati (ـمْ) dibaca jelas dan bibir merapat.',
     focusLetters: ['مْ = لَمْ', 'أَمْ', 'لَمْ', 'كَمْ', 'هَمْ'],
-    headerPreview: { arabic: 'مْ = لَمْ (bacaan mim sukun/saknah)', latin: 'Am - Lam - Kam - Ham' },
+    headerPreview: { arabic: 'مْ = لَمْ', latin: 'Lam (Bacaan Mim Sukun/Mati bibir merapat)' },
     rows: [
       { items: [{ arabic: 'أَمْ إِمْ أُمْ' }, { arabic: 'لَمْ لِمْ لُمْ' }] },
       { items: [{ arabic: 'كَمْ كِمْ كُمْ' }, { arabic: 'هَمْ هِمْ هُمْ' }] },
@@ -201,7 +201,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p12',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 12,
     title: 'Latihan Membaca Mim Sukun Berdampingan',
     instruction: 'Jaga makhraj huruf mim tanpa memantulkan suaranya.',
@@ -220,7 +220,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p13',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 13,
     title: 'Kelancaran Membaca Mim Sukun pada Ayat',
     instruction: 'Hendaklah diulang hingga lancar.',
@@ -238,12 +238,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p14',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 14,
     title: 'Pengenalan Nun Sukun / Saknah (ـنْ) Izhar',
     instruction: 'Bacaan Nun mati (ـنْ) dibaca jelas tanpa mendengung ketika bertemu huruf tenggorokan.',
     focusLetters: ['نْ = مَنْ', 'أَنْ إِنْ', 'هَنْ هِنْ', 'عَنْ عِنْ'],
-    headerPreview: { arabic: 'نْ = مَنْ (bacaan nun saknah/mati)', latin: 'An - In - Man - Min' },
+    headerPreview: { arabic: 'نْ = مَنْ', latin: 'Man (Bacaan Nun Sukun/Mati dibaca jelas)' },
     rows: [
       { items: [{ arabic: 'أَنْ إِنْ' }, { arabic: 'هَنْ هِنْ' }, { arabic: 'عَنْ عِنْ' }] },
       { items: [{ arabic: 'إِنْ هُوَ' }, { arabic: 'مَنْ ءَامَنَ' }, { arabic: 'عَنْ عِبَادِ' }] },
@@ -256,7 +256,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p15',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 15,
     title: 'Latihan Membaca Nun Sukun pada Potongan Ayat',
     instruction: 'Bunyikan Nun mati dengan jernih dan tegas.',
@@ -275,12 +275,12 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p16',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 16,
     title: 'Pengenalan Hukum Qalqalah (ق - ط - ب - ج - د)',
     instruction: 'Dengarkan bacaan qalqalah dengan pantulan yang jelas pada huruf sukun: Ba, Jim, Dal, Tha, Qaf.',
     focusLetters: ['أَبْ', 'أَجْ', 'أَدْ', 'أَطْ', 'أَقْ'],
-    headerPreview: { arabic: 'أَبْ  أَجْ  أَدْ  أَطْ  أَقْ (Huruf Qalqalah: Baju Di Toko)', latin: 'Qalqalah (Memantul): Qaf, Tha, Ba, Jim, Dal' },
+    headerPreview: { arabic: 'أَبْ  أَجْ  أَدْ  أَطْ  أَقْ', latin: 'Qalqalah (Memantul): Ba, Jim, Dal, Tha, Qaf' },
     rows: [
       { items: [{ arabic: 'أَبْ -> وَأَبْقَى', isRed: true }, { arabic: 'تُبْدُوا' }, { arabic: 'حَسِبْتُمْ' }] },
       { items: [{ arabic: 'أَجْ -> يَجْعَلْ', isRed: true }, { arabic: 'تُجْزَوْنَ' }, { arabic: 'وَجْهِهِۦ' }] },
@@ -292,7 +292,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p17',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 17,
     title: 'Latihan Pantulan Qalqalah pada Lafal Quran',
     instruction: 'Biar lambat asalkan betul pantulan qalqalahnya.',
@@ -310,7 +310,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p18',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 18,
     title: 'Pengenalan Huruf Sukun Kelompok 1 (تْ ثْ حْ خْ ذْ رْ زْ سْ)',
     instruction: 'Bukan qalqalah! Jangan dipantulkan, tahan desis dan makhrajnya.',
@@ -329,7 +329,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p19',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 19,
     title: 'Pengenalan Huruf Sukun Kelompok 2 (شْ صْ ضْ ظْ غْ فْ هْ لْ)',
     instruction: 'Perhatikan sifat huruf saat sukun: tebal, angin mengalir, atau tertahan.',
@@ -348,7 +348,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p20',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 20,
     title: 'Kelancaran Membaca Kalimat Huruf Sukun',
     instruction: 'Tetap jaga panjang pendek dan jangan memantul huruf yang bukan qalqalah.',
@@ -367,7 +367,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p21',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 21,
     title: 'Pengenalan Sukun Hamzah dan \'Ain (أْ vs عْ)',
     instruction: 'Hendaklah jelas perbedaannya: Hamzah sukun tertahan di tenggorokan atas, \'Ain sukun dari tengah tenggorokan.',
@@ -385,7 +385,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p22',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 22,
     title: 'Latihan Ketelitian Membaca Sukun Hamzah dan Huruf Lain',
     instruction: 'Hendaklah diulang hingga lancar.',
@@ -403,7 +403,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p23',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 23,
     title: 'Kekeliruan Membaca Panjang Pendek Boleh Merosakkan Erti',
     instruction: 'Penting! Kekeliruan membaca panjang dan pendek dapat mengubah makna bacaan.',
@@ -421,7 +421,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p24',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 24,
     title: 'Latihan Membaca Ayat Berharakat Lengkap',
     instruction: 'Bacalah dengan tajwid yang mantap dan nafas yang tenang.',
@@ -440,7 +440,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p25',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 25,
     title: 'Latihan Ketelitian Membaca Ayat Panjang',
     instruction: 'Hendaklah diulang sehingga tiada kekeliruan.',
@@ -458,7 +458,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p26',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 26,
     title: 'Membaca Ayat Mushaf dengan Qalqalah & Mad Sempurna',
     instruction: 'Pastikan pantulan huruf qalqalah terdengar mantap.',
@@ -477,7 +477,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p27',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 27,
     title: 'Latihan Membaca Rangkaian Kalimat Al-Qur\'an',
     instruction: 'Terapkan seluruh kaidah tanwin, lin, dan sukun.',
@@ -496,7 +496,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p28',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 28,
     title: 'Latihan Pra-Penilaian Buku Empat',
     instruction: 'Ulang sehingga tiada keliru, kemudian barulah diuji.',
@@ -514,7 +514,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p29',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 29,
     title: 'Penilaian Buku Empat (Ujian Iqra 4 Bagian 1)',
     instruction: 'Ujian: 1. Makhraj, 2. Mad (Panjang), 3. Qalqalah, 4. Perbedaan Hamzah, `Ain, Kaf, Qaf.',
@@ -531,7 +531,7 @@ export const IQRA_4_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-4-p30',
-    jilid: 2,
+    jilid: 4,
     pageNumber: 30,
     title: 'Penilaian Buku Empat (Ujian Kelulusan ke Iqra 5)',
     instruction: 'Peringatan: Jangan berpindah ke Buku Baru (Iqra 5) sebelum betul semuanya!',

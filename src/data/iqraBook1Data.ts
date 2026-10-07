@@ -11,7 +11,7 @@ export interface IqraRow {
 
 export interface IqraBookPage {
   id: string;
-  jilid: 1 | 2;
+  jilid: 1 | 2 | 3 | 4 | 5 | 6;
   pageNumber: number;
   title: string;
   instruction?: string;

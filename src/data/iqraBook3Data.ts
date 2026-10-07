@@ -3,7 +3,7 @@ import { IqraBookPage } from './iqraBook1Data';
 export const IQRA_3_PAGES: IqraBookPage[] = [
   {
     id: 'iqra-3-p1',
-    jilid: 1, // reuse IqraBookPage interface
+    jilid: 3,
     pageNumber: 1,
     title: 'Pengenalan Kasrah (ـِ) Dibaca Pendek',
     instruction: 'Semua dibaca pendek satu harakat, tidak boleh dipanjangkan.',
@@ -20,7 +20,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p2',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 2,
     title: 'Membedakan Mad (Panjang) dan Bukan Mad (Pendek)',
     instruction: 'Perhatikan dan jangan keliru mana bacaan mad (panjang) dan mana yang bukan mad (pendek).',
@@ -38,7 +38,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p3',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 3,
     title: 'Latihan Ketepatan Harakat Kasrah dan Fathah',
     instruction: 'Tetap baca dengan tenang dan cermat antara satu dan dua harakat.',
@@ -57,7 +57,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p4',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 4,
     title: 'Latihan Membaca Kata 4-5 Huruf',
     instruction: 'Perhatikan baris-baris berharakat kasrah pada kalimat panjang.',
@@ -76,7 +76,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p5',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 5,
     title: 'Biar Lambat Asalkan Betul Panjang dan Pendeknya',
     instruction: 'Biar lambat asal betul panjang pendek bacaan.',
@@ -94,12 +94,12 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p6',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 6,
     title: 'Pengenalan Ya Sukun sebagai Mad Kasrah (ـِي)',
     instruction: 'Kasrah bertemu Ya sukun dibaca panjang dua harakat (Bii). Mesti tepat bacaan panjang dan pendek.',
     focusLetters: ['بِي = بِيـ', 'جِي', 'نِي', 'لِي', 'فِي'],
-    headerPreview: { arabic: 'بِي = بِيـ (dibaca dengan suara panjang 2 harakat)', latin: 'Bii = Bii (Mad Thabi`i Kasrah)' },
+    headerPreview: { arabic: 'بِي = بِيـ', latin: 'Bii = Bii (Kasrah diikuti Ya sukun dibaca panjang 2 harakat)' },
     rows: [
       { items: [{ arabic: 'جِ - جِي', isRed: true }, { arabic: 'نِ - نِي', isRed: true }, { arabic: 'لِ - لِي', isRed: true }, { arabic: 'فِ - فِي', isRed: true }] },
       { items: [{ arabic: 'فَاعِلَ' }, { arabic: 'فِيعَالًا' }, { arabic: 'قَاتَلَ' }, { arabic: 'قِيتَالًا' }] },
@@ -111,7 +111,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p7',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 7,
     title: 'Pemantapan Mad Kasrah 2 Harakat',
     instruction: 'Bacaan yang pendek bacalah betul-betul pendek. Yang ada Ya sukun bacalah 2 ketukan.',
@@ -129,7 +129,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p8',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 8,
     title: 'Mengenal Perubahan Bentuk Huruf Ha (ـهِ = ـهـِ = هِ = هـِ)',
     instruction: 'Huruf Ha saat bersambung di tengah (ـهـِ) atau akhir (ـهِ) tetap berbunyi Hi.',
@@ -146,7 +146,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p9',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 9,
     title: 'Latihan Membaca Huruf Ha di Akhir Lafal',
     instruction: 'Ulang-ulang sehingga tidak keliru lagi antara huruf Ha dan huruf lain.',
@@ -164,7 +164,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p10',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 10,
     title: 'Pengenalan Ta Marbuthah (ت = ـتـ = ـة = ة)',
     instruction: 'Ta marbuthah (ـة / ة) memiliki dua titik di atas dan berbunyi Ti saat berharakat kasrah.',
@@ -181,7 +181,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p11',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 11,
     title: 'Penulisan Ya Sambung pada Kalimat Quran (فِي = في)',
     instruction: 'Perhatikan Ya bersambung di tengah dan akhir kata.',
@@ -199,7 +199,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p12',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 12,
     title: 'Latihan Membaca Mad Kasrah 3 dan 4 Suku Kata',
     instruction: 'Pastikan membaca dengan fasih dan mengayun tepat 2 ketukan pada huruf mad.',
@@ -218,7 +218,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p13',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 13,
     title: 'Kelancaran Membaca Kombinasi Huruf Mad',
     instruction: 'Jaga panjang 2 harakat pada mad fathah dan mad kasrah.',
@@ -237,12 +237,12 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p14',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 14,
     title: 'Pengenalan Harakat Dhommah (ـُ) Bunyi "U"',
     instruction: 'Harakat dhommah di atas huruf dibaca vokal "U" dengan bibir membulat. Tetap dibaca pendek!',
     focusLetters: ['بُ', 'تُ', 'جُ', 'دُ'],
-    headerPreview: { arabic: 'بُ (Dhommah dibaca "Bu" pendek)', latin: 'Bu (Bibir membulat pendek 1 harakat)' },
+    headerPreview: { arabic: 'بُ', latin: 'Bu (Dhommah dibaca "Bu" pendek 1 harakat)' },
     rows: [
       { items: [{ arabic: 'بَ - بِ - بُ', isRed: true }, { arabic: 'تَ - تِ - تُ', isRed: true }, { arabic: 'جَ - جِ - جُ', isRed: true }] },
       { items: [{ arabic: 'دَ دِ دُ' }, { arabic: 'دِ دُ دَ' }, { arabic: 'دُ دَ دِ' }, { arabic: 'دُ دِ دَ' }] },
@@ -255,7 +255,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p15',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 15,
     title: 'Latihan Dhommah Campuran A - I - U',
     instruction: 'Latih kelincahan bibir berpindah dari fathah (A), kasrah (I), dan dhommah (U).',
@@ -274,7 +274,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p16',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 16,
     title: 'Latihan Dhommah pada Lafal Al-Qur\'an',
     instruction: 'Baca pendek-pendek satu harakat, jangan terseret menjadi panjang.',
@@ -293,12 +293,12 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p17',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 17,
     title: 'Pengenalan Wawu Sukun sebagai Mad Dhommah (ـُو)',
     instruction: 'Dhommah bertemu Wawu sukun dibaca panjang 2 harakat (Buu).',
     focusLetters: ['بُو = بُـو', 'يَتُوبُ', 'يَقُولُ', 'يَعُودُ'],
-    headerPreview: { arabic: 'بُو = dibaca dengan panjang dua harakat (Buu)', latin: 'Buu (Mad Thabi`i Dhommah 2 Harakat)' },
+    headerPreview: { arabic: 'بُو', latin: 'Buu (Dhommah bertemu Wawu sukun dibaca panjang 2 harakat)' },
     rows: [
       { items: [{ arabic: 'تَابَ' }, { arabic: 'يَتُوبُ', isRed: true }, { arabic: 'قَالَ' }, { arabic: 'يَقُولُ', isRed: true }] },
       { items: [{ arabic: 'عَادَ' }, { arabic: 'يَعُودُ' }, { arabic: 'كَانَ' }, { arabic: 'يَكُونُ' }] },
@@ -311,12 +311,12 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p18',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 18,
     title: 'Pengenalan Alif Wiqayah (قَالُوا)',
     instruction: 'Alif setelah Wawu jama` (وا) hanya ada pada tulisan, tidak dibaca sama sekali.',
     focusLetters: ['قَالُوا', 'فَإِذَا رَكِبُوا', 'لَا تَخُونُوا'],
-    headerPreview: { arabic: 'قَالُوا : alif ada pada tulisan, tidak ada dalam bacaan', latin: 'Qooluu (Alif Wiqayah)' },
+    headerPreview: { arabic: 'قَالُوا', latin: 'Qooluu (Alif setelah Wawu jama` tidak dibaca/Za`idah)' },
     rows: [
       { items: [{ arabic: 'قَالُوا بَلَى' }, { arabic: 'فَإِذَا رَكِبُوا' }, { arabic: 'لَا تَخُونُوا' }] },
       { items: [{ arabic: 'كَانُوا لَنَا عَبِدِينَ' }, { arabic: 'ءَامَنُوا وَعَمِلُوا' }] },
@@ -328,12 +328,12 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p19',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 19,
     title: 'Pengenalan Mad Shilah Qashirah (هٗ = ـهٗ)',
     instruction: 'Tanda dhommah terbalik (هٗ) dibaca panjang dua harakat seperti Huu.',
     focusLetters: ['هُوَ', '...هُو', '...هُـو', 'هٗ'],
-    headerPreview: { arabic: 'هُو = ...هُو = ...هُـو = هٗ (dibaca Huu panjang 2 harakat)', latin: 'Huu (Mad Shilah Qashirah)' },
+    headerPreview: { arabic: 'هُو = هٗ', latin: 'Huu (Mad Shilah Qashirah dibaca Huu panjang 2 harakat)' },
     rows: [
       { items: [{ arabic: 'مَعَهُۥ' }, { arabic: 'يَدَهُۥ' }, { arabic: 'وَلَهُۥ' }, { arabic: 'يَرَهُۥ' }] },
       { items: [{ arabic: 'إِذَا سَجَى' }, { arabic: 'فِيمَا كَانُوا' }, { arabic: 'مَوَازِينُهُۥ' }] },
@@ -346,7 +346,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p20',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 20,
     title: 'Latihan Menjaga Irama Panjang Pendek',
     instruction: 'Walau lancar tetapi tidak betul panjang pendeknya, ulanglah sampai betul semua.',
@@ -364,7 +364,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p21',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 21,
     title: 'Latihan Kalimat Panjang Mad Thabi\'i',
     instruction: 'Bedakan mad fathah (Aa), mad kasrah (Ii), dan mad dhommah (Uu).',
@@ -383,7 +383,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p22',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 22,
     title: 'Latihan Ketelitian Lafal Rangkaian Kata',
     instruction: 'Perhatikan huruf dhommah di awal kata.',
@@ -402,7 +402,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p23',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 23,
     title: 'Membaca Ayat Pendek Al-Qur\'an Berangkai',
     instruction: 'Bacaan boleh terputus-putus asalkan betul dan tidak terseret.',
@@ -420,7 +420,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p24',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 24,
     title: 'Kelancaran Membaca Potongan Ayat Mushaf',
     instruction: 'Ulang-ulanglah sehingga betul dan lancar.',
@@ -438,7 +438,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p25',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 25,
     title: 'Latihan Ketepatan Huruf Mad Berturutan',
     instruction: 'Perhatikan jangan sampai tertukar antara bunyi mad dan bunyi pendek.',
@@ -457,7 +457,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p26',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 26,
     title: 'Latihan Membaca Asmaul Husna & Lafal Doa',
     instruction: 'Lafalkan dengan fasih dan penuh ketenangan.',
@@ -476,7 +476,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p27',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 27,
     title: 'Latihan Persiapan Evaluasi Akhir Buku Tiga',
     instruction: 'Perhatikan panjang 2 harakat pada lafaz Jalalah dan kata sambung.',
@@ -495,7 +495,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p28',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 28,
     title: 'Pemantapan Sebelum Ujian Kenaikan Jilid',
     instruction: 'Bila belum betul bacaan, eloklah diulang dahulu lagi.',
@@ -513,7 +513,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p29',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 29,
     title: 'Penilaian Buku Tiga (Ujian Iqra 3 Bagian 1)',
     instruction: 'Salah besar jika masih keliru bacaan panjang dan pendek!',
@@ -531,7 +531,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
   },
   {
     id: 'iqra-3-p30',
-    jilid: 1,
+    jilid: 3,
     pageNumber: 30,
     title: 'Penilaian Buku Tiga (Ujian Kelulusan ke Iqra 4)',
     instruction: 'Bila belum betul semua lebih-lebih lagi panjang-pendek, berhenti jangan dipindahkan ke Buku Empat. Eloklah diulang lagi.',

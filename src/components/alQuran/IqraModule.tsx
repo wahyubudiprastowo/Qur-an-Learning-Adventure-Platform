@@ -28,12 +28,16 @@ import {
   Flame,
   ShieldCheck,
   Crown,
+  Gamepad2,
 } from 'lucide-react';
 import { IQRA_CURRICULUM } from '../../data/iqraData';
 import { IQRA_1_PAGES, IqraBookPage, IqraPageItem } from '../../data/iqraBook1Data';
 import { IQRA_2_PAGES } from '../../data/iqraBook2Data';
 import { IQRA_3_PAGES } from '../../data/iqraBook3Data';
 import { IQRA_4_PAGES } from '../../data/iqraBook4Data';
+import { IQRA_5_PAGES } from '../../data/iqraBook5Data';
+import { IQRA_6_PAGES } from '../../data/iqraBook6Data';
+import { IqraMilestoneGameModal } from './IqraMilestoneGameModal';
 import { StorageService } from '../../services/storageService';
 import { IqraItem } from '../../types';
 
@@ -42,7 +46,7 @@ interface IqraModuleProps {
   onBack: () => void;
 }
 
-type JilidType = '1' | '2' | '3' | '4' | 'A';
+type JilidType = '1' | '2' | '3' | '4' | '5' | '6' | 'A';
 
 const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1.0, 1.25] as const;
 
@@ -53,7 +57,11 @@ function getArabicLatinGuide(arabic: string): string {
     return arabic;
   }
 
-  const clean = arabic.trim();
+  const clean = arabic
+    .replace(/〇/g, '')
+    .replace(/۝/g, '')
+    .trim();
+
   const directMap: Record<string, string> = {
     'أَ': 'A', 'إِ': 'I', 'أُ': 'U', 'بَ': 'Ba', 'تَ': 'Ta', 'ثَ': 'Tsa',
     'جَ': 'Ja', 'حَ': 'Ha', 'خَ': 'Kha', 'دَ': 'Da', 'ذَ': 'Dza', 'رَ': 'Ra',
@@ -75,21 +83,98 @@ function getArabicLatinGuide(arabic: string): string {
     'أَنْ': 'An', 'إِنْ': 'In', 'مَنْ': 'Man', 'عَنْ': "'An",
     'أَبْ': 'Ab (Qalqalah)', 'أَجْ': 'Aj (Qalqalah)', 'أَدْ': 'Ad (Qalqalah)',
     'أَطْ': 'Ath (Qalqalah)', 'أَقْ': 'Aq (Qalqalah)',
+    // Jilid 5 & 6 Tajwid phrases
+    'الْحَمْدُ': 'Alhamdu', 'وَالْعَصْرِ': "Wal-'ashr", 'وَالْفَجْرِ': 'Walfajr',
+    'مَنْ ءَامَنَ': 'Man aamana (Idzhar)', 'كُفُوًا أَحَدٌ': 'Kufuwan ahad',
+    'مِنۢ بَعْدِ': "Mim ba'di (Iqlab)", 'سَمِيعٌۢ بَصِيرٌ': "Samii'um bashiir",
+    'مَن يَّقُولُ': 'May yaquulu (Idgham)', 'فَمَن يَّعْمَلْ': "Famay ya'mal",
+    'مِّن رَّبِّهِمْ': 'Mir robbihim (Idgham Bila-ghunnah)', 'غَفُورٌ رَّحِيمٌ': 'Ghafuurur rohiim',
+    'دُنْيَا': 'Dunyaa (Idzhar Mutlaq)', 'بُنْيَانٌ': 'Bunyaan', 'قِنْوَانٌ': 'Qinwaan', 'صِنْوَانٌ': 'Shinwaan',
+    'مِن قَبْلُ': 'Ming qablu (Ikhfa)', 'كُنتُمْ': 'Kuntum', 'عَن صَلَاتِهِمْ': "'An shalaatihim",
+    'تَرْمِيهِم بِحِجَارَةٍ': 'Tarmiihim bihijarah (Ikhfa Syafawi)',
+    'أَطْعَمَهُم مِّن جُوعٍ': "Ath'amahum min juu' (Idgham Mimi)",
+    'أَلَمْ تَرَ': 'Alam tara (Idzhar Syafawi)', 'لَكُمْ دِينُكُمْ': 'Lakum diinukum',
+    'مَجْر۪ىٰهَا': 'Majreehaa (Imalah)', 'ءَ۬اعْجَمِيٌّ': "A-a'jamiyyun (Tashil)", 'لَا تَأْمَ۫نَّا': "Laa ta'mannaa (Isymam)",
+    'قُلْ هُوَ اللَّهُ أَحَدٌ': 'Qul huwallaahu ahad', 'اللَّهُ الصَّمَدُ': 'Allaahush shamad',
   };
 
   if (directMap[clean]) {
     return directMap[clean];
   }
 
-  // Tokenize by space if multi-token
-  if (clean.includes(' ')) {
-    return clean
-      .split(/\s+/)
-      .map((part) => directMap[part] || part)
-      .join(' - ');
+  // Handle transitions like A -> B
+  if (clean.includes('->')) {
+    const parts = clean.split('->').map((p) => p.trim());
+    return parts.map((p) => getArabicLatinGuide(p)).join(' ➡ ');
   }
 
-  return clean;
+  // Tokenize by space if multi-token
+  if (clean.includes(' ')) {
+    const parts = clean.split(/\s+/).map((p) => directMap[p] || getArabicLatinGuide(p));
+    if (parts.some((p) => p && !/[\u0600-\u06FF]/.test(p))) {
+      return parts.join(' ');
+    }
+  }
+
+  // Deconstruct letters and harakat for natural Indonesian phonetics
+  const letters: Record<string, string> = {
+    'ا': 'a', 'أ': 'a', 'إ': 'i', 'آ': 'aa', 'ء': "'", 'ئ': "'", 'ؤ': "'",
+    'ب': 'b', 'ت': 't', 'ث': 'ts', 'ج': 'j', 'ح': 'h', 'خ': 'kh',
+    'د': 'd', 'ذ': 'dz', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sy',
+    'ص': 'sh', 'ض': 'dh', 'ط': 'th', 'ظ': 'zh', 'ع': "'", 'غ': 'gh',
+    'ف': 'f', 'ق': 'q', 'ك': 'k', 'ل': 'l', 'م': 'm', 'ن': 'n',
+    'و': 'w', 'ه': 'h', 'ي': 'y', 'ى': 'aa', 'ة': 'h',
+  };
+
+  const harakats: Record<string, string> = {
+    '\u064E': 'a', // fathah
+    '\u0650': 'i', // kasrah
+    '\u064F': 'u', // dhammah
+    '\u064B': 'an', // fathatayn
+    '\u064D': 'in', // kasratayn
+    '\u064C': 'un', // dhammatayn
+    '\u0652': '',   // sukun
+    '\u0670': 'aa', // dagger alif
+  };
+
+  let transliterated = '';
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    const nextCh = clean[i + 1] || '';
+    const next2Ch = clean[i + 2] || '';
+
+    if (letters[ch]) {
+      let lStr = letters[ch];
+      // Syaddah check
+      if (nextCh === '\u0651') {
+        lStr = lStr + lStr;
+        if (harakats[next2Ch]) {
+          transliterated += lStr + harakats[next2Ch];
+          i += 2;
+          continue;
+        }
+        transliterated += lStr;
+        i++;
+        continue;
+      }
+      if (harakats[nextCh]) {
+        transliterated += lStr + harakats[nextCh];
+        i++;
+        continue;
+      }
+      transliterated += lStr;
+    } else if (harakats[ch]) {
+      transliterated += harakats[ch];
+    } else if (ch === ' ' || ch === '-') {
+      transliterated += ch;
+    }
+  }
+
+  if (transliterated.length > 0 && !/[\u0600-\u06FF]/.test(transliterated)) {
+    return transliterated.charAt(0).toUpperCase() + transliterated.slice(1);
+  }
+
+  return '';
 }
 
 // Gentle audio synthesizer for friendly feedback chime
@@ -156,6 +241,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   const [showPagePicker, setShowPagePicker] = useState<boolean>(false);
   const [showGraduationModal, setShowGraduationModal] = useState<boolean>(false);
   const [showBadgeModal, setShowBadgeModal] = useState<boolean>(false);
+  const [showMilestoneGameModal, setShowMilestoneGameModal] = useState<boolean>(false);
 
   // Interactive Quiz / Tantangan Tunjuk Cepat
   const [isQuizMode, setIsQuizMode] = useState<boolean>(false);
@@ -171,12 +257,14 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   // Auto-play timer ref
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Active book pages list (Jilid 1, 2, 3, 4)
+  // Active book pages list (Jilid 1, 2, 3, 4, 5, 6)
   const currentPages: IqraBookPage[] = useMemo(() => {
     if (activeJilid === '1') return IQRA_1_PAGES;
     if (activeJilid === '2') return IQRA_2_PAGES;
     if (activeJilid === '3') return IQRA_3_PAGES;
     if (activeJilid === '4') return IQRA_4_PAGES;
+    if (activeJilid === '5') return IQRA_5_PAGES;
+    if (activeJilid === '6') return IQRA_6_PAGES;
     return [];
   }, [activeJilid]);
 
@@ -187,7 +275,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     return currentPages.find((p) => p.pageNumber === currentPageNum) || currentPages[0];
   }, [currentPages, currentPageNum]);
 
-  const isBookMode = activeJilid === '1' || activeJilid === '2' || activeJilid === '3' || activeJilid === '4';
+  const isBookMode = ['1', '2', '3', '4', '5', '6'].includes(activeJilid);
 
   // Mastered count in current jilid
   const masteredPagesInJilid = useMemo(() => {
@@ -210,6 +298,8 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
   // Dynamic Interactive Badge Title
   const currentBadgeTitle = useMemo(() => {
+    if (totalCompletedAllIqra >= 150) return 'Mahkota Khatam 30 Juz 👑';
+    if (totalCompletedAllIqra >= 120) return 'Panglima Nun Mati & Waqaf 🛡️';
     if (totalCompletedAllIqra >= 90) return 'Mahkota Hafizh Iqra 👑';
     if (totalCompletedAllIqra >= 60) return 'Ksatria Sukun & Qalqalah ⚡';
     if (totalCompletedAllIqra >= 40) return 'Bintang Kasrah & Dhommah 💎';
@@ -239,15 +329,24 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     };
   }, []);
 
-  // Pronounce Arabic text using Speech Synthesis with friendly tone
-  const speakArabic = (arabicText: string, speed = autoSpeed) => {
-    if (typeof window === 'undefined') return;
+  // Pronounce Arabic text using Speech Synthesis with friendly tone and duration synchronization
+  const speakArabic = (arabicText: string, speed = autoSpeed, onComplete?: () => void) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (onComplete) onComplete();
+      return;
+    }
 
     try {
       window.speechSynthesis.cancel();
 
-      // Clean characters
+      // Clean characters, waqaf circles, notes, and Latin annotations
       const clean = arabicText
+        .replace(/〇/g, ' ')
+        .replace(/۝/g, ' ')
+        .replace(/[\u06D6-\u06ED]/g, ' ') // Quranic waqaf & pause symbols
+        .replace(/\(.*?\)/g, ' ') // Strip explanatory notes in parens like (Qalqalah), (Imalah)
+        .replace(/[a-zA-Z]/g, ' ') // Strip Latin letters
+        .replace(/[0-9]/g, ' ')
         .replace(/=/g, ' ')
         .replace(/:/g, ' ')
         .replace(/->/g, ' ')
@@ -280,6 +379,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         .replace(/هاء/g, 'هَاء')
         .replace(/همزة/g, 'هَمْزَة')
         .replace(/ياء/g, 'يَاء')
+        .replace(/\s+/g, ' ')
         .trim();
 
       const utterance = new SpeechSynthesisUtterance(clean);
@@ -308,10 +408,22 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         utterance.voice = arabicVoice;
       }
 
+      let hasFinished = false;
+      const notifyDone = () => {
+        if (!hasFinished) {
+          hasFinished = true;
+          if (onComplete) onComplete();
+        }
+      };
+
+      utterance.onend = notifyDone;
+      utterance.onerror = notifyDone;
+
       playChime(620);
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.warn('Speech error:', e);
+      if (onComplete) onComplete();
     }
   };
 
@@ -403,28 +515,47 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
       const current = allCoords[index];
       setPointedItem({ rowIdx: current.rowIdx, itemIdx: current.itemIdx });
-      speakArabic(current.arabic, autoSpeed);
-
-      // Duration calculation for auto-walk:
-      // 0.25x -> 6200ms (super calm)
-      // 0.5x -> 3400ms (calm & comfortable)
-      // 0.75x -> 2300ms
-      // 1.0x -> 1700ms
-      // 1.25x -> 1300ms
-      const delayMs =
+      // Natural breathing pause after audio completes (calibrated by playback speed)
+      const pauseAfterSpeechMs =
         autoSpeed === 0.25
-          ? 6200
+          ? 1400
           : autoSpeed === 0.5
-          ? 3400
+          ? 1000
           : autoSpeed === 0.75
-          ? 2300
+          ? 700
           : autoSpeed === 1.0
-          ? 1700
-          : 1300;
+          ? 500
+          : 350;
 
+      // Estimate natural safety fallback timeout based on Arabic text length
+      const charCount = current.arabic.replace(/\s+/g, '').length;
+      const rateMultiplier =
+        autoSpeed === 0.25 ? 0.55 : autoSpeed === 0.5 ? 0.72 : autoSpeed === 0.75 ? 0.85 : 0.95;
+      const estimatedSpeakMs = Math.max(1200, Math.round((charCount * 170) / rateMultiplier));
+      const safetyTimeoutMs = estimatedSpeakMs + pauseAfterSpeechMs + 800;
+
+      let hasAdvanced = false;
+      const advanceToNext = () => {
+        if (hasAdvanced) return;
+        hasAdvanced = true;
+        if (autoPlayTimeoutRef.current) {
+          clearTimeout(autoPlayTimeoutRef.current);
+          autoPlayTimeoutRef.current = null;
+        }
+        autoPlayTimeoutRef.current = setTimeout(() => {
+          runStep(index + 1);
+        }, pauseAfterSpeechMs);
+      };
+
+      // Set fallback safety timer
       autoPlayTimeoutRef.current = setTimeout(() => {
-        runStep(index + 1);
-      }, delayMs);
+        advanceToNext();
+      }, safetyTimeoutMs);
+
+      // Play audio with onComplete synchronization
+      speakArabic(current.arabic, autoSpeed, () => {
+        advanceToNext();
+      });
     };
 
     runStep(step);
@@ -574,9 +705,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         </button>
       </div>
 
-      {/* Jilid Tabs Navigation (Jilid 1, 2, 3, 4, A) */}
+      {/* Jilid Tabs Navigation (Jilid 1 to 6 & A) */}
       <div className="flex gap-1.5 p-1.5 bg-white border border-[#C9E1ED] rounded-2xl shadow-xs overflow-x-auto">
-        {(['1', '2', '3', '4', 'A'] as const).map((jilid) => {
+        {(['1', '2', '3', '4', '5', '6', 'A'] as const).map((jilid) => {
           const isActive = activeJilid === jilid;
           return (
             <button
@@ -585,13 +716,13 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 setActiveJilid(jilid);
                 setCurrentPageNum(1);
               }}
-              className={`flex-1 min-w-[75px] py-2 px-2.5 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 min-w-[70px] py-2 px-2 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap ${
                 isActive
                   ? 'bg-gradient-to-r from-[#08B9EF] to-[#0596c7] text-white shadow-md shadow-cyan-500/25 scale-[1.02]'
                   : 'text-[#8C9BA7] hover:text-[#164C68] hover:bg-[#EEF8FF]/60'
               }`}
             >
-              <BookOpen size={13} />
+              <BookOpen size={12} />
               <span>
                 {jilid === 'A'
                   ? 'Hijaiyah A'
@@ -601,7 +732,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   ? 'Iqra 2 (30 Hal)'
                   : jilid === '3'
                   ? 'Iqra 3 (30 Hal)'
-                  : 'Iqra 4 (30 Hal)'}
+                  : jilid === '4'
+                  ? 'Iqra 4 (30 Hal)'
+                  : jilid === '5'
+                  ? 'Iqra 5 (30 Hal)'
+                  : 'Iqra 6 (30 Hal)'}
               </span>
             </button>
           );
@@ -624,6 +759,10 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 ? 'Buku Iqra 3: Kasrah, Dhommah & Mad Thabi`i'
                 : activeJilid === '4'
                 ? 'Buku Iqra 4: Tanwin, Lin, Sukun & Qalqalah'
+                : activeJilid === '5'
+                ? 'Buku Iqra 5: Alif Lam, Waqaf, Idgham & Mad Lazim'
+                : activeJilid === '6'
+                ? 'Buku Iqra 6: Nun/Mim Mati, Iqlab, Ikhfa & Khatam'
                 : `Iqra Jilid ${activeJilid}`}
             </h3>
           </div>
@@ -757,6 +896,20 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
             {/* Quick Interactive Tool Buttons */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Mini-Game Tiap 5 Halaman */}
+              <button
+                onClick={() => setShowMilestoneGameModal(true)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer ${
+                  currentPageNum % 5 === 0
+                    ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-amber-300'
+                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200'
+                }`}
+                title="Mini-Game interaktif per tiap 5 halaman"
+              >
+                <Gamepad2 size={14} className={currentPageNum % 5 === 0 ? 'animate-bounce' : ''} />
+                <span>{currentPageNum % 5 === 0 ? '🎉 Game Milestone!' : 'Game 5 Hal'}</span>
+              </button>
+
               {/* Tantangan Tunjuk Cepat (Quiz) */}
               <button
                 onClick={isQuizMode ? () => setIsQuizMode(false) : startQuizChallenge}
@@ -949,6 +1102,41 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
               )}
             </div>
 
+            {/* 5-Page Milestone Mini-Game Celebration Banner */}
+            {currentPageNum % 5 === 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative z-10 my-3.5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex flex-wrap items-center justify-between gap-3 shadow-md shadow-indigo-500/20 border-2 border-amber-300"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-xl shrink-0 border border-white/30">
+                    🏆
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-amber-950 px-2 py-0.2 rounded-full">
+                        ZONA GAME 5 HALAMAN ⭐
+                      </span>
+                      <span className="text-xs font-bold text-indigo-100">
+                        Milestone Hal. {currentPageNum} (Jilid {activeJilid})
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-black mt-0.5">
+                      Hebat! Mainkan Mini-Game seru untuk menguji bacaan & kumpulkan Bintang Prestasi!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMilestoneGameModal(true)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-amber-950 font-black text-xs shrink-0 shadow-md shadow-amber-400/30 transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 border border-amber-200"
+                >
+                  <Gamepad2 size={15} />
+                  <span>Mainkan Game Sekarang 🎮</span>
+                </button>
+              </motion.div>
+            )}
+
             {/* Header Preview / Large Letter Example Box */}
             {activePage.headerPreview && (
               <div className="relative z-10 my-4 p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-[#FAF4E6] to-amber-50 border-2 border-[#DFD1B3] text-center shadow-xs">
@@ -975,61 +1163,80 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
             {/* Rows of Reading Items (RTL / Kanan ke Kiri) */}
             <div className="relative z-10 space-y-3 mt-4">
-              {activePage.rows.map((row, rowIdx) => (
-                <div
-                  key={rowIdx}
-                  dir="rtl"
-                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3.5"
-                >
-                  {row.items.map((item, itemIdx) => {
-                    const isPointed =
-                      pointedItem?.rowIdx === rowIdx && pointedItem?.itemIdx === itemIdx;
+              {activePage.rows.map((row, rowIdx) => {
+                const colsClass =
+                  row.items.length === 1
+                    ? 'grid-cols-1'
+                    : row.items.length === 2
+                    ? 'grid-cols-1 sm:grid-cols-2'
+                    : row.items.length === 3
+                    ? 'grid-cols-2 sm:grid-cols-3'
+                    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
 
-                    const latinText = item.latin || getArabicLatinGuide(item.arabic);
+                return (
+                  <div
+                    key={rowIdx}
+                    dir="rtl"
+                    className={`grid ${colsClass} gap-2.5 sm:gap-3.5`}
+                  >
+                    {row.items.map((item, itemIdx) => {
+                      const isPointed =
+                        pointedItem?.rowIdx === rowIdx && pointedItem?.itemIdx === itemIdx;
 
-                    return (
-                      <div
-                        key={itemIdx}
-                        onClick={() => handlePointItem(rowIdx, itemIdx, item.arabic)}
-                        className={`relative rounded-2xl p-3 sm:p-4 text-center cursor-pointer select-none transition-all duration-200 border-2 ${
-                          isPointed
-                            ? 'bg-amber-100/90 border-amber-500 ring-4 ring-amber-400/80 shadow-[0_0_28px_rgba(251,191,36,0.75)] scale-[1.03] z-20'
-                            : 'bg-white hover:bg-amber-50/50 border-[#E2D6BF] hover:border-[#08B9EF] shadow-xs'
-                        }`}
-                      >
-                        {/* UPGRADED INTERACTIVE RADIANT POINTER BADGE */}
-                        {isPointed && (
-                          <motion.button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              speakArabic(item.arabic);
-                            }}
-                            initial={{ scale: 0, y: -8 }}
-                            animate={{ scale: [1, 1.05, 1], y: [0, -3, 0] }}
-                            transition={{ repeat: Infinity, duration: 1.8 }}
-                            className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-amber-950 font-black text-[10px] px-3 py-0.5 rounded-full shadow-lg shadow-amber-500/50 whitespace-nowrap cursor-pointer border border-amber-200 active:scale-95"
-                            title="Klik untuk bunyikan ulang huruf ini"
-                          >
-                            <span className="text-sm">👆</span>
-                            <span className="tracking-wide">TUNJUK</span>
-                            {/* Live Audio Visualizer Mini Bars */}
-                            <span className="flex items-center gap-0.5 ml-0.5 h-3">
-                              <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                              <span className="w-0.5 h-3 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                              <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce" />
-                            </span>
-                          </motion.button>
-                        )}
+                      const latinText = item.latin || getArabicLatinGuide(item.arabic);
+                      const textLen = item.arabic.trim().length;
+                      const fontSizeClass =
+                        textLen > 40
+                          ? 'text-base sm:text-lg md:text-xl py-3 px-3'
+                          : textLen > 20
+                          ? 'text-lg sm:text-xl md:text-2xl py-3 px-3'
+                          : textLen > 10
+                          ? 'text-2xl sm:text-3xl py-3 sm:py-3.5'
+                          : 'text-3xl sm:text-4xl py-3 sm:py-4';
 
-                        {/* Arabic Letter / Word */}
+                      return (
                         <div
-                          className={`font-quran text-3xl sm:text-4xl font-bold leading-normal transition-colors ${
-                            item.isRed ? 'text-[#C53030]' : 'text-[#1B3644]'
+                          key={itemIdx}
+                          onClick={() => handlePointItem(rowIdx, itemIdx, item.arabic)}
+                          className={`relative rounded-2xl ${fontSizeClass} text-center cursor-pointer select-none transition-all duration-200 border-2 ${
+                            isPointed
+                              ? 'bg-amber-100/90 border-amber-500 ring-4 ring-amber-400/80 shadow-[0_0_28px_rgba(251,191,36,0.75)] scale-[1.03] z-20'
+                              : 'bg-white hover:bg-amber-50/50 border-[#E2D6BF] hover:border-[#08B9EF] shadow-xs'
                           }`}
                         >
-                          {item.arabic}
-                        </div>
+                          {/* UPGRADED INTERACTIVE RADIANT POINTER BADGE */}
+                          {isPointed && (
+                            <motion.button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                speakArabic(item.arabic);
+                              }}
+                              initial={{ scale: 0, y: -8 }}
+                              animate={{ scale: [1, 1.05, 1], y: [0, -3, 0] }}
+                              transition={{ repeat: Infinity, duration: 1.8 }}
+                              className="absolute -top-7 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-amber-950 font-black text-[10px] px-3 py-0.5 rounded-full shadow-lg shadow-amber-500/50 whitespace-nowrap cursor-pointer border border-amber-200 active:scale-95"
+                              title="Klik untuk bunyikan ulang huruf ini"
+                            >
+                              <span className="text-sm">👆</span>
+                              <span className="tracking-wide">TUNJUK</span>
+                              {/* Live Audio Visualizer Mini Bars */}
+                              <span className="flex items-center gap-0.5 ml-0.5 h-3">
+                                <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-0.5 h-3 bg-amber-950 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-0.5 h-2 bg-amber-950 rounded-full animate-bounce" />
+                              </span>
+                            </motion.button>
+                          )}
+
+                          {/* Arabic Letter / Word */}
+                          <div
+                            className={`font-quran font-bold leading-normal transition-colors ${
+                              item.isRed ? 'text-[#C53030]' : 'text-[#1B3644]'
+                            }`}
+                          >
+                            {item.arabic}
+                          </div>
 
                         {/* Latin Pronunciation Subtitle */}
                         {latinText && (
@@ -1054,8 +1261,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                     );
                   })}
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
 
             {/* Bottom Page Footer inside sheet */}
             <div className="relative z-10 mt-6 pt-3 border-t border-[#E9DFC8] flex items-center justify-between text-xs text-[#8C7A5B] font-bold">
@@ -1471,6 +1679,27 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       unlocked: totalCompletedAllIqra >= 80,
                     },
                     {
+                      title: 'Panglima Alif Lam & Waqaf',
+                      jilid: 'Iqra Jilid 5',
+                      desc: 'Menguasai Alif Lam Qamariyah/Syamsiyah, waqaf, dan mad lazim',
+                      icon: '🛡️',
+                      unlocked: totalCompletedAllIqra >= 110,
+                    },
+                    {
+                      title: 'Mahkota Khatam Al-Qur\'an',
+                      jilid: 'Iqra Jilid 6',
+                      desc: 'Khatam seluruh kaidah tajwid & syahadah membaca mushaf 30 juz',
+                      icon: '👑',
+                      unlocked: totalCompletedAllIqra >= 140,
+                    },
+                    {
+                      title: 'Bintang Game Tiap 5 Halaman',
+                      jilid: 'Mini-Game Milestone',
+                      desc: 'Menaklukkan mini-game seru di setiap 5 halaman',
+                      icon: '🎮',
+                      unlocked: totalCompletedAllIqra >= 5,
+                    },
+                    {
                       title: 'Penunjuk Akurat',
                       jilid: 'Kuis Tunjuk Cepat',
                       desc: 'Menjawab tantangan tunjuk cepat dengan tepat',
@@ -1565,7 +1794,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                     ? 'Masya Allah! Ananda telah menguasai huruf sambung & bacaan mad pada Iqra Jilid 2!'
                     : activeJilid === '3'
                     ? 'Masya Allah! Ananda telah menyelesaikan harakat kasrah, dhommah, dan mad thabi`i pada Iqra Jilid 3!'
-                    : 'Masya Allah! Ananda telah menguasai tanwin, lin, mim/nun sukun, dan qalqalah pada Iqra Jilid 4!'}
+                    : activeJilid === '4'
+                    ? 'Masya Allah! Ananda telah menguasai tanwin, lin, mim/nun sukun, dan qalqalah pada Iqra Jilid 4!'
+                    : activeJilid === '5'
+                    ? 'Masya Allah! Ananda telah menguasai Alif Lam, waqaf, idgham, dan mad lazim pada Iqra Jilid 5!'
+                    : 'Mubarak! Ananda resmi KHATAM IQRA 1-6 dan siap membaca Al-Qur\'an Mushaf 30 Juz!'}
                 </p>
               </div>
 
@@ -1584,7 +1817,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       ? 'Iqra Jilid 3'
                       : activeJilid === '3'
                       ? 'Iqra Jilid 4'
-                      : 'Iqra Jilid 5 & Mushaf Al-Qur`an'}
+                      : activeJilid === '4'
+                      ? 'Iqra Jilid 5'
+                      : activeJilid === '5'
+                      ? 'Iqra Jilid 6'
+                      : 'Mushaf Al-Qur`an 30 Juz'}
                     !
                   </span>
                 </div>
@@ -1604,6 +1841,12 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       setActiveJilid('4');
                       setCurrentPageNum(1);
                     } else if (activeJilid === '4') {
+                      setActiveJilid('5');
+                      setCurrentPageNum(1);
+                    } else if (activeJilid === '5') {
+                      setActiveJilid('6');
+                      setCurrentPageNum(1);
+                    } else if (activeJilid === '6') {
                       onBack();
                     }
                   }}
@@ -1617,7 +1860,11 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       ? 'Buka Iqra Jilid 3 Sekarang 🚀'
                       : activeJilid === '3'
                       ? 'Buka Iqra Jilid 4 Sekarang 🚀'
-                      : 'Lanjut ke Mushaf & Tilawah Al-Qur`an 🚀'}
+                      : activeJilid === '4'
+                      ? 'Buka Iqra Jilid 5 Sekarang 🚀'
+                      : activeJilid === '5'
+                      ? 'Buka Iqra Jilid 6 Sekarang 🚀'
+                      : 'Buka Tilawah Mushaf Al-Qur`an 30 Juz 🚀'}
                   </span>
                 </button>
 
@@ -1632,6 +1879,30 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ========================================================= */}
+      {/* MODAL 4: MILESTONE MINI-GAME ARENA (TIAP 5 HALAMAN)       */}
+      {/* ========================================================= */}
+      <IqraMilestoneGameModal
+        isOpen={showMilestoneGameModal}
+        onClose={() => setShowMilestoneGameModal(false)}
+        activeJilid={activeJilid}
+        pageNumber={currentPageNum}
+        childId={childId}
+        speakArabic={speakArabic}
+        onEarnReward={(stars, xp) => {
+          StorageService.recordPoints(
+            childId,
+            'IQRA_LESSON',
+            xp,
+            stars,
+            `Juara Mini-Game Milestone Hal ${currentPageNum} (Jilid ${activeJilid})`,
+            'iqra',
+            `milestone-game-${activeJilid}-p${currentPageNum}`
+          );
+          playSuccessFanfare();
+        }}
+      />
     </div>
   );
 };
