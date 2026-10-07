@@ -53,9 +53,6 @@ const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1.0, 1.25] as const;
 // Helper for Arabic transliteration when latin text is not explicitly provided
 function getArabicLatinGuide(arabic: string): string {
   if (!arabic) return '';
-  if (arabic.includes('=') || arabic.includes(':')) {
-    return arabic;
-  }
 
   const clean = arabic
     .replace(/〇/g, '')
@@ -78,7 +75,7 @@ function getArabicLatinGuide(arabic: string): string {
     'بًا': 'Ban', 'تً': 'Tan', 'ثً': 'Tsan', 'جً': 'Jan', 'دًا': 'Dan', 'زًا': 'Zan',
     'فً': 'Fan', 'كً': 'Kan', 'عًا': "'An", 'ظً': 'Zhan', 'يً': 'Yan', 'لًا': 'Lan',
     'بٍ': 'Bin', 'تٍ': 'Tin', 'دٍ': 'Din', 'مٍ': 'Min', 'وٍ': 'Win', 'سٍ': 'Sin',
-    'بٌُ': 'Bun', 'سٌ': 'Sun', 'عَامِلٌ': "'Aamilun", 'سَابِقٌ': 'Saabiqun',
+    'بٌ': 'Bun', 'سٌ': 'Sun', 'عَامِلٌ': "'Aamilun", 'سَابِقٌ': 'Saabiqun',
     'أَمْ': 'Am', 'لَمْ': 'Lam', 'كَمْ': 'Kam', 'هَمْ': 'Ham',
     'أَنْ': 'An', 'إِنْ': 'In', 'مَنْ': 'Man', 'عَنْ': "'An",
     'أَبْ': 'Ab (Qalqalah)', 'أَجْ': 'Aj (Qalqalah)', 'أَدْ': 'Ad (Qalqalah)',
@@ -237,6 +234,26 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   // Audio Playback Mode: 'character' (individual character audio) vs 'full_page' (Sync & Listen full-page recitation)
   const [audioMode, setAudioMode] = useState<'character' | 'full_page'>('character');
 
+  // Voice Gender: 'female' (Ustadzah) vs 'male' (Ustadz) with persistence
+  const [voiceGender, setVoiceGender] = useState<'male' | 'female'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('iqra_voice_gender');
+      if (saved === 'male' || saved === 'female') return saved;
+    }
+    return 'female';
+  });
+
+  const handleSetVoiceGender = (gender: 'male' | 'female') => {
+    setVoiceGender(gender);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('iqra_voice_gender', gender);
+    }
+    // Auditory preview feedback
+    setTimeout(() => {
+      speakArabic(gender === 'female' ? 'أَهْلًا وَسَهْلًا' : 'مَرْحَبًا بِكُمْ');
+    }, 120);
+  };
+
   // Modal states
   const [showPagePicker, setShowPagePicker] = useState<boolean>(false);
   const [showGraduationModal, setShowGraduationModal] = useState<boolean>(false);
@@ -339,7 +356,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     };
   }, []);
 
-  // Pronounce Arabic text using Speech Synthesis with friendly tone and duration synchronization
+  // Pronounce Arabic text using Speech Synthesis with friendly tone, male/female selection, and 100% punctuation-free clean
   const speakArabic = (arabicText: string, speed = autoSpeed, onComplete?: () => void) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       if (onComplete) onComplete();
@@ -353,16 +370,49 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       let clean = arabicText
         .replace(/〇/g, ' ')
         .replace(/۝/g, ' ')
-        .replace(/\(.*?\)/g, ' ') // Strip explanatory notes in parens like (Qalqalah), (Imalah)
-        .replace(/[a-zA-Z]/g, ' ') // Strip Latin letters
-        .replace(/[0-9]/g, ' ')
-        .replace(/=/g, ' ')
-        .replace(/:/g, ' ');
+        .replace(/\(.*?\)/g, ' ') // Strip explanatory notes in parens
+        .replace(/\[.*?\]/g, ' ')
+        .replace(/\{.*?\}/g, ' ');
 
       // If text demonstrates transition (e.g. 'أَبَدًا -> أَبَدَا'), pronounce target form clearly
-      if (clean.includes('->')) {
-        const parts = clean.split('->').map((p) => p.trim()).filter(Boolean);
+      if (clean.includes('->') || clean.includes('➡') || clean.includes('>')) {
+        const parts = clean.split(/->|➡|>/).map((p) => p.trim()).filter(Boolean);
         clean = parts[parts.length - 1] || clean;
+      }
+
+      // Handle Latin soundExample fallbacks if passed directly
+      const latinToSpeechMap: Record<string, string> = {
+        'A - Ba': 'أَ بَ',
+        'Ta - Tsa': 'تَ ثَ',
+        'Ja - Ha - Kha': 'جَ حَ خَ',
+        'Da - Dza': 'دَ ذَ',
+        'Ra - Za': 'رَ زَ',
+        'Sa - Sya': 'سَ شَ',
+        'Sha - Dha': 'صَ ضَ',
+        'Tha - Zha': 'طَ ظَ',
+        "'A - Gha": 'عَ غَ',
+        'Fa - Qa': 'فَ قَ',
+        'Ka - La - Ma': 'كَ لَ مَ',
+        'Na - Wa - Ha - Ya': 'نَ وَ هَ يَ',
+        'Ba-Ta-Tsa': 'بَ تَ ثَ',
+        'Darasa': 'دَرَسَ',
+        'Kataba': 'كَتَبَ',
+        'Bi - Ti - Tsi': 'بِ تِ ثِ',
+        'Bu - Tu - Tsu': 'بُ تُ ثُ',
+        'Rusila': 'رُسِلَ',
+        'Ban - Bin - Bun': 'بً بٍ بٌ',
+        'Baa - Bii - Buu': 'بَا بِي بُو',
+        'Basatha': 'بَسَطَ',
+        'Khalaqaka': 'خَلَقَكَ',
+        'Ab - Aj - Ad': 'أَبْ أَجْ أَدْ',
+        'Qalqalah': 'أَبْ أَجْ أَدْ',
+        "Nasta'iin": 'نَسْتَعِينُ',
+        'Al-hamdu lillaah': 'الْحَمْدُ لِلَّهِ',
+        'Tajwid Nun Sukun': 'مَنْ ءَامَنَ',
+        'Khatam Iqra': 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ',
+      };
+      if (latinToSpeechMap[clean.trim()]) {
+        clean = latinToSpeechMap[clean.trim()];
       }
 
       // Authentic Tajwid & Gharib Phonetic Adaptations for pure recitation
@@ -384,37 +434,61 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         // Strip remaining Quranic waqaf & pause symbols not spoken aloud
         .replace(/[\u06D6-\u06ED]/g, ' ')
         // Letter name expansions for single Hijaiyah recognition
-        .replace(/الف/g, 'أَلِف')
-        .replace(/باء/g, 'بَاء')
-        .replace(/تاء/g, 'تَاء')
-        .replace(/ثاء/g, 'ثَاء')
-        .replace(/جيم/g, 'جِيم')
-        .replace(/حاء/g, 'حَاء')
-        .replace(/خاء/g, 'خَاء')
-        .replace(/دال/g, 'دَال')
-        .replace(/ذال/g, 'ذَال')
-        .replace(/راء/g, 'رَاء')
-        .replace(/زاي/g, 'زَاي')
-        .replace(/سين/g, 'سِين')
-        .replace(/شين/g, 'شِين')
-        .replace(/صاد/g, 'صَاد')
-        .replace(/ضاد/g, 'ضَاد')
-        .replace(/طاء/g, 'طَاء')
-        .replace(/ظاء/g, 'ظَاء')
-        .replace(/عين/g, 'عَيْن')
-        .replace(/غين/g, 'غَيْن')
-        .replace(/فاء/g, 'فَاء')
-        .replace(/قاف/g, 'قَاف')
-        .replace(/كاف/g, 'كَاف')
-        .replace(/لام/g, 'لَام')
-        .replace(/ميم/g, 'مِيم')
-        .replace(/نون/g, 'نُون')
-        .replace(/واو/g, 'وَاو')
-        .replace(/هاء/g, 'هَاء')
-        .replace(/همزة/g, 'هَمْزَة')
-        .replace(/ياء/g, 'يَاء')
-        .replace(/\s+/g, ' ')
-        .trim();
+        .replace(/\bالف\b/g, 'أَلِف')
+        .replace(/\bباء\b/g, 'بَاء')
+        .replace(/\bتاء\b/g, 'تَاء')
+        .replace(/\bثاء\b/g, 'ثَاء')
+        .replace(/\bجيم\b/g, 'جِيم')
+        .replace(/\bحاء\b/g, 'حَاء')
+        .replace(/\bخاء\b/g, 'خَاء')
+        .replace(/\bدال\b/g, 'دَال')
+        .replace(/\bذal\b/g, 'ذَال')
+        .replace(/\bراء\b/g, 'رَاء')
+        .replace(/\bزay\b/g, 'زَاي')
+        .replace(/\bسين\b/g, 'سِين')
+        .replace(/\bشين\b/g, 'شِين')
+        .replace(/\bصاد\b/g, 'صَاد')
+        .replace(/\bضاد\b/g, 'ضَاد')
+        .replace(/\bطاء\b/g, 'طَاء')
+        .replace(/\bظاء\b/g, 'ظَاء')
+        .replace(/\bعين\b/g, 'عَيْن')
+        .replace(/\bغين\b/g, 'غَيْن')
+        .replace(/\bفاء\b/g, 'فَاء')
+        .replace(/\bقاف\b/g, 'قَاف')
+        .replace(/\bكاف\b/g, 'كَاف')
+        .replace(/\bلام\b/g, 'لَام')
+        .replace(/\bميم\b/g, 'مِيم')
+        .replace(/\bنون\b/g, 'نُون')
+        .replace(/\bواو\b/g, 'وَاو')
+        .replace(/\bهاء\b/g, 'هَاء')
+        .replace(/\bهمزة\b/g, 'هَمْزَة')
+        .replace(/\bياء\b/g, 'يَاء');
+
+      // If text is unvocalized single hijaiyah (e.g. 'ا - ب' or 'ت - ث' in Jilid A)
+      if (/^[\u0621-\u064A\s\-]+$/.test(clean) && !/[\u064B-\u0652\u0670]/.test(clean)) {
+        const standaloneMap: Record<string, string> = {
+          'ا': 'أَلِف', 'ب': 'بَاء', 'ت': 'تَاء', 'ث': 'ثَاء', 'ج': 'جِيم',
+          'ح': 'حَاء', 'خ': 'خَاء', 'د': 'دَال', 'ذ': 'ذَال', 'ر': 'رَاء',
+          'ز': 'زَاي', 'س': 'سِين', 'ش': 'شِين', 'ص': 'صَاد', 'ض': 'ضَاد',
+          'ط': 'طَاء', 'ظ': 'ظَاء', 'ع': 'عَيْن', 'غ': 'غَيْن', 'ف': 'فَاء',
+          'ق': 'قَاف', 'ك': 'كَاف', 'ل': 'لَام', 'م': 'مِيم', 'ن': 'نُون',
+          'و': 'وَاو', 'ه': 'هَاء', 'ي': 'يَاء',
+        };
+        clean = clean
+          .split(/[\s\-]+/)
+          .map((ch) => standaloneMap[ch] || ch)
+          .join(' ');
+      }
+
+      // CRITICAL: Strip ALL non-Arabic letters, non-harakats, symbols, dashes, colons, semicolons
+      // Keeps strictly: Arabic letters (\u0621-\u064A, \u0671), Harakat (\u064B-\u0652, \u0670), and spaces!
+      clean = clean.replace(/[^ \u0621-\u064A\u0671\u064B-\u0652\u0670]/g, ' ');
+      clean = clean.replace(/\s+/g, ' ').trim();
+
+      if (!clean) {
+        if (onComplete) onComplete();
+        return;
+      }
 
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'ar-SA';
@@ -432,14 +506,59 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           : 1.15;
 
       utterance.rate = mappedRate;
-      utterance.pitch = 1.05;
 
+      // Select voice based on gender preference (Ustadz vs Ustadzah)
       const voices = window.speechSynthesis.getVoices();
-      const arabicVoice = voices.find(
-        (v) => v.lang.startsWith('ar') || v.lang.includes('SA') || v.name.toLowerCase().includes('arabic')
+      const arabicVoices = voices.filter(
+        (v) =>
+          v.lang.startsWith('ar') ||
+          v.lang.includes('SA') ||
+          v.name.toLowerCase().includes('arabic')
       );
-      if (arabicVoice) {
-        utterance.voice = arabicVoice;
+
+      let selectedVoice: SpeechSynthesisVoice | undefined;
+      if (voiceGender === 'female') {
+        selectedVoice = arabicVoices.find((v) => {
+          const n = v.name.toLowerCase();
+          return (
+            n.includes('female') ||
+            n.includes('laila') ||
+            n.includes('hoda') ||
+            n.includes('mariam') ||
+            n.includes('salma') ||
+            n.includes('zariyah') ||
+            n.includes('zeina') ||
+            n.includes('fatima') ||
+            n.includes('noor') ||
+            n.includes('layla')
+          );
+        });
+        if (!selectedVoice && arabicVoices.length > 0) {
+          selectedVoice = arabicVoices[0];
+        }
+        utterance.pitch = 1.22; // Female teacher tone (Ustadzah)
+      } else {
+        selectedVoice = arabicVoices.find((v) => {
+          const n = v.name.toLowerCase();
+          return (
+            n.includes('male') ||
+            n.includes('maged') ||
+            n.includes('tarik') ||
+            n.includes('naayf') ||
+            n.includes('hamed') ||
+            n.includes('mehdi') ||
+            n.includes('salman') ||
+            n.includes('fahad')
+          );
+        });
+        if (!selectedVoice && arabicVoices.length > 0) {
+          selectedVoice = arabicVoices.length > 1 ? arabicVoices[1] : arabicVoices[0];
+        }
+        utterance.pitch = 0.88; // Male teacher tone (Ustadz)
+      }
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
       }
 
       let hasFinished = false;
@@ -894,6 +1013,40 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                 {audioMode === 'full_page' && (
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-ping" />
                 )}
+              </button>
+            </div>
+
+            {/* Pilihan Suara Guru: Laki-laki (Ustadz) vs Perempuan (Ustadzah) */}
+            <div className="flex items-center p-1 bg-amber-50/70 border border-amber-200/80 rounded-2xl shadow-2xs">
+              <span className="text-[10px] font-black uppercase text-amber-900 px-2 hidden sm:inline">
+                Suara:
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSetVoiceGender('female')}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  voiceGender === 'female'
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-xs'
+                    : 'text-amber-900/70 hover:text-amber-900 hover:bg-amber-100/60'
+                }`}
+                title="Pilih Suara Ustadzah (Perempuan • Nada Cerah & Ramah Anak)"
+              >
+                <span>👩</span>
+                <span>Ustadzah</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSetVoiceGender('male')}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  voiceGender === 'male'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-xs'
+                    : 'text-amber-900/70 hover:text-amber-900 hover:bg-amber-100/60'
+                }`}
+                title="Pilih Suara Ustadz (Laki-laki • Nada Mantap & Berwibawa)"
+              >
+                <span>👨</span>
+                <span>Ustadz</span>
               </button>
             </div>
 
@@ -1454,7 +1607,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   </div>
 
                   <button
-                    onClick={() => speakArabic(item.soundExample)}
+                    onClick={() => speakArabic(item.arabic)}
                     className="w-10 h-10 rounded-2xl bg-[#EEF8FF] text-[#08B9EF] hover:bg-[#d8eefc] flex items-center justify-center transition-colors active:scale-95 cursor-pointer border border-[#C9E1ED]"
                     title="Dengarkan Pelafalan"
                   >
