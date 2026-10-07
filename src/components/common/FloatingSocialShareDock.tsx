@@ -111,11 +111,7 @@ export const FloatingSocialShareDock: React.FC<FloatingSocialShareDockProps> = (
 
   return (
     <div
-      className="fixed right-1 sm:right-3 top-1/2 -translate-y-1/2 z-40 flex items-center select-none pointer-events-auto"
-      style={{
-        // Safe offset above mobile bottom navigation (BottomNavigation is h-16 at bottom-0)
-        marginBottom: '1rem',
-      }}
+      className="fixed right-2 sm:right-4 bottom-20 sm:bottom-24 z-30 flex items-center select-none pointer-events-auto"
     >
       <AnimatePresence mode="wait">
         {!isCollapsed ? (

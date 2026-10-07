@@ -630,20 +630,22 @@ export default function App() {
           }}
         />
 
-        {/* Floating Social Share Dock (Collapsible, Parroto-style) */}
-        <FloatingSocialShareDock
-          onOpenShareModal={(payload) => {
-            setSharePayload(
-              payload || {
-                title: "Cahaya Tahfiz - Belajar & Hafalan Al-Qur'an Anak Berbasis AI",
-                text: `Dampingi anak belajar tartil, makhraj, dan menghafal Al-Qur'an bersama Sahabat 3D Lumi di Cahaya Tahfiz!`,
-                url: typeof window !== 'undefined' ? window.location.href : 'https://cahaya-tahfiz.app',
-                category: "Aplikasi Edukasi Tahfiz",
-              }
-            );
-            setShowShareModal(true);
-          }}
-        />
+        {/* Floating Social Share Dock (Collapsible, Parroto-style) - hidden during focused Qur'an/Iqra study */}
+        {activeTab !== 'alquran' && (
+          <FloatingSocialShareDock
+            onOpenShareModal={(payload) => {
+              setSharePayload(
+                payload || {
+                  title: "Cahaya Tahfiz - Belajar & Hafalan Al-Qur'an Anak Berbasis AI",
+                  text: `Dampingi anak belajar tartil, makhraj, dan menghafal Al-Qur'an bersama Sahabat 3D Lumi di Cahaya Tahfiz!`,
+                  url: typeof window !== 'undefined' ? window.location.href : 'https://cahaya-tahfiz.app',
+                  category: "Aplikasi Edukasi Tahfiz",
+                }
+              );
+              setShowShareModal(true);
+            }}
+          />
+        )}
 
         {/* Global Share Modal */}
         <ShareModal

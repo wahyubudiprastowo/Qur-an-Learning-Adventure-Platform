@@ -850,6 +850,57 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     };
   }, [activePage, pointedItem]);
 
+  // Flatten active page items for sequential stepping
+  const pageFlatItems = useMemo(() => {
+    if (!activePage) return [];
+    const list: {
+      rowIdx: number;
+      itemIdx: number;
+      arabic: string;
+      latin: string;
+      isRed?: boolean;
+    }[] = [];
+    activePage.rows.forEach((row, rIdx) => {
+      row.items.forEach((item, iIdx) => {
+        list.push({
+          rowIdx: rIdx,
+          itemIdx: iIdx,
+          arabic: item.arabic,
+          latin: item.latin || getArabicLatinGuide(item.arabic),
+          isRed: item.isRed,
+        });
+      });
+    });
+    return list;
+  }, [activePage]);
+
+  const currentFlatIndex = useMemo(() => {
+    if (!pointedItem || pageFlatItems.length === 0) return -1;
+    return pageFlatItems.findIndex(
+      (it) => it.rowIdx === pointedItem.rowIdx && it.itemIdx === pointedItem.itemIdx
+    );
+  }, [pointedItem, pageFlatItems]);
+
+  const handlePointPrevItem = () => {
+    if (currentFlatIndex > 0) {
+      const prev = pageFlatItems[currentFlatIndex - 1];
+      setPointedItem({ rowIdx: prev.rowIdx, itemIdx: prev.itemIdx });
+      speakArabic(prev.arabic);
+    } else if (currentPageNum > 1) {
+      handlePrevPage();
+    }
+  };
+
+  const handlePointNextItem = () => {
+    if (currentFlatIndex >= 0 && currentFlatIndex < pageFlatItems.length - 1) {
+      const next = pageFlatItems[currentFlatIndex + 1];
+      setPointedItem({ rowIdx: next.rowIdx, itemIdx: next.itemIdx });
+      speakArabic(next.arabic);
+    } else if (currentPageNum < maxPages) {
+      handleNextPage();
+    }
+  };
+
   const isCurrentPageMastered = activePage ? completedIds.includes(activePage.id) : false;
 
   return (

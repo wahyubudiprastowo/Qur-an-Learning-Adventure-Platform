@@ -566,7 +566,7 @@ export const IQRA_1_PAGES: IqraBookPage[] = [
     title: 'Penilaian Buku Satu (Ujian Iqra 1)',
     instruction: 'Jika belum mahir, ulangi hingga lancar. Apabila sudah lancar dan benar, boleh pindah ke Buku Dua.',
     focusLetters: ['Ujian Kelulusan Iqra 1'],
-    headerPreview: { arabic: 'ثَنِيلَايَنْ اونتوق بوكو ساتو', latin: 'Ujian Kenaikan ke Jilid 2' },
+    headerPreview: { arabic: 'امْتِحَانُ الْجُزْءِ الْأَوَّلِ', latin: 'Ujian Kenaikan ke Jilid 2 (Penilaian Buku 1)' },
     rows: [
       { items: [{ arabic: 'أَ بَ تَ ثَ جَ حَ خَ دَ ذَ رَ زَ' }] },
       { items: [{ arabic: 'سَ شَ صَ ضَ طَ ظَ عَ غَ' }] },
@@ -583,7 +583,7 @@ export const IQRA_1_PAGES: IqraBookPage[] = [
     title: 'Mengenal Urutan Nama Huruf Hijaiyah',
     instruction: 'Nama-nama resmi huruf Hijaiyah dari Alif sampai Ya.',
     focusLetters: ['Nama Huruf'],
-    headerPreview: { arabic: 'مَغَنَلْ اوروتن حروف هجائية', latin: 'Nama Huruf Hijaiyah' },
+    headerPreview: { arabic: 'أَسْمَاءُ الْحُرُوفِ الْهِجَائِيَّةِ', latin: 'Urutan Nama-Nama Huruf Hijaiyah' },
     rows: [
       { items: [{ arabic: 'أ : الف' }, { arabic: 'ب : باء' }, { arabic: 'ت : تاء' }, { arabic: 'ث : ثاء' }] },
       { items: [{ arabic: 'ج : جيم' }, { arabic: 'ح : حاء' }, { arabic: 'خ : خاء' }, { arabic: 'د : دال' }] },
