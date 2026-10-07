@@ -234,20 +234,14 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   // Audio Playback Mode: 'character' (individual character audio) vs 'full_page' (Sync & Listen full-page recitation)
   const [audioMode, setAudioMode] = useState<'character' | 'full_page'>('character');
 
-  // Voice Gender: 'female' (Ustadzah) vs 'male' (Ustadz) with persistence
+  // Voice Gender: 'female' (Ustadzah) vs 'male' (Ustadz) with persistence in StorageService
   const [voiceGender, setVoiceGender] = useState<'male' | 'female'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('iqra_voice_gender');
-      if (saved === 'male' || saved === 'female') return saved;
-    }
-    return 'female';
+    return StorageService.getPreferredVoiceGender();
   });
 
   const handleSetVoiceGender = (gender: 'male' | 'female') => {
     setVoiceGender(gender);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('iqra_voice_gender', gender);
-    }
+    StorageService.setPreferredVoiceGender(gender);
     // Auditory preview feedback
     setTimeout(() => {
       speakArabic(gender === 'female' ? 'أَهْلًا وَسَهْلًا' : 'مَرْحَبًا بِكُمْ');
@@ -368,17 +362,53 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
       // Clean characters, waqaf circles, notes, and Latin annotations
       let clean = arabicText
-        .replace(/〇/g, ' ')
-        .replace(/۝/g, ' ')
-        .replace(/\(.*?\)/g, ' ') // Strip explanatory notes in parens
-        .replace(/\[.*?\]/g, ' ')
-        .replace(/\{.*?\}/g, ' ');
+        // Strip HTML entities if any
+        .replace(/&[a-z0-9#]+;/gi, ' ')
+        // Strip waqaf circles and quranic symbols
+        .replace(/[〇۝○]/g, ' ')
+        // Strip brackets and parentheses and their contents
+        .replace(/\([^\u0600-\u06FF]*\)/g, ' ')
+        .replace(/\[[^\u0600-\u06FF]*\]/g, ' ')
+        .replace(/\{[^\u0600-\u06FF]*\}/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\{[^}]*\}/g, ' ');
+
+      // Handle Waqaf symbols guide table on Iqra 6 page 17: e.g. "مـ : وَقْفٌ لَازِمٌ" -> "وَقْفٌ لَازِمٌ"
+      if (clean.includes(':') && (clean.includes('مـ') || clean.includes('لا') || clean.includes('ج') || clean.includes('قلى') || clean.includes('صلى') || clean.includes('∴'))) {
+        const afterColon = clean.split(':')[1];
+        if (afterColon && afterColon.trim()) {
+          clean = afterColon.trim();
+        }
+      }
+
+      // Handle letter names on Iqra 1 page 32: e.g. "أ : الف" -> "أَلِف", "ب : باء" -> "بَاء"
+      if (clean.includes(':')) {
+        const parts = clean.split(':').map((p) => p.trim()).filter(Boolean);
+        if (parts.length >= 2) {
+          clean = parts[1];
+        }
+      }
+
+      // Handle equality transformations like "بَ تَ = بَتَ" -> speak target "بَتَ"
+      if (clean.includes('=')) {
+        const parts = clean.split('=').map((p) => p.trim()).filter(Boolean);
+        clean = parts[parts.length - 1] || clean;
+      }
 
       // If text demonstrates transition (e.g. 'أَبَدًا -> أَبَدَا'), pronounce target form clearly
       if (clean.includes('->') || clean.includes('➡') || clean.includes('>')) {
         const parts = clean.split(/->|➡|>/).map((p) => p.trim()).filter(Boolean);
         clean = parts[parts.length - 1] || clean;
       }
+
+      // Strip pipe separators
+      if (clean.includes('|')) {
+        clean = clean.replace(/\|/g, ' ');
+      }
+
+      // Strip ellipsis
+      clean = clean.replace(/\.{2,}/g, ' ');
 
       // Handle Latin soundExample fallbacks if passed directly
       const latinToSpeechMap: Record<string, string> = {
@@ -422,6 +452,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         .replace(/لَا تَأْمَ۫نَّا/g, 'لَا تَأْمَنَّا') // Isymam (Laa ta'mannaa)
         .replace(/أَحَدٌ ٱللَّهُ/g, 'أَحَدُنِ اللَّهُ') // Nun Wiqayah
         .replace(/بِئْسَ الاِسْمُ/g, 'بِئْسَ لِسْمُ') // Naql
+        .replace(/مِنۢ بَعْدِ/g, 'مِمْ بَعْدِ') // Iqlab
         // Mad Shilah 2-Harakat vocalization for TTS
         .replace(/هُۥ/g, 'هُو')
         .replace(/هِۦ/g, 'هِي')
@@ -442,9 +473,9 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         .replace(/\bحاء\b/g, 'حَاء')
         .replace(/\bخاء\b/g, 'خَاء')
         .replace(/\bدال\b/g, 'دَال')
-        .replace(/\bذal\b/g, 'ذَال')
+        .replace(/\bذال\b/g, 'ذَال')
         .replace(/\bراء\b/g, 'رَاء')
-        .replace(/\bزay\b/g, 'زَاي')
+        .replace(/\bزاي\b/g, 'زَاي')
         .replace(/\bسين\b/g, 'سِين')
         .replace(/\bشين\b/g, 'شِين')
         .replace(/\bصاد\b/g, 'صَاد')
@@ -472,7 +503,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           'ز': 'زَاي', 'س': 'سِين', 'ش': 'شِين', 'ص': 'صَاد', 'ض': 'ضَاد',
           'ط': 'طَاء', 'ظ': 'ظَاء', 'ع': 'عَيْن', 'غ': 'غَيْن', 'ف': 'فَاء',
           'ق': 'قَاف', 'ك': 'كَاف', 'ل': 'لَام', 'م': 'مِيم', 'ن': 'نُون',
-          'و': 'وَاو', 'ه': 'هَاء', 'ي': 'يَاء',
+          'و': 'وَاو', 'ه': 'هَاء', 'ي': 'يَاء', 'هـ': 'هَاء', 'ء': 'هَمْزَة',
         };
         clean = clean
           .split(/[\s\-]+/)

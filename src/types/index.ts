@@ -251,3 +251,16 @@ export interface QuranVocabularyItem {
     translationSnippet: string;
   };
 }
+
+export interface AudioAuditFlag {
+  id: string; // Key, e.g. 'iqra-1-p1-r0-i0'
+  jilid: string; // 'A' | '1' | '2' | '3' | '4' | '5' | '6'
+  pageNumber: number;
+  arabic: string;
+  latin: string;
+  status: 'needs_review' | 'verified';
+  affectsVoice: 'both' | 'male_only' | 'female_only';
+  issueCategory?: 'harakat' | 'makhraj' | 'speed' | 'waqaf' | 'other';
+  notes: string;
+  flaggedAt: string;
+}

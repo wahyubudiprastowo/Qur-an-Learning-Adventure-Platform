@@ -332,7 +332,7 @@ export const IQRA_3_PAGES: IqraBookPage[] = [
     pageNumber: 19,
     title: 'Pengenalan Mad Shilah Qashirah (هٗ = ـهٗ)',
     instruction: 'Tanda dhommah terbalik (هٗ) dibaca panjang dua harakat seperti Huu.',
-    focusLetters: ['هُوَ', '...هُو', '...هُـو', 'هٗ'],
+    focusLetters: ['هُوَ', 'هُو', 'هُـو', 'هٗ'],
     headerPreview: { arabic: 'هُو = هٗ', latin: 'Huu (Mad Shilah Qashirah dibaca Huu panjang 2 harakat)' },
     rows: [
       { items: [{ arabic: 'مَعَهُۥ' }, { arabic: 'يَدَهُۥ' }, { arabic: 'وَلَهُۥ' }, { arabic: 'يَرَهُۥ' }] },

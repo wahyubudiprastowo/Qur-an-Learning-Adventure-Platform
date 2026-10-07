@@ -8,6 +8,7 @@ import {
   PracticeSessionItem,
   PointsEventType,
   PaymentTransaction,
+  AudioAuditFlag,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
 import {
@@ -38,6 +39,7 @@ const STORAGE_KEYS = {
   TAFSIR_PREFIX: 'cahaya_tahfiz_tafsir_',
   GAMES_PREFIX: 'cahaya_tahfiz_games_',
   SETTINGS_PREFIX: 'cahaya_tahfiz_settings_',
+  AUDIO_AUDIT_FLAGS: 'cahaya_tahfiz_audio_audit_flags',
 };
 
 // Initial default parent and child profiles
@@ -720,5 +722,63 @@ export class StorageService {
     const next = { ...current, ...updates };
     localStorage.setItem(STORAGE_KEYS.SETTINGS_PREFIX + childId, JSON.stringify(next));
     return next;
+  }
+
+  // --- Audio Audit Center Flags ---
+  static getAudioAuditFlags(): Record<string, AudioAuditFlag> {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.AUDIO_AUDIT_FLAGS);
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  static saveAudioAuditFlag(flag: AudioAuditFlag): void {
+    try {
+      const current = this.getAudioAuditFlags();
+      current[flag.id] = flag;
+      localStorage.setItem(STORAGE_KEYS.AUDIO_AUDIT_FLAGS, JSON.stringify(current));
+    } catch (e) {
+      console.warn('Failed to save audio audit flag:', e);
+    }
+  }
+
+  static removeAudioAuditFlag(flagId: string): void {
+    try {
+      const current = this.getAudioAuditFlags();
+      delete current[flagId];
+      localStorage.setItem(STORAGE_KEYS.AUDIO_AUDIT_FLAGS, JSON.stringify(current));
+    } catch (e) {
+      console.warn('Failed to remove audio audit flag:', e);
+    }
+  }
+
+  static clearAudioAuditFlags(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.AUDIO_AUDIT_FLAGS);
+    } catch (e) {
+      console.warn('Failed to clear audio audit flags:', e);
+    }
+  }
+
+  // --- Voice Gender Preference (Ustadz / Ustadzah) ---
+  static getPreferredVoiceGender(): 'male' | 'female' {
+    try {
+      const saved =
+        localStorage.getItem('cahaya_tahfiz_iqra_voice_gender') ||
+        localStorage.getItem('iqra_voice_gender');
+      if (saved === 'male' || saved === 'female') return saved;
+    } catch {}
+    return 'female';
+  }
+
+  static setPreferredVoiceGender(gender: 'male' | 'female'): void {
+    try {
+      localStorage.setItem('cahaya_tahfiz_iqra_voice_gender', gender);
+      localStorage.setItem('iqra_voice_gender', gender);
+    } catch (e) {
+      console.warn('Failed to save preferred voice gender:', e);
+    }
   }
 }

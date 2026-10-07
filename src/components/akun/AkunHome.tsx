@@ -23,6 +23,7 @@ import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 import { ProVsFreeModal } from '../subscription/ProVsFreeModal';
 import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
 import { AuthModal } from '../auth/AuthModal';
+import { AuditAudioCenterModal } from './AuditAudioCenterModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -46,6 +47,7 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showAuditAudioModal, setShowAuditAudioModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -232,6 +234,33 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         <ChevronRight size={22} className="text-cyan-200 group-hover:translate-x-1 transition-transform" />
       </div>
 
+      {/* Audit Audio Center & Pelafalan Card (Pemeriksaan Mendalam & Kalibrasi Suara) */}
+      <div
+        onClick={() => setShowAuditAudioModal(true)}
+        className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-5 shadow-md shadow-amber-500/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs">
+            🎧
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black font-heading">
+                Audit Audio Center
+              </h3>
+              <span className="text-[10px] bg-amber-950/40 text-amber-100 px-2.5 py-0.5 rounded-full font-bold border border-white/20">
+                Pemeriksaan Mendalam
+              </span>
+            </div>
+            <p className="text-xs text-amber-50 font-medium mt-0.5">
+              Bandingkan pelafalan Ustadz & Ustadzah berdampingan, uji harakat/makhraj, & tandai evaluasi
+            </p>
+          </div>
+        </div>
+
+        <ChevronRight size={22} className="text-amber-100 group-hover:translate-x-1 transition-transform" />
+      </div>
+
       {/* Achievements / Lencana Badge Section */}
       <div className="space-y-2.5">
         <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
@@ -361,6 +390,12 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         initialMode={userAccount.isRegistered ? 'login' : 'register'}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={() => onRefreshData()}
+      />
+
+      {/* Audit Audio Center Modal */}
+      <AuditAudioCenterModal
+        isOpen={showAuditAudioModal}
+        onClose={() => setShowAuditAudioModal(false)}
       />
     </div>
   );
