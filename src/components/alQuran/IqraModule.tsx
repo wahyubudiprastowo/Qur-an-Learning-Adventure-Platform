@@ -317,6 +317,16 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     setQuizFeedback('idle');
   }, [currentPageNum, activeJilid]);
 
+  // Keep glowing pointer synchronized with viewport during recitation walk
+  useEffect(() => {
+    if (pointedItem && typeof document !== 'undefined') {
+      const el = document.getElementById(`iqra-item-${pointedItem.rowIdx}-${pointedItem.itemIdx}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  }, [pointedItem]);
+
   // Cleanup auto-play timer on unmount
   useEffect(() => {
     return () => {
@@ -340,16 +350,40 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       window.speechSynthesis.cancel();
 
       // Clean characters, waqaf circles, notes, and Latin annotations
-      const clean = arabicText
+      let clean = arabicText
         .replace(/〇/g, ' ')
         .replace(/۝/g, ' ')
-        .replace(/[\u06D6-\u06ED]/g, ' ') // Quranic waqaf & pause symbols
         .replace(/\(.*?\)/g, ' ') // Strip explanatory notes in parens like (Qalqalah), (Imalah)
         .replace(/[a-zA-Z]/g, ' ') // Strip Latin letters
         .replace(/[0-9]/g, ' ')
         .replace(/=/g, ' ')
-        .replace(/:/g, ' ')
-        .replace(/->/g, ' ')
+        .replace(/:/g, ' ');
+
+      // If text demonstrates transition (e.g. 'أَبَدًا -> أَبَدَا'), pronounce target form clearly
+      if (clean.includes('->')) {
+        const parts = clean.split('->').map((p) => p.trim()).filter(Boolean);
+        clean = parts[parts.length - 1] || clean;
+      }
+
+      // Authentic Tajwid & Gharib Phonetic Adaptations for pure recitation
+      clean = clean
+        .replace(/مَجْر۪ىٰهَا/g, 'مَجْرَيْهَا') // Imalah (Majreehaa)
+        .replace(/ءَ۬اعْجَمِيٌّ/g, 'أَأَعْجَمِيٌّ') // Tashil (A-a'jamiyyun)
+        .replace(/لَا تَأْمَ۫نَّا/g, 'لَا تَأْمَنَّا') // Isymam (Laa ta'mannaa)
+        .replace(/أَحَدٌ ٱللَّهُ/g, 'أَحَدُنِ اللَّهُ') // Nun Wiqayah
+        .replace(/بِئْسَ الاِسْمُ/g, 'بِئْسَ لِسْمُ') // Naql
+        // Mad Shilah 2-Harakat vocalization for TTS
+        .replace(/هُۥ/g, 'هُو')
+        .replace(/هِۦ/g, 'هِي')
+        // Waslah Alif to standard Alif for speech synthesis
+        .replace(/ٱ/g, 'ا')
+        // Dagger Alif (Alif Khanjariyah) to regular Alif for authentic elongation
+        .replace(/َـٰ/g, 'َا')
+        .replace(/ـٰ/g, 'َا')
+        .replace(/ـ/g, '') // Tatweel
+        // Strip remaining Quranic waqaf & pause symbols not spoken aloud
+        .replace(/[\u06D6-\u06ED]/g, ' ')
+        // Letter name expansions for single Hijaiyah recognition
         .replace(/الف/g, 'أَلِف')
         .replace(/باء/g, 'بَاء')
         .replace(/تاء/g, 'تَاء')
@@ -1197,6 +1231,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                       return (
                         <div
                           key={itemIdx}
+                          id={`iqra-item-${rowIdx}-${itemIdx}`}
                           onClick={() => handlePointItem(rowIdx, itemIdx, item.arabic)}
                           className={`relative rounded-2xl ${fontSizeClass} text-center cursor-pointer select-none transition-all duration-200 border-2 ${
                             isPointed

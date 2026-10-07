@@ -26,10 +26,18 @@ export const IQRA_CURRICULUM: IqraItem[] = [
   { id: 'iqra-2-3', jilid: '2', title: 'Kombinasi A - I - U', arabic: 'رُ - سِ - لَ', latin: 'Ru - Si - La', harakat: 'Campuran', soundExample: 'Rusila', description: 'Melatih kelincahan lidah berpindah dari dhommah, kasrah, dan fathah.' },
 
   // Jilid 3 - Tanwin & Mad Dasar
-  { id: 'iqra-3-1', jilid: '3', title: 'Tanwin (An - In - Un)', arabic: 'بً - بٍ - بٌُ', latin: 'Ban - Bin - Bun', harakat: 'Tanwin ً ٍ ٌ', soundExample: 'Ban - Bin - Bun', description: 'Dua harakat yang memunculkan bunyi huruf nun sukun di akhir kata.' },
+  { id: 'iqra-3-1', jilid: '3', title: 'Tanwin (An - In - Un)', arabic: 'بً - بٍ - بٌ', latin: 'Ban - Bin - Bun', harakat: 'Tanwin ً ٍ ٌ', soundExample: 'Ban - Bin - Bun', description: 'Dua harakat yang memunculkan bunyi huruf nun sukun di akhir kata.' },
   { id: 'iqra-3-2', jilid: '3', title: 'Mad Thabi\'i (Panjang 2 Harakat)', arabic: 'بَا - بِي - بُو', latin: 'Baa - Bii - Buu', harakat: 'Mad 2 Harakat', soundExample: 'Baa - Bii - Buu', description: 'Alif setelah fathah, Ya sukun setelah kasrah, Wawu sukun setelah dhommah dibaca 2 ayunan.' },
 
-  // Jilid 4 - Huruf Sambung
+  // Jilid 4 - Huruf Sambung, Sukun & Qalqalah
   { id: 'iqra-4-1', jilid: '4', title: 'Huruf Sambung Awal-Tengah-Akhir', arabic: 'بَسَطَ', latin: 'Basatha', harakat: 'Sambung', soundExample: 'Basatha', description: 'Melihat perubahan bentuk huruf Ba, Sin, dan Tha saat dirangkai dalam kata.' },
-  { id: 'iqra-4-2', jilid: '4', title: 'Rangkaian Kata Quran', arabic: 'خَلَقَكَ', latin: 'Khalaqaka', harakat: 'Sambung', soundExample: 'Khalaqaka', description: 'Membaca kata sambung sempurna seperti yang ada di mushaf Al-Qur\'an.' },
+  { id: 'iqra-4-2', jilid: '4', title: 'Sukun & Qalqalah Memantul', arabic: 'أَبْ - أَجْ - أَدْ', latin: 'Ab - Aj - Ad', harakat: 'Sukun ْ', soundExample: 'Qalqalah', description: 'Membaca huruf sukun memantul pada 5 huruf Qalqalah (Baju Di Toko).' },
+
+  // Jilid 5 - Alif Lam, Waqaf & Mad Panjang
+  { id: 'iqra-5-1', jilid: '5', title: 'Kaidah Waqaf Akhir Ayat', arabic: 'نَسْتَعِينُ 〇', latin: 'Nasta\'iin', harakat: 'Waqaf Sukun', soundExample: 'Nasta\'iin', description: 'Kaidah mematikan huruf terakhir ketika berhenti di bulatan akhir ayat.' },
+  { id: 'iqra-5-2', jilid: '5', title: 'Alif Lam & Mad Bendera (4-5 Harakat)', arabic: 'الْحَمْدُ لِلَّهِ', latin: 'Al-hamdu lillaah', harakat: 'Alif Lam & Mad', soundExample: 'Al-hamdu lillaah', description: 'Membedakan Alif Lam Qamariyah & Syamsiyah serta tanda bendera panjang.' },
+
+  // Jilid 6 - Hukum Nun Sukun, Tanwin & Gharib
+  { id: 'iqra-6-1', jilid: '6', title: 'Hukum Nun Sukun & Tanwin (Tajwid)', arabic: 'مَنْ ءَامَنَ  -  مِنۢ بَعْدِ', latin: 'Man aamana - Mim ba\'di', harakat: 'Idzhar & Iqlab', soundExample: 'Tajwid Nun Sukun', description: 'Menguasai Idzhar (jelas), Idgham (lebur), Iqlab (menjadi mim), dan Ikhfa (samar).' },
+  { id: 'iqra-6-2', jilid: '6', title: 'Tanda Waqaf Mushaf & Bacaan Gharib', arabic: 'مـ  -  لا  -  ج  -  قلى  -  صلى', latin: 'Tanda-tanda Waqaf', harakat: 'Rasm Utsmani', soundExample: 'Khatam Iqra', description: 'Memahami rambu-rambu berhenti mushaf dan persiapan membaca Al-Qur\'an 30 Juz.' },
 ];

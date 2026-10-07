@@ -189,7 +189,7 @@ export interface Achievement {
 
 export interface IqraItem {
   id: string;
-  jilid: 'A' | '1' | '2' | '3' | '4';
+  jilid: 'A' | '1' | '2' | '3' | '4' | '5' | '6';
   title: string;
   arabic: string;
   latin: string;
