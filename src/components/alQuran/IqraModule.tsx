@@ -39,6 +39,7 @@ import { IQRA_5_PAGES } from '../../data/iqraBook5Data';
 import { IQRA_6_PAGES } from '../../data/iqraBook6Data';
 import { IqraMilestoneGameModal } from './IqraMilestoneGameModal';
 import { StorageService } from '../../services/storageService';
+import { GlobalAudioManager } from '../../services/audioService';
 import { IqraItem } from '../../types';
 
 interface IqraModuleProps {
@@ -267,6 +268,8 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
 
   // Auto-play timer ref
   const autoPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Dedicated HTML audio element ref for guaranteed female audio streaming & pitch control
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Active book pages list (Jilid 1, 2, 3, 4, 5, 6)
   const currentPages: IqraBookPage[] = useMemo(() => {
@@ -338,11 +341,18 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     }
   }, [pointedItem]);
 
-  // Cleanup auto-play timer on unmount
+  // Cleanup auto-play timer & active audio on unmount
   useEffect(() => {
     return () => {
       if (autoPlayTimeoutRef.current) {
         clearTimeout(autoPlayTimeoutRef.current);
+      }
+      if (activeAudioRef.current) {
+        try {
+          activeAudioRef.current.pause();
+          activeAudioRef.current.currentTime = 0;
+        } catch (e) {}
+        activeAudioRef.current = null;
       }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -358,6 +368,13 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     }
 
     try {
+      if (activeAudioRef.current) {
+        try {
+          activeAudioRef.current.pause();
+          activeAudioRef.current.currentTime = 0;
+        } catch (e) {}
+        activeAudioRef.current = null;
+      }
       window.speechSynthesis.cancel();
 
       // Clean characters, waqaf circles, notes, and Latin annotations
@@ -521,9 +538,6 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang = 'ar-SA';
-
       // Map speed gracefully to speech synthesis engine rate with distinct auditory pacing
       // Rate calibration: 0.25x -> 0.35 (very slow, deliberate articulation for children)
       // 0.5x -> 0.55 (clear half-tempo learning pace)
@@ -541,75 +555,148 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           ? 0.95
           : 1.25;
 
-      utterance.rate = mappedRate;
+      // Web Speech API fallback synthesizer with strict gender filtering
+      const speakWithWebSpeech = (textToSpeak: string) => {
+        try {
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.lang = 'ar-SA';
+          utterance.rate = mappedRate;
 
-      // Select voice based on gender preference (Ustadz vs Ustadzah)
-      const voices = window.speechSynthesis.getVoices();
-      const arabicVoices = voices.filter(
-        (v) =>
-          v.lang.startsWith('ar') ||
-          v.lang.includes('SA') ||
-          v.name.toLowerCase().includes('arabic')
-      );
-
-      let selectedVoice: SpeechSynthesisVoice | undefined;
-      if (voiceGender === 'female') {
-        selectedVoice = arabicVoices.find((v) => {
-          const n = v.name.toLowerCase();
-          return (
-            n.includes('female') ||
-            n.includes('laila') ||
-            n.includes('hoda') ||
-            n.includes('mariam') ||
-            n.includes('salma') ||
-            n.includes('zariyah') ||
-            n.includes('zeina') ||
-            n.includes('fatima') ||
-            n.includes('noor') ||
-            n.includes('layla')
+          const voices = window.speechSynthesis.getVoices();
+          const arabicVoices = voices.filter(
+            (v) =>
+              v.lang.startsWith('ar') ||
+              v.lang.includes('SA') ||
+              v.name.toLowerCase().includes('arabic')
           );
-        });
-        if (!selectedVoice && arabicVoices.length > 0) {
-          selectedVoice = arabicVoices[0];
-        }
-        utterance.pitch = 1.22; // Female teacher tone (Ustadzah)
-      } else {
-        selectedVoice = arabicVoices.find((v) => {
-          const n = v.name.toLowerCase();
-          return (
-            n.includes('male') ||
-            n.includes('maged') ||
-            n.includes('tarik') ||
-            n.includes('naayf') ||
-            n.includes('hamed') ||
-            n.includes('mehdi') ||
-            n.includes('salman') ||
-            n.includes('fahad')
-          );
-        });
-        if (!selectedVoice && arabicVoices.length > 0) {
-          selectedVoice = arabicVoices.length > 1 ? arabicVoices[1] : arabicVoices[0];
-        }
-        utterance.pitch = 0.88; // Male teacher tone (Ustadz)
-      }
 
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
+          let selectedVoice: SpeechSynthesisVoice | undefined;
+          if (voiceGender === 'female') {
+            selectedVoice = arabicVoices.find((v) => {
+              const n = v.name.toLowerCase();
+              return (
+                n.includes('female') ||
+                n.includes('woman') ||
+                n.includes('laila') ||
+                n.includes('layla') ||
+                n.includes('hoda') ||
+                n.includes('mariam') ||
+                n.includes('meryem') ||
+                n.includes('salma') ||
+                n.includes('zariyah') ||
+                n.includes('zeina') ||
+                n.includes('fatima') ||
+                n.includes('noor') ||
+                n.includes('sana') ||
+                n.includes('amina') ||
+                n.includes('ar-xa-x-a') ||
+                n.includes('ar-xa-x-d') ||
+                n.includes('ar-xa-x-f') ||
+                n.includes('ar-001')
+              );
+            });
+            // If no explicitly named female voice, exclude all known male voices
+            if (!selectedVoice) {
+              selectedVoice = arabicVoices.find((v) => {
+                const n = v.name.toLowerCase();
+                return (
+                  !n.includes('male') &&
+                  !n.includes('maged') &&
+                  !n.includes('tarik') &&
+                  !n.includes('naayf') &&
+                  !n.includes('hamed') &&
+                  !n.includes('mehdi')
+                );
+              });
+            }
+            utterance.pitch = 1.35; // Bright feminine teacher pitch
+          } else {
+            // Ustadz male voice
+            selectedVoice = arabicVoices.find((v) => {
+              const n = v.name.toLowerCase();
+              return (
+                n.includes('male') ||
+                n.includes('maged') ||
+                n.includes('tarik') ||
+                n.includes('naayf') ||
+                n.includes('hamed') ||
+                n.includes('mehdi') ||
+                n.includes('salman') ||
+                n.includes('fahad')
+              );
+            });
+            if (!selectedVoice && arabicVoices.length > 0) {
+              selectedVoice = arabicVoices[0];
+            }
+            utterance.pitch = 0.88; // Deep resonant male teacher pitch
+          }
 
-      let hasFinished = false;
-      const notifyDone = () => {
-        if (!hasFinished) {
-          hasFinished = true;
+          if (selectedVoice) {
+            utterance.voice = selectedVoice;
+          }
+
+          let hasFinished = false;
+          const notifyDone = () => {
+            if (!hasFinished) {
+              hasFinished = true;
+              if (onComplete) onComplete();
+            }
+          };
+
+          utterance.onend = notifyDone;
+          utterance.onerror = notifyDone;
+
+          playChime(620);
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
           if (onComplete) onComplete();
         }
       };
 
-      utterance.onend = notifyDone;
-      utterance.onerror = notifyDone;
+      // Dedicated High-Fidelity Female Recitation Engine for Ustadzah
+      // Uses same-origin /api/tts proxy to stream authentic female Arabic recitation
+      if (voiceGender === 'female' && typeof Audio !== 'undefined') {
+        try {
+          const ttsUrl = `/api/tts?text=${encodeURIComponent(clean)}&lang=ar`;
+          const audio = new Audio(ttsUrl);
+          audio.playbackRate = mappedRate;
+          activeAudioRef.current = audio;
+          GlobalAudioManager.notifyPlayStarted(audio);
 
-      playChime(620);
-      window.speechSynthesis.speak(utterance);
+          let hasAudioEnded = false;
+          const notifyAudioDone = () => {
+            if (!hasAudioEnded) {
+              hasAudioEnded = true;
+              if (activeAudioRef.current === audio) {
+                activeAudioRef.current = null;
+              }
+              if (onComplete) onComplete();
+            }
+          };
+
+          audio.onended = notifyAudioDone;
+
+          let hasFallbackRun = false;
+          const safeFallback = () => {
+            if (!hasFallbackRun) {
+              hasFallbackRun = true;
+              speakWithWebSpeech(clean);
+            }
+          };
+
+          audio.onerror = safeFallback;
+
+          playChime(660);
+          audio.play().catch(safeFallback);
+          return;
+        } catch (err) {
+          speakWithWebSpeech(clean);
+          return;
+        }
+      }
+
+      // Default / Ustadz playback using Web Speech API
+      speakWithWebSpeech(clean);
     } catch (e) {
       console.warn('Speech error:', e);
       if (onComplete) onComplete();
@@ -1511,8 +1598,43 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                               item.isRed ? 'text-[#C53030]' : 'text-[#1B3644]'
                             }`}
                           >
-                            {item.arabic}
+                            {item.arabic.includes('۝') ? (
+                              <span>
+                                {item.arabic.split(/(۝[٠-٩]*)/g).map((part, pIdx) => {
+                                  if (part.startsWith('۝')) {
+                                    return (
+                                      <span
+                                        key={pIdx}
+                                        className="inline-flex items-center justify-center mx-1 text-emerald-700 font-quran text-[0.82em] select-none font-normal"
+                                        title="Tanda Waqaf / Akhir Ayat Mushaf"
+                                      >
+                                        {part}
+                                      </span>
+                                    );
+                                  }
+                                  return <span key={pIdx}>{part}</span>;
+                                })}
+                              </span>
+                            ) : (
+                              item.arabic.replace(/〇/g, ' ۝')
+                            )}
                           </div>
+
+                          {/* Sifir Tajwid Diacritic Badge */}
+                          {(item.arabic.includes('۟') || item.arabic.includes('۠')) && (
+                            <div className="mt-1 flex items-center justify-center">
+                              <span
+                                className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                                title={
+                                  item.arabic.includes('۠')
+                                    ? 'Sifir Mustathil: Panjang saat waqaf, pendek saat sambung'
+                                    : 'Sifir Mustadir: Huruf tambahan (ziyadah, tidak dibaca panjang)'
+                                }
+                              >
+                                {item.arabic.includes('۠') ? '۠ Sifir Lonjong (Waqaf)' : '۟ Sifir Bulat (Ziyadah)'}
+                              </span>
+                            </div>
+                          )}
 
                         {/* Latin Pronunciation Subtitle */}
                         {latinText && (
@@ -1563,13 +1685,32 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border-2 border-amber-300 rounded-3xl p-4 shadow-xl shadow-amber-500/10 space-y-3"
+              className="bg-white border-2 border-amber-300 rounded-3xl p-3.5 sm:p-4 shadow-xl shadow-amber-500/10 space-y-3"
             >
+              {/* Educational Tajwid Banner for Sifir signs if pointed item contains Sifir */}
+              {(currentPointedData.arabic.includes('۟') || currentPointedData.arabic.includes('۠')) && (
+                <div className="w-full text-xs font-bold px-3.5 py-2 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 text-amber-950 border border-amber-300 flex items-start gap-2 shadow-xs">
+                  <span className="text-base leading-none">💡</span>
+                  <div className="flex-1 text-[11px] leading-relaxed">
+                    <span className="font-black text-amber-900 block">
+                      {currentPointedData.arabic.includes('۠')
+                        ? 'Kaidah Sifir Mustathil (Bulatan Lonjong Tegak ۠ di atas Alif):'
+                        : 'Kaidah Sifir Mustadir (Bulatan Bulat ۟ di atas Huruf):'}
+                    </span>
+                    {currentPointedData.arabic.includes('۠')
+                      ? 'Hanya dibaca panjang (2 harakat) ketika berhenti / waqaf. Saat disambung / washal dibaca pendek.'
+                      : 'Merupakan huruf tambahan (ziyadah) yang sama sekali tidak dibaca panjang, baik washal maupun waqaf.'}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col md:flex-row items-center justify-between gap-3">
                 {/* Left: Box Info Preview */}
                 <div className="flex items-center gap-3 w-full md:w-auto">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 border-2 border-amber-400 flex items-center justify-center text-amber-950 font-quran text-3xl font-bold shrink-0 shadow-inner">
-                    {currentPointedData.arabic}
+                    {currentPointedData.arabic.includes('۝')
+                      ? currentPointedData.arabic.replace(/۝[٠-٩]*/g, '۝')
+                      : currentPointedData.arabic}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1589,47 +1730,49 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   </div>
                 </div>
 
-                {/* Center / Action Controls: Sebelumnya, Ulangi Bunyi, Berikutnya */}
-                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end flex-wrap">
+                {/* Center / Action Controls: Fixed 3-column non-wrapping row on mobile, flex on desktop */}
+                <div className="grid grid-cols-3 gap-2 w-full md:w-auto md:flex md:items-center">
                   {/* Step to previous box */}
                   <button
                     onClick={handlePointPrevItem}
                     disabled={currentFlatIndex <= 0 && currentPageNum <= 1}
-                    className="flex-1 md:flex-initial px-3.5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-[#164C68] font-black text-xs border border-[#C9E1ED] flex items-center justify-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-xs"
+                    className="px-2.5 sm:px-3.5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-[#164C68] font-black text-xs border border-[#C9E1ED] flex items-center justify-center gap-1 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-xs"
                     title="Pindah ke huruf/kotak sebelumnya"
                   >
                     <ChevronLeft size={16} />
-                    <span>Sebelumnya</span>
+                    <span className="hidden xs:inline">Sebelumnya</span>
+                    <span className="xs:hidden">Sebelum</span>
                   </button>
 
                   {/* Primary Ulangi Bunyi Button */}
                   <button
                     onClick={() => speakArabic(currentPointedData.arabic)}
-                    className="flex-1 md:flex-initial px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-950 font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all active:scale-95 cursor-pointer ring-2 ring-amber-300"
+                    className="px-3 sm:px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/25 transition-all active:scale-95 cursor-pointer ring-2 ring-amber-300"
                     title="Dengarkan kembali pelafalan huruf ini"
                   >
-                    <Volume2 size={16} className="animate-pulse" />
-                    <span>Ulangi Bunyi</span>
+                    <Volume2 size={16} className="animate-pulse shrink-0" />
+                    <span className="truncate">Ulangi Bunyi</span>
                   </button>
 
                   {/* Step to next box */}
                   <button
                     onClick={handlePointNextItem}
                     disabled={currentFlatIndex >= pageFlatItems.length - 1 && currentPageNum >= maxPages}
-                    className="flex-1 md:flex-initial px-3.5 py-2.5 rounded-2xl bg-[#08B9EF] hover:bg-[#07a6d7] text-white font-black text-xs flex items-center justify-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-md shadow-cyan-500/20"
+                    className="px-2.5 sm:px-3.5 py-2.5 rounded-2xl bg-[#08B9EF] hover:bg-[#07a6d7] text-white font-black text-xs flex items-center justify-center gap-1 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-md shadow-cyan-500/20"
                     title="Pindah ke huruf/kotak berikutnya"
                   >
-                    <span>Berikutnya</span>
+                    <span className="hidden xs:inline">Berikutnya</span>
+                    <span className="xs:hidden">Lanjut</span>
                     <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
 
               {/* Bottom Row inside dock: Speed Bar + Voice Selector + Sync Full Page */}
-              <div className="pt-2 border-t border-amber-100 flex items-center justify-between gap-2 flex-wrap">
+              <div className="pt-2.5 border-t border-amber-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
                 {/* Speed selector pills */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] font-bold text-slate-500 mr-1 hidden sm:inline">
+                <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                  <span className="text-[10px] font-bold text-slate-500 mr-1 shrink-0">
                     Tempo:
                   </span>
                   {SPEED_OPTIONS.map((speed) => (
@@ -1639,7 +1782,7 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                         setAutoSpeed(speed);
                         speakArabic(currentPointedData.arabic, speed);
                       }}
-                      className={`px-2 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer shrink-0 ${
                         autoSpeed === speed
                           ? 'bg-amber-400 text-amber-950 shadow-xs ring-1 ring-amber-400'
                           : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
@@ -1651,48 +1794,51 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
                   ))}
                 </div>
 
-                {/* Voice Gender Switcher */}
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleSetVoiceGender('male')}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      voiceGender === 'male'
-                        ? 'bg-teal-600 text-white font-black shadow-xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                    title="Suara Ustadz"
-                  >
-                    <span>👨</span>
-                    <span className="text-[11px]">Ustadz</span>
-                  </button>
-                  <button
-                    onClick={() => handleSetVoiceGender('female')}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      voiceGender === 'female'
-                        ? 'bg-rose-500 text-white font-black shadow-xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                    }`}
-                    title="Suara Ustadzah"
-                  >
-                    <span>👩</span>
-                    <span className="text-[11px]">Ustadzah</span>
-                  </button>
-                </div>
+                {/* Voice Gender & Mode Controls */}
+                <div className="flex items-center gap-1.5 justify-between sm:justify-end">
+                  {/* Voice Gender Switcher */}
+                  <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-2xl border border-slate-200">
+                    <button
+                      onClick={() => handleSetVoiceGender('male')}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        voiceGender === 'male'
+                          ? 'bg-teal-700 text-white font-black shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Suara Ustadz (Laki-laki)"
+                    >
+                      <span>👨</span>
+                      <span className="text-[11px]">Ustadz</span>
+                    </button>
+                    <button
+                      onClick={() => handleSetVoiceGender('female')}
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        voiceGender === 'female'
+                          ? 'bg-rose-500 text-white font-black shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                      title="Suara Ustadzah (Perempuan)"
+                    >
+                      <span>👩</span>
+                      <span className="text-[11px]">Ustadzah</span>
+                    </button>
+                  </div>
 
-                {/* Full-Page recitation trigger if in full page mode */}
-                {audioMode === 'full_page' && (
-                  <button
-                    onClick={isAutoPlaying ? stopAutoPlay : () => startFullPageRecitation(pointedItem?.rowIdx, pointedItem?.itemIdx)}
-                    className={`px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
-                      isAutoPlaying
-                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    }`}
-                  >
-                    {isAutoPlaying ? <Pause size={13} /> : <Play size={13} fill="currentColor" />}
-                    <span>{isAutoPlaying ? 'Jeda Mengalir' : 'Mulai Mengalir'}</span>
-                  </button>
-                )}
+                  {/* Full-Page recitation trigger if in full page mode */}
+                  {audioMode === 'full_page' && (
+                    <button
+                      onClick={isAutoPlaying ? stopAutoPlay : () => startFullPageRecitation(pointedItem?.rowIdx, pointedItem?.itemIdx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs shrink-0 ${
+                        isAutoPlaying
+                          ? 'bg-red-500 hover:bg-red-600 text-white'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      }`}
+                    >
+                      {isAutoPlaying ? <Pause size={13} /> : <Play size={13} fill="currentColor" />}
+                      <span>{isAutoPlaying ? 'Jeda Mengalir' : 'Mulai Mengalir'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}

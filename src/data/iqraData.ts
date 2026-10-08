@@ -34,7 +34,7 @@ export const IQRA_CURRICULUM: IqraItem[] = [
   { id: 'iqra-4-2', jilid: '4', title: 'Sukun & Qalqalah Memantul', arabic: 'أَبْ - أَجْ - أَدْ', latin: 'Ab - Aj - Ad', harakat: 'Sukun ْ', soundExample: 'Qalqalah', description: 'Membaca huruf sukun memantul pada 5 huruf Qalqalah (Baju Di Toko).' },
 
   // Jilid 5 - Alif Lam, Waqaf & Mad Panjang
-  { id: 'iqra-5-1', jilid: '5', title: 'Kaidah Waqaf Akhir Ayat', arabic: 'نَسْتَعِينُ 〇', latin: 'Nasta\'iin', harakat: 'Waqaf Sukun', soundExample: 'Nasta\'iin', description: 'Kaidah mematikan huruf terakhir ketika berhenti di bulatan akhir ayat.' },
+  { id: 'iqra-5-1', jilid: '5', title: 'Kaidah Waqaf Akhir Ayat', arabic: 'نَسْتَعِينُ ۝', latin: 'Nasta\'iin', harakat: 'Waqaf Sukun', soundExample: 'Nasta\'iin', description: 'Kaidah mematikan huruf terakhir ketika berhenti di tanda waqaf akhir ayat.' },
   { id: 'iqra-5-2', jilid: '5', title: 'Alif Lam & Mad Bendera (4-5 Harakat)', arabic: 'الْحَمْدُ لِلَّهِ', latin: 'Al-hamdu lillaah', harakat: 'Alif Lam & Mad', soundExample: 'Al-hamdu lillaah', description: 'Membedakan Alif Lam Qamariyah & Syamsiyah serta tanda bendera panjang.' },
 
   // Jilid 6 - Hukum Nun Sukun, Tanwin & Gharib

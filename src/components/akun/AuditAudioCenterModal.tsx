@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { AudioAuditFlag } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { GlobalAudioManager } from '../../services/audioService';
 import { IQRA_CURRICULUM } from '../../data/iqraData';
 import { IQRA_1_PAGES } from '../../data/iqraBook1Data';
 import { IQRA_2_PAGES } from '../../data/iqraBook2Data';
@@ -205,6 +206,7 @@ export const AuditAudioCenterModal: React.FC<AuditAudioCenterModalProps> = ({
 
   // Audio ref for timeout cancellations
   const audioTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Preferred voice preference sync
   const [globalVoiceGender, setGlobalVoiceGender] = useState<'male' | 'female'>(() =>
@@ -225,6 +227,17 @@ export const AuditAudioCenterModal: React.FC<AuditAudioCenterModalProps> = ({
     if (isOpen) {
       setFlags(StorageService.getAudioAuditFlags());
       setGlobalVoiceGender(StorageService.getPreferredVoiceGender());
+    } else {
+      if (activeAudioRef.current) {
+        try {
+          activeAudioRef.current.pause();
+          activeAudioRef.current.currentTime = 0;
+        } catch (e) {}
+        activeAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }, [isOpen]);
 
@@ -406,22 +419,29 @@ export const AuditAudioCenterModal: React.FC<AuditAudioCenterModalProps> = ({
       speed: number = playbackSpeed,
       onComplete?: () => void
     ) => {
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (typeof window === 'undefined') {
         if (onComplete) onComplete();
         return;
       }
 
       try {
-        window.speechSynthesis.cancel();
+        if (activeAudioRef.current) {
+          try {
+            activeAudioRef.current.pause();
+            activeAudioRef.current.currentTime = 0;
+          } catch (e) {}
+          activeAudioRef.current = null;
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+
         const clean = cleanArabicText(text);
 
         if (!clean) {
           if (onComplete) onComplete();
           return;
         }
-
-        const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = 'ar-SA';
 
         const mappedRate =
           speed === 0.25
@@ -434,73 +454,143 @@ export const AuditAudioCenterModal: React.FC<AuditAudioCenterModalProps> = ({
             ? 0.95
             : 1.25;
 
-        utterance.rate = mappedRate;
-
-        const voices = window.speechSynthesis.getVoices();
-        const arabicVoices = voices.filter(
-          (v) =>
-            v.lang.startsWith('ar') ||
-            v.lang.includes('SA') ||
-            v.name.toLowerCase().includes('arabic')
-        );
-
-        let selectedVoice: SpeechSynthesisVoice | undefined;
-        if (gender === 'female') {
-          selectedVoice = arabicVoices.find((v) => {
-            const n = v.name.toLowerCase();
-            return (
-              n.includes('female') ||
-              n.includes('laila') ||
-              n.includes('hoda') ||
-              n.includes('mariam') ||
-              n.includes('salma') ||
-              n.includes('zariyah') ||
-              n.includes('zeina') ||
-              n.includes('fatima') ||
-              n.includes('noor') ||
-              n.includes('layla')
-            );
-          });
-          if (!selectedVoice && arabicVoices.length > 0) {
-            selectedVoice = arabicVoices[0];
-          }
-          utterance.pitch = 1.22;
-        } else {
-          selectedVoice = arabicVoices.find((v) => {
-            const n = v.name.toLowerCase();
-            return (
-              n.includes('male') ||
-              n.includes('maged') ||
-              n.includes('tarik') ||
-              n.includes('naayf') ||
-              n.includes('hamed') ||
-              n.includes('mehdi') ||
-              n.includes('salman') ||
-              n.includes('fahad')
-            );
-          });
-          if (!selectedVoice && arabicVoices.length > 0) {
-            selectedVoice = arabicVoices.length > 1 ? arabicVoices[1] : arabicVoices[0];
-          }
-          utterance.pitch = 0.88;
-        }
-
-        if (selectedVoice) {
-          utterance.voice = selectedVoice;
-        }
-
-        let done = false;
-        const finish = () => {
-          if (!done) {
-            done = true;
+        // Fallback to Web Speech API
+        const speakWithWebSpeech = (textToSpeak: string) => {
+          if (!('speechSynthesis' in window)) {
             if (onComplete) onComplete();
+            return;
           }
+
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.lang = 'ar-SA';
+          utterance.rate = mappedRate;
+
+          const voices = window.speechSynthesis.getVoices();
+          const arabicVoices = voices.filter(
+            (v) =>
+              v.lang.startsWith('ar') ||
+              v.lang.includes('SA') ||
+              v.name.toLowerCase().includes('arabic')
+          );
+
+          let selectedVoice: SpeechSynthesisVoice | undefined;
+          if (gender === 'female') {
+            selectedVoice = arabicVoices.find((v) => {
+              const n = v.name.toLowerCase();
+              return (
+                n.includes('female') ||
+                n.includes('woman') ||
+                n.includes('laila') ||
+                n.includes('layla') ||
+                n.includes('hoda') ||
+                n.includes('mariam') ||
+                n.includes('meryem') ||
+                n.includes('salma') ||
+                n.includes('zariyah') ||
+                n.includes('zeina') ||
+                n.includes('fatima') ||
+                n.includes('noor') ||
+                n.includes('sana') ||
+                n.includes('amina') ||
+                n.includes('ar-xa-x-a') ||
+                n.includes('ar-xa-x-d') ||
+                n.includes('ar-xa-x-f') ||
+                n.includes('ar-001')
+              );
+            });
+            if (!selectedVoice) {
+              selectedVoice = arabicVoices.find((v) => {
+                const n = v.name.toLowerCase();
+                return (
+                  !n.includes('male') &&
+                  !n.includes('maged') &&
+                  !n.includes('tarik') &&
+                  !n.includes('naayf') &&
+                  !n.includes('hamed') &&
+                  !n.includes('mehdi')
+                );
+              });
+            }
+            utterance.pitch = 1.35;
+          } else {
+            selectedVoice = arabicVoices.find((v) => {
+              const n = v.name.toLowerCase();
+              return (
+                n.includes('male') ||
+                n.includes('maged') ||
+                n.includes('tarik') ||
+                n.includes('naayf') ||
+                n.includes('hamed') ||
+                n.includes('mehdi') ||
+                n.includes('salman') ||
+                n.includes('fahad')
+              );
+            });
+            if (!selectedVoice && arabicVoices.length > 0) {
+              selectedVoice = arabicVoices[0];
+            }
+            utterance.pitch = 0.88;
+          }
+
+          if (selectedVoice) {
+            utterance.voice = selectedVoice;
+          }
+
+          let done = false;
+          const finish = () => {
+            if (!done) {
+              done = true;
+              if (onComplete) onComplete();
+            }
+          };
+
+          utterance.onend = finish;
+          utterance.onerror = finish;
+
+          window.speechSynthesis.speak(utterance);
         };
 
-        utterance.onend = finish;
-        utterance.onerror = finish;
+        // Dedicated High-Fidelity Female Recitation Engine for Ustadzah
+        if (gender === 'female' && typeof Audio !== 'undefined') {
+          try {
+            const ttsUrl = `/api/tts?text=${encodeURIComponent(clean)}&lang=ar`;
+            const audio = new Audio(ttsUrl);
+            audio.playbackRate = mappedRate;
+            activeAudioRef.current = audio;
+            GlobalAudioManager.notifyPlayStarted(audio);
 
-        window.speechSynthesis.speak(utterance);
+            let hasAudioEnded = false;
+            const notifyAudioDone = () => {
+              if (!hasAudioEnded) {
+                hasAudioEnded = true;
+                if (activeAudioRef.current === audio) {
+                  activeAudioRef.current = null;
+                }
+                if (onComplete) onComplete();
+              }
+            };
+
+            audio.onended = notifyAudioDone;
+
+            let hasFallbackRun = false;
+            const safeFallback = () => {
+              if (!hasFallbackRun) {
+                hasFallbackRun = true;
+                speakWithWebSpeech(clean);
+              }
+            };
+
+            audio.onerror = safeFallback;
+            audio.play().catch(safeFallback);
+            return;
+          } catch (err) {
+            speakWithWebSpeech(clean);
+            return;
+          }
+        }
+
+        // Default / Ustadz playback using Web Speech API
+        speakWithWebSpeech(clean);
       } catch (e) {
         console.warn('Speech synthesis error:', e);
         if (onComplete) onComplete();

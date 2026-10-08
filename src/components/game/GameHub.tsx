@@ -178,13 +178,13 @@ export const GameHub: React.FC<GameHubProps> = ({
   // DATA FOR 8 GAMES (Comprehensive & Deeply Audited)
   // -------------------------------------------------------------
 
-  // 1. Sambung Ayat items (8 items)
+    // 1. Sambung Ayat items (8 items with diversified answer choices)
   const continueAyahItems = [
     {
       surah: 'Al-Ikhlas',
       firstPart: 'قُلْ هُوَ اللّٰهُ',
-      options: ['اَحَدٌ ۚ', 'الصَّمَدُ ۚ', 'الْفَلَقِ ۙ', 'الرَّحِيْمِ ۙ'],
-      correctIndex: 0,
+      options: ['الصَّمَدُ ۚ', 'اَحَدٌ ۚ', 'الْفَلَقِ ۙ', 'الرَّحِيْمِ ۙ'],
+      correctIndex: 1,
       fullArabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ',
       audioInfo: { surah: 112, ayah: 1 },
       meaning: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
@@ -192,8 +192,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     {
       surah: 'Al-Fatihah',
       firstPart: 'اِيَّاكَ نَعْبُدُ وَاِيَّاكَ',
-      options: ['نَسْتَعِيْنُ ۗ', 'الْمُسْتَقِيْمَ ۙ', 'الرَّحِيْمِ ۙ', 'الدِّيْنِ ۗ'],
-      correctIndex: 0,
+      options: ['الْمُسْتَقِيْمَ ۙ', 'الدِّيْنِ ۗ', 'نَسْتَعِيْنُ ۗ', 'الرَّحِيْمِ ۙ'],
+      correctIndex: 2,
       fullArabic: 'اِيَّاكَ نَعْبُدُ وَاِيَّاكَ نَسْتَعِيْنُ ۗ',
       audioInfo: { surah: 1, ayah: 5 },
       meaning: 'Hanya kepada Engkaulah kami menyembah dan hanya kepada Engkaulah kami memohon pertolongan.',
@@ -201,8 +201,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     {
       surah: 'An-Nas',
       firstPart: 'مِنْ شَرِّ الْوَسْوَاسِ',
-      options: ['الْخَنَّاسِ ۙ', 'النَّاسِ ۙ', 'الْفَلَقِ ۙ', 'الْعَصْرِ ۙ'],
-      correctIndex: 0,
+      options: ['النَّاسِ ۙ', 'الْفَلَقِ ۙ', 'الْعَصْرِ ۙ', 'الْخَنَّاسِ ۙ'],
+      correctIndex: 3,
       fullArabic: 'مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۙ',
       audioInfo: { surah: 114, ayah: 4 },
       meaning: 'Dari kejahatan (bisikan) setan yang bersembunyi.',
@@ -219,8 +219,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     {
       surah: 'Al-Kausar',
       firstPart: 'اِنَّآ اَعْطَيْنٰكَ',
-      options: ['الْكَوْثَرَ ۗ', 'الْاَبْتَرَ ۗ', 'الْفَتْحَ ۗ', 'الْخَيْرَ ۗ'],
-      correctIndex: 0,
+      options: ['الْاَبْتَرَ ۗ', 'الْكَوْثَرَ ۗ', 'الْفَتْحَ ۗ', 'الْخَيْرَ ۗ'],
+      correctIndex: 1,
       fullArabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ',
       audioInfo: { surah: 108, ayah: 1 },
       meaning: 'Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak.',
@@ -228,8 +228,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     {
       surah: 'Al-Asr',
       firstPart: 'وَالْعَصْرِ ۙ',
-      options: ['اِنَّ الْاِنْسَانَ لَفِيْ خُسْرٍ ۙ', 'فَصَلِّ لِرَبِّكَ وَانْحَرْ ۗ', 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ', 'مَلِكِ النَّاسِ ۙ'],
-      correctIndex: 0,
+      options: ['فَصَلِّ لِرَبِّكَ وَانْحَرْ ۗ', 'مَلِكِ النَّاسِ ۙ', 'اِنَّ الْاِنْسَانَ لَفِيْ خُسْرٍ ۙ', 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ'],
+      correctIndex: 2,
       fullArabic: 'وَالْعَصْرِ ۙ اِنَّ الْاِنْسَانَ لَفِيْ خُسْرٍ ۙ',
       audioInfo: { surah: 103, ayah: 1 },
       meaning: 'Demi masa, sungguh manusia berada dalam kerugian.',
@@ -237,8 +237,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     {
       surah: 'Al-Kafirun',
       firstPart: 'قُلْ يٰٓاَيُّهَا',
-      options: ['الْكٰفِرُوْنَ ۙ', 'النَّاسُ ۙ', 'الْمُؤْمِنُوْنَ ۙ', 'الصَّابِرُوْنَ ۙ'],
-      correctIndex: 0,
+      options: ['النَّاسُ ۙ', 'الْمُؤْمِنُوْنَ ۙ', 'الصَّابِرُوْنَ ۙ', 'الْكٰفِرُوْنَ ۙ'],
+      correctIndex: 3,
       fullArabic: 'قُلْ يٰٓاَيُّهَا الْكٰفِرُوْنَ ۙ',
       audioInfo: { surah: 109, ayah: 1 },
       meaning: 'Katakanlah (Muhammad), Wahai orang-orang kafir!',
@@ -306,14 +306,14 @@ export const GameHub: React.FC<GameHubProps> = ({
     },
   ];
 
-  // 3. Kata Hilang items (6 items)
+    // 3. Kata Hilang items (6 items with varied answer positions)
   const missingWordItems = [
     {
       surah: 'Al-Ikhlas Ayat 2',
       prompt: 'اَللّٰهُ [ ... ]',
       missingWord: 'الصَّمَدُ ۚ',
-      options: ['الصَّمَدُ ۚ', 'الْاَحَدُ ۚ', 'الرَّحْمٰنُ ۚ', 'الْعَلِيْمُ ۚ'],
-      correctIndex: 0,
+      options: ['الْاَحَدُ ۚ', 'الصَّمَدُ ۚ', 'الرَّحْمٰنُ ۚ', 'الْعَلِيْمُ ۚ'],
+      correctIndex: 1,
       fullArabic: 'اَللّٰهُ الصَّمَدُ ۚ',
       audioInfo: { surah: 112, ayah: 2 },
       hint: 'Artinya: Allah tempat meminta segala sesuatu.',
@@ -322,8 +322,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       surah: 'Quraisy Ayat 3',
       prompt: 'فَلْيَعْبُدُوْا رَبَّ هٰذَا [ ... ]',
       missingWord: 'الْبَيْتِ ۙ',
-      options: ['الْبَيْتِ ۙ', 'الْبَلَدِ ۙ', 'الْقَوْمِ ۙ', 'النَّاسِ ۙ'],
-      correctIndex: 0,
+      options: ['الْبَلَدِ ۙ', 'الْقَوْمِ ۙ', 'الْبَيْتِ ۙ', 'النَّاسِ ۙ'],
+      correctIndex: 2,
       fullArabic: 'فَلْيَعْبُدُوْا رَبَّ هٰذَا الْبَيْتِ ۙ',
       audioInfo: { surah: 106, ayah: 3 },
       hint: 'Artinya: Maka hendaklah mereka menyembah Tuhan (pemilik) rumah ini (Ka‘bah).',
@@ -342,8 +342,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       surah: 'Al-Falaq Ayat 2',
       prompt: 'مِنْ شَرِّ مَا [ ... ]',
       missingWord: 'خَلَقَ ۙ',
-      options: ['خَلَقَ ۙ', 'وَقَبَ ۙ', 'حَسَدَ ۙ', 'عَقَدَ ۙ'],
-      correctIndex: 0,
+      options: ['وَقَبَ ۙ', 'حَسَدَ ۙ', 'عَقَدَ ۙ', 'خَلَقَ ۙ'],
+      correctIndex: 3,
       fullArabic: 'مِنْ شَرِّ مَا خَلَقَ ۙ',
       audioInfo: { surah: 113, ayah: 2 },
       hint: 'Artinya: Dari kejahatan (makhluk) yang Dia ciptakan.',
@@ -352,8 +352,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       surah: 'Al-Maun Ayat 2',
       prompt: 'فَذٰلِكَ الَّذِيْ يَدُعُّ [ ... ]',
       missingWord: 'الْيَتِيْمَ ۙ',
-      options: ['الْيَتِيْمَ ۙ', 'الْمِسْكِيْنَ ۙ', 'الْغَرِيْبَ ۙ', 'الْفَقِيْرَ ۙ'],
-      correctIndex: 0,
+      options: ['الْمِسْكِيْنَ ۙ', 'الْيَتِيْمَ ۙ', 'الْغَرِيْبَ ۙ', 'الْفَقِيْرَ ۙ'],
+      correctIndex: 1,
       fullArabic: 'فَذٰلِكَ الَّذِيْ يَدُعُّ الْيَتِيْمَ ۙ',
       audioInfo: { surah: 107, ayah: 2 },
       hint: 'Artinya: Maka itulah orang yang menghardik anak yatim.',
@@ -362,8 +362,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       surah: 'An-Nas Ayat 2',
       prompt: 'مَلِكِ [ ... ]',
       missingWord: 'النَّاسِ ۙ',
-      options: ['النَّاسِ ۙ', 'الْخَنَّاسِ ۙ', 'الْفَلَقِ ۙ', 'الْكَوْثَرِ ۙ'],
-      correctIndex: 0,
+      options: ['الْخَنَّاسِ ۙ', 'الْفَلَقِ ۙ', 'النَّاسِ ۙ', 'الْكَوْثَرِ ۙ'],
+      correctIndex: 2,
       fullArabic: 'مَلِكِ النَّاسِ ۙ',
       audioInfo: { surah: 114, ayah: 2 },
       hint: 'Artinya: Raja manusia.',
@@ -406,7 +406,7 @@ export const GameHub: React.FC<GameHubProps> = ({
   const currentMatchingSet = matchingRounds[matchingRoundIndex] || matchingRounds[0];
   const matchingPairs = currentMatchingSet.pairs;
 
-  // 5. Tebak Suara Huruf items (8 items with authentic phonetics and makhraj guidance)
+    // 5. Tebak Suara Huruf items (8 items with varied positions and rich makhraj guidance)
   const hijaiyahSoundItems = [
     {
       letter: 'بَ',
@@ -414,8 +414,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       makhrajHint: 'Bibir tertutup rapat lalu dibuka ringan (Asy-Syafatain).',
       soundPrompt: 'Dengarkan suara huruf: "Ba"',
       options: [
-        { letter: 'ب', name: 'Ba', correct: true },
         { letter: 'ت', name: 'Ta', correct: false },
+        { letter: 'ب', name: 'Ba', correct: true },
         { letter: 'ث', name: 'Tsa', correct: false },
         { letter: 'ن', name: 'Nun', correct: false },
       ],
@@ -426,9 +426,9 @@ export const GameHub: React.FC<GameHubProps> = ({
       makhrajHint: 'Tengah lidah menempel ke langit-langit mulut (Wasathul Lisan).',
       soundPrompt: 'Dengarkan suara huruf: "Ja"',
       options: [
-        { letter: 'ج', name: 'Jim', correct: true },
         { letter: 'ح', name: 'Ha', correct: false },
         { letter: 'خ', name: 'Kha', correct: false },
+        { letter: 'ج', name: 'Jim', correct: true },
         { letter: 'د', name: 'Dal', correct: false },
       ],
     },
@@ -450,19 +450,19 @@ export const GameHub: React.FC<GameHubProps> = ({
       makhrajHint: 'Tenggorokan bagian paling atas dekat anak lidah (Adnal Halq).',
       soundPrompt: 'Dengarkan suara huruf: "Kha"',
       options: [
-        { letter: 'خ', name: 'Kha', correct: true },
         { letter: 'ح', name: 'Ha', correct: false },
         { letter: 'ج', name: 'Jim', correct: false },
-        { letter: 'ع', name: '\'Ain', correct: false },
+        { letter: 'ع', name: 'Ain', correct: false },
+        { letter: 'خ', name: 'Kha', correct: true },
       ],
     },
     {
       letter: 'عَ',
-      letterName: '\'A / \'Ain (ع)',
+      letterName: 'Ain (ع)',
       makhrajHint: 'Tengah-tengah rongga tenggorokan (Wasathul Halq).',
-      soundPrompt: 'Dengarkan suara huruf: "\'A"',
+      soundPrompt: 'Dengarkan suara huruf: "Ain"',
       options: [
-        { letter: 'ع', name: '\'Ain', correct: true },
+        { letter: 'ع', name: 'Ain', correct: true },
         { letter: 'ء', name: 'Hamzah', correct: false },
         { letter: 'غ', name: 'Ghain', correct: false },
         { letter: 'هـ', name: 'Ha', correct: false },
@@ -474,47 +474,47 @@ export const GameHub: React.FC<GameHubProps> = ({
       makhrajHint: 'Ujung lidah di atas gigi seri bawah, tebal berdesis shafir.',
       soundPrompt: 'Dengarkan suara huruf: "Sha"',
       options: [
-        { letter: 'ص', name: 'Shad', correct: true },
         { letter: 'س', name: 'Sin', correct: false },
+        { letter: 'ص', name: 'Shad', correct: true },
         { letter: 'ش', name: 'Syin', correct: false },
         { letter: 'ض', name: 'Dhad', correct: false },
       ],
     },
     {
-      letter: 'طَ',
-      letterName: 'Tha (ط)',
-      makhrajHint: 'Ujung lidah menyentuh pangkal gigi seri atas, tebal dan kuat (Itbaq).',
-      soundPrompt: 'Dengarkan suara huruf: "Tha"',
+      letter: 'ضَ',
+      letterName: 'Dha / Dhad (ض)',
+      makhrajHint: 'Tepi lidah menyentuh gigi geraham atas (Hafatul Lisan).',
+      soundPrompt: 'Dengarkan suara huruf: "Dha"',
       options: [
-        { letter: 'ط', name: 'Tha', correct: true },
-        { letter: 'ت', name: 'Ta', correct: false },
         { letter: 'ظ', name: 'Zha', correct: false },
+        { letter: 'ط', name: 'Tha', correct: false },
+        { letter: 'ض', name: 'Dhad', correct: true },
         { letter: 'د', name: 'Dal', correct: false },
       ],
     },
     {
       letter: 'ثَ',
       letterName: 'Tsa (ث)',
-      makhrajHint: 'Ujung lidah sedikit keluar menyentuh ujung dua gigi seri atas.',
+      makhrajHint: 'Ujung lidah keluar sedikit mengenai ujung gigi seri atas (Tharaful Lisan).',
       soundPrompt: 'Dengarkan suara huruf: "Tsa"',
       options: [
-        { letter: 'ث', name: 'Tsa', correct: true },
         { letter: 'س', name: 'Sin', correct: false },
         { letter: 'ش', name: 'Syin', correct: false },
         { letter: 'ت', name: 'Ta', correct: false },
+        { letter: 'ث', name: 'Tsa', correct: true },
       ],
     },
   ];
 
-  // 6. Dengar & Pilih Ayat items (Mode A: Qari Audio to Ayah Matcher)
+    // 6. Dengar & Pilih Ayat items (Mode A: Qari Audio to Ayah Matcher)
   const audioGuessAyahItems = [
     {
       surahName: 'Al-Ikhlas Ayat 1',
       audioInfo: { surah: 112, ayah: 1 },
       promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
       options: [
-        { arabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ', latin: 'Qul huwallāhu aḥad', isCorrect: true },
         { arabic: 'اَللّٰهُ الصَّمَدُ ۚ', latin: 'Allāhuṣ-ṣamad', isCorrect: false },
+        { arabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ', latin: 'Qul huwallāhu aḥad', isCorrect: true },
         { arabic: 'لَمْ يَلِدْ وَلَمْ يُوْلَدْ ۙ', latin: 'Lam yalid wa lam yūlad', isCorrect: false },
       ],
       meaning: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
@@ -524,9 +524,9 @@ export const GameHub: React.FC<GameHubProps> = ({
       audioInfo: { surah: 113, ayah: 1 },
       promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
       options: [
-        { arabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ', latin: 'Qul a‘ūżu birabbil-falaq', isCorrect: true },
         { arabic: 'مِنْ شَرِّ مَا خَلَقَ ۙ', latin: 'Min syarri mā khalaq', isCorrect: false },
         { arabic: 'وَمِنْ شَرِّ غَاسِقٍ اِذَا وَقَبَ ۙ', latin: 'Wa min syarri gāsiqin iżā waqab', isCorrect: false },
+        { arabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ', latin: 'Qul a‘ūżu birabbil-falaq', isCorrect: true },
       ],
       meaning: 'Katakanlah, Aku berlindung kepada Tuhan yang menguasai subuh (fajar).',
     },
@@ -546,8 +546,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       audioInfo: { surah: 108, ayah: 1 },
       promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
       options: [
-        { arabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ', latin: 'Innā a‘ṭainākal-kauṡar', isCorrect: true },
         { arabic: 'فَصَلِّ لِرَبِّكَ وَانْحَرْ ۗ', latin: 'Faṣalli lirabbika wan-ḥar', isCorrect: false },
+        { arabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ', latin: 'Innā a‘ṭainākal-kauṡar', isCorrect: true },
         { arabic: 'اِنَّ شَانِئَكَ هُوَ الْاَبْتَرُ ࣖ', latin: 'Inna syāni\'aka huwal-abtar', isCorrect: false },
       ],
       meaning: 'Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak.',
@@ -557,9 +557,9 @@ export const GameHub: React.FC<GameHubProps> = ({
       audioInfo: { surah: 1, ayah: 1 },
       promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
       options: [
-        { arabic: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ ۙ', latin: 'Bismillāhir-raḥmānir-raḥīm', isCorrect: true },
         { arabic: 'اَلْحَمْدُ لِلّٰهِ رَبِّ الْعٰلَمِيْنَ ۙ', latin: 'Al-ḥamdu lillāhi rabbil-‘ālamīn', isCorrect: false },
         { arabic: 'الرَّحْمٰنِ الرَّحِيْمِ ۙ', latin: 'Ar-raḥmānir-raḥīm', isCorrect: false },
+        { arabic: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ ۙ', latin: 'Bismillāhir-raḥmānir-raḥīm', isCorrect: true },
       ],
       meaning: 'Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.',
     },
@@ -669,14 +669,14 @@ export const GameHub: React.FC<GameHubProps> = ({
     },
   ];
 
-  // 8. Detektif Surah items (6 items with clues)
+    // 8. Detektif Surah items (6 items with progressive clues and randomized options)
   const detectiveSurahItems = [
     {
       clue1: 'Surah ini terdiri dari 5 ayat dan tergolong Makkiyah.',
       clue2: 'Menceritakan kehancuran tentara bergajah yang dipimpin Raja Abrahah.',
       clue3: 'Ayat pertama diawali dengan: "اَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ..."',
-      options: ['Al-Fil (Gajah)', 'Quraisy', 'Al-Kafirun', 'Al-Maun'],
-      correctIndex: 0,
+      options: ['Quraisy', 'Al-Fil (Gajah)', 'Al-Kafirun', 'Al-Maun'],
+      correctIndex: 1,
       surahName: 'Al-Fil',
       audioInfo: { surah: 105, ayah: 1 },
     },
@@ -684,8 +684,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       clue1: 'Surah ini memiliki 3 ayat dan merupakan surah terpendek dalam Al-Qur\'an.',
       clue2: 'Menyebutkan telaga nikmat yang melimpah dan perintah shalat serta berkurban.',
       clue3: 'Ayat pertama berbunyi: "اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ"',
-      options: ['Al-Kausar', 'An-Nasr', 'Al-Ikhlas', 'Al-Asr'],
-      correctIndex: 0,
+      options: ['An-Nasr', 'Al-Ikhlas', 'Al-Kausar', 'Al-Asr'],
+      correctIndex: 2,
       surahName: 'Al-Kausar',
       audioInfo: { surah: 108, ayah: 1 },
     },
@@ -693,8 +693,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       clue1: 'Surah ini bernilai sepertiga Al-Qur\'an karena menegaskan keesaan Allah yang mutlak.',
       clue2: 'Hanya terdiri dari 4 ayat dan sering dibaca bersama Al-Mu\'awwidzatain.',
       clue3: 'Ayat pertama berbunyi: "قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ"',
-      options: ['Al-Ikhlas', 'Al-Falaq', 'An-Nas', 'Al-Fatihah'],
-      correctIndex: 0,
+      options: ['Al-Falaq', 'An-Nas', 'Al-Fatihah', 'Al-Ikhlas'],
+      correctIndex: 3,
       surahName: 'Al-Ikhlas',
       audioInfo: { surah: 112, ayah: 1 },
     },
@@ -711,17 +711,17 @@ export const GameHub: React.FC<GameHubProps> = ({
       clue1: 'Surah penutup urutan ke-114 dalam mushaf Al-Qur\'an.',
       clue2: 'Memohon perlindungan dari bisikan setan penggoda yang bersembunyi (al-waswas al-khannas).',
       clue3: 'Ayat pertamanya: "قُلْ اَعُوْذُ بِرَبِّ النَّاسِ ۙ"',
-      options: ['An-Nas', 'Al-Falaq', 'Al-Ikhlas', 'Al-Kafirun'],
-      correctIndex: 0,
+      options: ['Al-Falaq', 'An-Nas', 'Al-Ikhlas', 'Al-Kafirun'],
+      correctIndex: 1,
       surahName: 'An-Nas',
       audioInfo: { surah: 114, ayah: 1 },
     },
     {
       clue1: 'Surah ini menegur orang yang menghardik anak yatim dan enggan menolong fakir miskin.',
-      clue2: 'Memperingatkan celakanya orang yang lalai dari shalatnya dan suka pamer (riya\').',
+      clue2: 'Memperingatkan celakanya orang yang lalai dalam shalatnya dan riya\' (ingin dipuji).',
       clue3: 'Ayat pertamanya: "اَرَءَيْتَ الَّذِيْ يُكَذِّبُ بِالدِّيْنِ ۗ"',
-      options: ['Al-Maun', 'Al-Humazah', 'Al-Takatsur', 'Al-Qari\'ah'],
-      correctIndex: 0,
+      options: ['Al-Kafirun', 'Al-Asr', 'Al-Maun', 'Al-Qari\'ah'],
+      correctIndex: 2,
       surahName: 'Al-Maun',
       audioInfo: { surah: 107, ayah: 1 },
     },
