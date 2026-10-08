@@ -20,9 +20,14 @@ import {
   ChevronRight,
   Check,
   Award,
+  MessageSquare,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress } from '../../types';
+import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress, TeacherEvaluation, EvaluationGrade } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { AudioDatabaseService } from '../../services/audioDatabaseService';
 import { CompanionService } from '../../services/companionService';
 import { getStageForXp } from '../../data/companionData';
 import { getAyahAudioUrl } from '../../data/recitersData';
@@ -66,6 +71,15 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
     StorageService.getRecordings(activeChild.id)
   );
 
+  // Evaluation Form State
+  const [evaluatingRecId, setEvaluatingRecId] = useState<string | null>(null);
+  const [evalGrade, setEvalGrade] = useState<EvaluationGrade>('mumtaz');
+  const [evalRole, setEvalRole] = useState<'parent' | 'teacher'>('parent');
+  const [evaluatorName, setEvaluatorName] = useState<string>(userAccount.parentName || 'Orang Tua');
+  const [evalNotes, setEvalNotes] = useState<string>('');
+  const [recordingsFilter, setRecordingsFilter] = useState<'all' | 'pending' | 'evaluated'>('all');
+  const [saveToastRecId, setSaveToastRecId] = useState<string | null>(null);
+
   const [ayahProgress, setAyahProgress] = useState<ChildAyahProgress[]>(() =>
     StorageService.getAyahProgress(activeChild.id)
   );
@@ -83,7 +97,7 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
     }
   };
 
-  const handlePlayRecording = (rec: AyahRecording) => {
+  const handlePlayRecording = async (rec: AyahRecording) => {
     if (audioRef.current) audioRef.current.pause();
 
     if (playingRecId === rec.id) {
@@ -91,13 +105,55 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
       return;
     }
 
-    const audio = new Audio(rec.audioBlobUrl);
+    const audioUrl = await AudioDatabaseService.getAudioUrl(rec.id, rec.audioDataUrl || rec.audioBlobUrl);
+    if (!audioUrl) {
+      alert('File rekaman tidak dapat dimuat.');
+      return;
+    }
+
+    const audio = new Audio(audioUrl);
     audioRef.current = audio;
     setPlayingRecId(rec.id);
     setPlayingQariAyah(null);
 
     audio.play().catch(() => {});
     audio.onended = () => setPlayingRecId(null);
+    audio.onerror = () => setPlayingRecId(null);
+  };
+
+  const handleOpenEvaluationForm = (rec: AyahRecording) => {
+    if (evaluatingRecId === rec.id) {
+      setEvaluatingRecId(null);
+      return;
+    }
+    setEvaluatingRecId(rec.id);
+    if (rec.evaluation) {
+      setEvalGrade(rec.evaluation.grade || 'mumtaz');
+      setEvalRole(rec.evaluation.evaluatorRole || 'parent');
+      setEvaluatorName(rec.evaluation.evaluatorName || userAccount.parentName || 'Orang Tua');
+      setEvalNotes(rec.evaluation.notes || '');
+    } else {
+      setEvalGrade('mumtaz');
+      setEvalRole('parent');
+      setEvaluatorName(userAccount.parentName || 'Orang Tua');
+      setEvalNotes('Makhraj dan tajwid sudah sangat baik.');
+    }
+  };
+
+  const handleSaveEvaluation = (rec: AyahRecording) => {
+    const evaluation: TeacherEvaluation = {
+      status: 'evaluated',
+      grade: evalGrade,
+      evaluatorRole: evalRole,
+      evaluatorName: evaluatorName.trim() || (evalRole === 'teacher' ? 'Ustadz Pembimbing' : (userAccount.parentName || 'Orang Tua')),
+      notes: evalNotes.trim(),
+      evaluatedAt: new Date().toISOString(),
+    };
+    StorageService.updateRecordingEvaluation(activeChild.id, rec.id, evaluation);
+    setRecordings(StorageService.getRecordings(activeChild.id));
+    setEvaluatingRecId(null);
+    setSaveToastRecId(rec.id);
+    setTimeout(() => setSaveToastRecId(null), 3000);
   };
 
   const handlePlayQari = (surahNum: number, ayahNum: number) => {
@@ -530,90 +586,358 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
               );
             })()}
 
-            {/* TAB 2: RECORDINGS AUDIT (Parent can listen to child vs Qari) */}
-            {activeTab === 'recordings' && (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                {recordings.length === 0 ? (
-                  <p className="text-center py-8 text-xs text-[#8C9BA7]">
-                    Belum ada rekaman tersimpan untuk {activeChild.name}.
-                  </p>
-                ) : (
-                  recordings.map((rec) => {
-                    const isRecPlaying = playingRecId === rec.id;
-                    const isQariPlaying = playingQariAyah === rec.ayahNumber;
+            {/* TAB 2: RECORDINGS & EVALUATION AUDIT */}
+            {activeTab === 'recordings' && (() => {
+              const pendingCount = recordings.filter((r) => !r.evaluation || r.evaluation.status === 'pending').length;
+              const evaluatedCount = recordings.filter((r) => r.evaluation && r.evaluation.status === 'evaluated').length;
 
-                    return (
-                      <div
-                        key={rec.id}
-                        className="p-3.5 bg-[#EEF8FF]/60 border border-[#C9E1ED] rounded-2xl space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs font-black text-[#164C68]">
-                              Surah {rec.surahNumber === 1 ? 'Al-Fatihah' : rec.surahNumber === 18 ? 'Al-Kahf' : 'Juz 30'} : Ayat {rec.ayahNumber}
-                            </span>
-                            <p className="text-[10px] text-[#8C9BA7]">
-                              {new Date(rec.createdAt).toLocaleDateString('id-ID', {
-                                day: 'numeric',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
+              const filteredRecordings = recordings.filter((r) => {
+                if (recordingsFilter === 'pending') {
+                  return !r.evaluation || r.evaluation.status === 'pending';
+                }
+                if (recordingsFilter === 'evaluated') {
+                  return r.evaluation && r.evaluation.status === 'evaluated';
+                }
+                return true;
+              });
+
+              const quickFeedbackChips = [
+                'Makhraj & tajwid sangat fasih ✨',
+                'Perhatikan mad thobi\'i (2 harakat)',
+                'Alhamdulillah tartil dan merdu',
+                'Perlu mengulang agar lebih lancar',
+                'Panjang ghunnah sudah tepat 👍',
+              ];
+
+              return (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1.5 p-1 bg-white border border-[#C9E1ED] rounded-2xl shadow-2xs">
+                    <button
+                      onClick={() => setRecordingsFilter('all')}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        recordingsFilter === 'all'
+                          ? 'bg-[#08B9EF] text-white shadow-2xs'
+                          : 'text-[#8C9BA7] hover:text-[#164C68]'
+                      }`}
+                    >
+                      Semua ({recordings.length})
+                    </button>
+                    <button
+                      onClick={() => setRecordingsFilter('pending')}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        recordingsFilter === 'pending'
+                          ? 'bg-amber-500 text-white shadow-2xs'
+                          : 'text-[#8C9BA7] hover:text-[#164C68]'
+                      }`}
+                    >
+                      Menunggu ({pendingCount})
+                    </button>
+                    <button
+                      onClick={() => setRecordingsFilter('evaluated')}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        recordingsFilter === 'evaluated'
+                          ? 'bg-emerald-500 text-white shadow-2xs'
+                          : 'text-[#8C9BA7] hover:text-[#164C68]'
+                      }`}
+                    >
+                      Sudah Dinilai ({evaluatedCount})
+                    </button>
+                  </div>
+
+                  {filteredRecordings.length === 0 ? (
+                    <div className="text-center py-10 space-y-2">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center text-xl">
+                        🎙️
+                      </div>
+                      <p className="text-xs font-bold text-[#8C9BA7]">
+                        {recordings.length === 0
+                          ? `Belum ada rekaman tersimpan untuk ${activeChild.name}.`
+                          : 'Tidak ada rekaman untuk filter yang dipilih.'}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredRecordings.map((rec) => {
+                      const isRecPlaying = playingRecId === rec.id;
+                      const isQariPlaying = playingQariAyah === rec.ayahNumber;
+                      const isFormOpen = evaluatingRecId === rec.id;
+                      const isEvaluated = rec.evaluation && rec.evaluation.status === 'evaluated';
+
+                      return (
+                        <div
+                          key={rec.id}
+                          className="p-3.5 bg-[#EEF8FF]/60 border border-[#C9E1ED] rounded-2xl space-y-2.5 transition-all hover:border-[#08B9EF]/50 shadow-2xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-xs font-black text-[#164C68]">
+                                {rec.surahName ? `Surah ${rec.surahName}` : rec.surahNumber === 1 ? 'Surah Al-Fatihah' : rec.surahNumber === 18 ? 'Surah Al-Kahf' : 'Juz 30'} : Ayat {rec.ayahNumber}
+                              </span>
+                              <p className="text-[10px] text-[#8C9BA7]">
+                                {new Date(rec.createdAt).toLocaleDateString('id-ID', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {isEvaluated ? (
+                                <span
+                                  className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                                    rec.evaluation?.grade === 'mumtaz'
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                      : rec.evaluation?.grade === 'jayyid'
+                                      ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                                  }`}
+                                >
+                                  {rec.evaluation?.grade === 'mumtaz'
+                                    ? '🌟 Mumtaz'
+                                    : rec.evaluation?.grade === 'jayyid'
+                                    ? '👍 Jayyid'
+                                    : '⚠️ Perlu Latihan'}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                  <Clock size={10} />
+                                  Menunggu Evaluasi
+                                </span>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteRecording(rec.id)}
+                                className="text-rose-400 hover:text-rose-600 p-1 transition-colors"
+                                title="Hapus Rekaman"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-xs font-black px-2 py-0.5 rounded-full ${
-                                rec.score >= 80
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-amber-100 text-amber-800'
+                          {/* Student note if any */}
+                          {rec.studentNote && (
+                            <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2 text-[11px] text-amber-900 flex items-start gap-1.5">
+                              <span className="text-amber-600 font-bold shrink-0">💬</span>
+                              <span>
+                                <strong>Catatan Santri:</strong> "{rec.studentNote}"
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Dual Audio Player */}
+                          <div className="grid grid-cols-2 gap-2 pt-0.5">
+                            <button
+                              onClick={() => handlePlayRecording(rec)}
+                              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                isRecPlaying
+                                  ? 'bg-[#08B9EF] text-white border-[#08B9EF]'
+                                  : 'bg-white text-[#164C68] border-[#C9E1ED] hover:bg-[#EEF8FF]'
                               }`}
                             >
-                              {rec.score}%
-                            </span>
+                              {isRecPlaying ? <Pause size={13} /> : <Play size={13} className="fill-current" />}
+                              <span>Suara Anak ({rec.durationSeconds}s)</span>
+                            </button>
+
                             <button
-                              onClick={() => handleDeleteRecording(rec.id)}
-                              className="text-rose-500 hover:text-rose-700 p-1"
-                              title="Hapus Rekaman"
+                              onClick={() => handlePlayQari(rec.surahNumber, rec.ayahNumber)}
+                              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                isQariPlaying
+                                  ? 'bg-purple-500 text-white border-purple-600'
+                                  : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
+                              }`}
                             >
-                              <Trash2 size={15} />
+                              {isQariPlaying ? <Pause size={13} /> : <Play size={13} className="fill-current" />}
+                              <span>Qari ({rec.referenceDurationSeconds}s)</span>
                             </button>
                           </div>
-                        </div>
 
-                        {/* Dual Audio Player */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <button
-                            onClick={() => handlePlayRecording(rec)}
-                            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                              isRecPlaying
-                                ? 'bg-cyan-500 text-white border-cyan-600'
-                                : 'bg-white text-[#164C68] border-[#C9E1ED]'
-                            }`}
-                          >
-                            {isRecPlaying ? <Pause size={13} /> : <Play size={13} className="fill-current" />}
-                            <span>Suara Anak ({rec.durationSeconds}s)</span>
-                          </button>
+                          {/* Teacher / Parent Evaluation Card if already evaluated */}
+                          {isEvaluated && !isFormOpen && (
+                            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-extrabold text-emerald-900 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                  <CheckCircle2 size={12} className="text-emerald-600" />
+                                  Evaluasi {rec.evaluation?.evaluatorRole === 'teacher' ? 'Ustadz / Guru' : 'Orang Tua'}:
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-semibold">
+                                  {rec.evaluation?.evaluatorName}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-emerald-900 italic">
+                                "{rec.evaluation?.notes || 'Bagus dan lancar.'}"
+                              </p>
+                            </div>
+                          )}
 
-                          <button
-                            onClick={() => handlePlayQari(rec.surahNumber, rec.ayahNumber)}
-                            className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                              isQariPlaying
-                                ? 'bg-purple-500 text-white border-purple-600'
-                                : 'bg-white text-purple-700 border-purple-200'
-                            }`}
-                          >
-                            {isQariPlaying ? <Pause size={13} /> : <Play size={13} className="fill-current" />}
-                            <span>Qari ({rec.referenceDurationSeconds}s)</span>
-                          </button>
+                          {/* Toggle Evaluation Form Button */}
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-100">
+                            <button
+                              onClick={() => handleOpenEvaluationForm(rec)}
+                              className="text-xs font-bold text-[#08B9EF] hover:text-[#0693bd] flex items-center gap-1 cursor-pointer"
+                            >
+                              <MessageSquare size={13} />
+                              <span>{isEvaluated ? 'Ubah Catatan & Nilai Guru/Orang Tua' : 'Beri Nilai & Evaluasi Guru/Orang Tua ✍️'}</span>
+                              {isFormOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
+
+                            {saveToastRecId === rec.id && (
+                              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                                <Check size={13} /> Tersimpan!
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Evaluation Form */}
+                          {isFormOpen && (
+                            <div className="p-3 bg-white border border-emerald-200 rounded-2xl space-y-2.5 animate-in fade-in duration-150">
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <label className="text-[10px] font-bold text-[#8C9BA7] block mb-1">
+                                    Peran Penilai:
+                                  </label>
+                                  <div className="flex gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEvalRole('parent');
+                                        setEvaluatorName(userAccount.parentName || 'Orang Tua');
+                                      }}
+                                      className={`flex-1 py-1 rounded-lg font-bold text-[10px] border cursor-pointer ${
+                                        evalRole === 'parent'
+                                          ? 'bg-emerald-600 text-white border-emerald-600'
+                                          : 'bg-[#EEF8FF] text-[#164C68] border-[#C9E1ED]'
+                                      }`}
+                                    >
+                                      Orang Tua
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEvalRole('teacher');
+                                        setEvaluatorName('Ustadz Pembimbing');
+                                      }}
+                                      className={`flex-1 py-1 rounded-lg font-bold text-[10px] border cursor-pointer ${
+                                        evalRole === 'teacher'
+                                          ? 'bg-purple-600 text-white border-purple-600'
+                                          : 'bg-[#EEF8FF] text-[#164C68] border-[#C9E1ED]'
+                                      }`}
+                                    >
+                                      Ustadz/Guru
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="text-[10px] font-bold text-[#8C9BA7] block mb-1">
+                                    Nama Penilai:
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={evaluatorName}
+                                    onChange={(e) => setEvaluatorName(e.target.value)}
+                                    className="w-full bg-[#EEF8FF] border border-[#C9E1ED] rounded-lg px-2 py-1 text-xs font-bold text-[#164C68]"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Predikat */}
+                              <div>
+                                <label className="text-[10px] font-bold text-[#8C9BA7] block mb-1">
+                                  Predikat Kelulusan Ayat:
+                                </label>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEvalGrade('mumtaz')}
+                                    className={`py-1 rounded-xl text-[10px] font-black border cursor-pointer ${
+                                      evalGrade === 'mumtaz'
+                                        ? 'bg-emerald-500 text-white border-emerald-600'
+                                        : 'bg-[#EEF8FF] text-[#164C68] border-[#C9E1ED]'
+                                    }`}
+                                  >
+                                    🌟 Mumtaz
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEvalGrade('jayyid')}
+                                    className={`py-1 rounded-xl text-[10px] font-black border cursor-pointer ${
+                                      evalGrade === 'jayyid'
+                                        ? 'bg-blue-500 text-white border-blue-600'
+                                        : 'bg-[#EEF8FF] text-[#164C68] border-[#C9E1ED]'
+                                    }`}
+                                  >
+                                    👍 Jayyid
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEvalGrade('perlu_ulang')}
+                                    className={`py-1 rounded-xl text-[10px] font-black border cursor-pointer ${
+                                      evalGrade === 'perlu_ulang'
+                                        ? 'bg-amber-500 text-white border-amber-600'
+                                        : 'bg-[#EEF8FF] text-[#164C68] border-[#C9E1ED]'
+                                    }`}
+                                  >
+                                    🔄 Perlu Latihan
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Feedback notes */}
+                              <div>
+                                <label className="text-[10px] font-bold text-[#8C9BA7] block mb-1">
+                                  Catatan Evaluasi Tajwid & Makhraj:
+                                </label>
+                                <div className="flex flex-wrap gap-1 mb-1">
+                                  {quickFeedbackChips.map((t, idx) => (
+                                    <button
+                                      key={idx}
+                                      type="button"
+                                      onClick={() => setEvalNotes((prev) => (prev ? `${prev}. ${t}` : t))}
+                                      className="text-[9px] font-semibold bg-slate-100 hover:bg-slate-200 text-[#164C68] px-1.5 py-0.5 rounded border border-slate-200"
+                                    >
+                                      + {t}
+                                    </button>
+                                  ))}
+                                </div>
+                                <textarea
+                                  rows={2}
+                                  value={evalNotes}
+                                  onChange={(e) => setEvalNotes(e.target.value)}
+                                  placeholder="Tuliskan catatan tajwid, apresiasi, atau saran..."
+                                  className="w-full bg-[#EEF8FF] border border-[#C9E1ED] rounded-xl p-2 text-xs font-semibold text-[#164C68]"
+                                />
+                              </div>
+
+                              {/* Form action buttons */}
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEvaluatingRecId(null)}
+                                  className="flex-1 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-[#8C9BA7] hover:bg-slate-200 cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEvaluation(rec)}
+                                  className="flex-1 py-1.5 rounded-xl text-xs font-black bg-emerald-500 hover:bg-emerald-600 text-white shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                  <Check size={14} />
+                                  <span>Simpan Evaluasi 💾</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })()}
 
             {/* TAB 3: EVALUATION & WEAK AYAHS */}
             {activeTab === 'weak_ayahs' && (

@@ -135,12 +135,25 @@ export interface PracticeSessionItem {
   timestamp: string;
 }
 
+export type EvaluationGrade = 'mumtaz' | 'jayyid' | 'perlu_ulang';
+
+export interface TeacherEvaluation {
+  status: 'pending' | 'evaluated';
+  grade?: EvaluationGrade;
+  evaluatorRole: 'parent' | 'teacher';
+  evaluatorName: string;
+  notes: string;
+  evaluatedAt: string;
+}
+
 export interface AyahRecording {
   id: string;
   childId: string;
   surahNumber: number;
+  surahName?: string;
   ayahNumber: number;
   audioBlobUrl: string;
+  audioDataUrl?: string;
   durationSeconds: number;
   referenceDurationSeconds: number;
   score: number;
@@ -152,6 +165,8 @@ export interface AyahRecording {
   assistanceUsed: ('play_ayah' | 'lihat_ayah' | 'play_awalan' | 'lihat_awalan')[];
   createdAt: string;
   needsReview: boolean;
+  studentNote?: string;
+  evaluation?: TeacherEvaluation;
 }
 
 export type PointsEventType =

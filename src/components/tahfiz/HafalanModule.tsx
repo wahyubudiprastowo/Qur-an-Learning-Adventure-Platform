@@ -12,6 +12,10 @@ import {
   Sparkles,
   ArrowRight,
   X,
+  Award,
+  MessageSquare,
+  Clock,
+  Check,
 } from 'lucide-react';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
@@ -19,10 +23,12 @@ import { getAyahAudioUrl } from '../../data/recitersData';
 import { AudioRecordingService, RecordingState } from '../../services/recordingService';
 import { analyzeAyahRecitation, ScoreAnalysisResult } from '../../services/scoringEngine';
 import { StorageService } from '../../services/storageService';
-import { AyahData, SurahMetadata } from '../../types';
+import { AudioDatabaseService } from '../../services/audioDatabaseService';
+import { AyahData, SurahMetadata, AyahRecording } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
+import { RiwayatEvaluasiModal } from './RiwayatEvaluasiModal';
 import { GlobalAudioManager } from '../../services/audioService';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
@@ -60,6 +66,14 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const [audioVolume, setAudioVolume] = useState<number>(0);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
 
+  // Rekam Suara Database & Evaluation states
+  const [studentNote, setStudentNote] = useState<string>('');
+  const [isSavedToDb, setIsSavedToDb] = useState<boolean>(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [isPlayingSavedAudio, setIsPlayingSavedAudio] = useState<boolean>(false);
+  const savedAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Result modal state
   const [showResultModal, setShowResultModal] = useState<boolean>(false);
   const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
@@ -72,6 +86,28 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
   const surahMeta = SURAHS_METADATA.find((s) => s.number === selectedSurahNumber) || SURAHS_METADATA[0];
   const currentAyah = ayahs[currentAyahIndex];
+
+  // Existing saved recording from database for active ayah
+  const existingSavedRecording = currentAyah
+    ? StorageService.getRecordingByAyah(childId, selectedSurahNumber, currentAyah.ayahNumber)
+    : undefined;
+
+  const totalSavedCount = StorageService.getRecordings(childId).filter(
+    (r) => r.surahNumber === selectedSurahNumber
+  ).length;
+
+  useEffect(() => {
+    if (savedAudioRef.current) {
+      savedAudioRef.current.pause();
+    }
+    setIsPlayingSavedAudio(false);
+    setIsSavedToDb(false);
+    setSaveToast(null);
+    const existing = currentAyah
+      ? StorageService.getRecordingByAyah(childId, selectedSurahNumber, currentAyah.ayahNumber)
+      : undefined;
+    setStudentNote(existing?.studentNote || '');
+  }, [currentAyahIndex, selectedSurahNumber]);
 
   // Initialize Recorder & Audio Stop Listeners
   useEffect(() => {
@@ -148,8 +184,14 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   // --- Voice Recording Handlers ---
   const handleStartRecording = async () => {
     if (!recorderRef.current) return;
+    if (savedAudioRef.current) {
+      savedAudioRef.current.pause();
+      setIsPlayingSavedAudio(false);
+    }
     setPreviewBlobUrl(null);
     setRecordingDuration(0);
+    setIsSavedToDb(false);
+    setSaveToast(null);
 
     await recorderRef.current.startRecording();
     timerRef.current = setInterval(() => {
@@ -169,9 +211,14 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       const assistance = assistanceUsedMap.get(currentAyah.ayahNumber) || [];
       const score = analyzeAyahRecitation(res.durationSeconds, currentAyah, assistance);
 
+      const recId = `rec-${Date.now()}-${currentAyah.ayahNumber}`;
+
+      // Save audio to permanent database (IndexedDB + DataURL fallback)
+      const { objectUrl, dataUrl } = await AudioDatabaseService.saveAudioBlob(recId, res.blob);
+
       const recordedItem: RecordedAyahItem = {
         ayahNumber: currentAyah.ayahNumber,
-        audioBlobUrl: res.blobUrl,
+        audioBlobUrl: objectUrl || res.blobUrl,
         durationSeconds: res.durationSeconds,
         scoreResult: score,
       };
@@ -185,11 +232,13 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
       // Save to StorageService
       StorageService.saveRecording({
-        id: `rec-${Date.now()}-${currentAyah.ayahNumber}`,
+        id: recId,
         childId,
         surahNumber: selectedSurahNumber,
+        surahName: surahMeta.nameLatin,
         ayahNumber: currentAyah.ayahNumber,
-        audioBlobUrl: res.blobUrl,
+        audioBlobUrl: objectUrl || res.blobUrl,
+        audioDataUrl: dataUrl,
         durationSeconds: res.durationSeconds,
         referenceDurationSeconds: score.referenceDurationSeconds,
         score: score.overallScore,
@@ -201,6 +250,14 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         assistanceUsed: assistance as any,
         createdAt: new Date().toISOString(),
         needsReview: score.needsReview,
+        studentNote: studentNote.trim() || undefined,
+        evaluation: {
+          status: 'pending',
+          evaluatorRole: 'parent',
+          evaluatorName: 'Orang Tua / Guru',
+          notes: '',
+          evaluatedAt: '',
+        },
       });
 
       StorageService.saveAyahScore(
@@ -210,6 +267,10 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         score.overallScore,
         !score.needsReview
       );
+
+      setIsSavedToDb(true);
+      setSaveToast(`Alhamdulillah! Rekaman Suara Ayat ${currentAyah.ayahNumber} berhasil disimpan ke Database!`);
+      setTimeout(() => setSaveToast(null), 4000);
 
       // Record activity in Companion service
       CompanionService.recordActivity(childId, 'hafalan', 35, 5);
@@ -225,6 +286,42 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     recorderRef.current?.cancelRecording();
     setPreviewBlobUrl(null);
     setRecordingDuration(0);
+    setIsSavedToDb(false);
+  };
+
+  const handlePlaySavedAudio = async (recording: AyahRecording) => {
+    if (savedAudioRef.current) {
+      savedAudioRef.current.pause();
+    }
+    if (isPlayingSavedAudio) {
+      setIsPlayingSavedAudio(false);
+      return;
+    }
+
+    const audioUrl = await AudioDatabaseService.getAudioUrl(
+      recording.id,
+      recording.audioDataUrl || recording.audioBlobUrl
+    );
+    if (!audioUrl) return;
+
+    const audio = new Audio(audioUrl);
+    savedAudioRef.current = audio;
+    setIsPlayingSavedAudio(true);
+    audio.play().catch(() => {});
+    audio.onended = () => setIsPlayingSavedAudio(false);
+    audio.onerror = () => setIsPlayingSavedAudio(false);
+  };
+
+  const handleUpdateStudentNote = (newNote: string) => {
+    setStudentNote(newNote);
+    if (!currentAyah) return;
+    const existing = StorageService.getRecordingByAyah(childId, selectedSurahNumber, currentAyah.ayahNumber);
+    if (existing) {
+      existing.studentNote = newNote.trim();
+      StorageService.saveRecording(existing);
+      setSaveToast('Catatan santri berhasil disimpan ke database!');
+      setTimeout(() => setSaveToast(null), 3000);
+    }
   };
 
   // Assistance handlers
@@ -322,16 +419,26 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           </p>
         </div>
 
-        <span className="px-3 py-1 bg-cyan-50 border border-cyan-200 rounded-full text-xs font-bold text-[#08B9EF]">
-          {totalCount} ayat
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowHistoryModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EEF8FF] hover:bg-[#d8eefc] border border-[#C9E1ED] text-[#164C68] rounded-2xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            title="Lihat riwayat rekaman dan evaluasi ustadz/orang tua"
+          >
+            <Award size={15} className="text-amber-500" />
+            <span>Evaluasi Guru ({totalSavedCount})</span>
+          </button>
+          <span className="px-3 py-1 bg-cyan-50 border border-cyan-200 rounded-full text-xs font-bold text-[#08B9EF]">
+            {totalCount} ayat
+          </span>
+        </div>
       </div>
 
       {/* Guide Notification Card */}
       <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-2.5 text-xs text-emerald-900">
-        <span className="text-emerald-600 font-bold shrink-0 mt-0.5">👁️‍🗨️</span>
+        <span className="text-emerald-600 font-bold shrink-0 mt-0.5">🎙️</span>
         <p className="leading-relaxed">
-          <strong className="font-bold">Lafalkan dari ingatan.</strong> Rekam satu per satu ayat, lalu tekan <em>Ayat berikutnya</em>.
+          <strong className="font-bold">Fitur Rekam Suara:</strong> Lafalkan dari ingatan dan rekam per ayat. Rekaman tersimpan permanen di database untuk dievaluasi oleh Ustadz atau Orang Tua.
         </p>
       </div>
 
@@ -469,6 +576,69 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         </div>
       </div>
 
+      {/* Existing Saved Recording Card from Database */}
+      {existingSavedRecording && !previewBlobUrl && recordingState !== 'RECORDING' && (
+        <div className="bg-gradient-to-r from-teal-50/80 to-emerald-50/80 border border-emerald-200 rounded-3xl p-4 space-y-3 text-left shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+              <CheckCircle className="text-emerald-600" size={16} />
+              Rekaman Ayat {currentAyah?.ayahNumber} Tersimpan di Database
+            </span>
+
+            {existingSavedRecording.evaluation?.status === 'evaluated' ? (
+              <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                {existingSavedRecording.evaluation.grade === 'mumtaz'
+                  ? '🌟 Mumtaz'
+                  : existingSavedRecording.evaluation.grade === 'jayyid'
+                  ? '👍 Jayyid'
+                  : '⚠️ Perlu Latihan'}
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
+                <Clock size={12} />
+                Menunggu Evaluasi Guru / Ortu
+              </span>
+            )}
+          </div>
+
+          {existingSavedRecording.evaluation?.status === 'evaluated' && existingSavedRecording.evaluation.notes && (
+            <div className="p-2.5 bg-white/90 rounded-2xl border border-emerald-200 space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-emerald-700">
+                <span>Catatan {existingSavedRecording.evaluation.evaluatorRole === 'teacher' ? 'Ustadz / Guru' : 'Orang Tua'}:</span>
+                <span>{existingSavedRecording.evaluation.evaluatorName}</span>
+              </div>
+              <p className="text-xs text-emerald-900 italic">
+                "{existingSavedRecording.evaluation.notes}"
+              </p>
+            </div>
+          )}
+
+          {existingSavedRecording.studentNote && (
+            <p className="text-[11px] text-[#164C68] bg-white/70 px-2.5 py-1.5 rounded-xl border border-teal-100">
+              <strong>Catatan Santri:</strong> "{existingSavedRecording.studentNote}"
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={() => handlePlaySavedAudio(existingSavedRecording)}
+              className="flex-1 py-2 px-3 rounded-2xl bg-white border border-[#C9E1ED] hover:bg-slate-50 text-xs font-bold text-[#164C68] flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {isPlayingSavedAudio ? <Pause size={14} /> : <Play size={14} className="fill-current text-[#08B9EF]" />}
+              <span>{isPlayingSavedAudio ? 'Jeda Audio' : `Putar Suara Tersimpan (${existingSavedRecording.durationSeconds}s)`}</span>
+            </button>
+
+            <button
+              onClick={() => setShowHistoryModal(true)}
+              className="px-3.5 py-2 rounded-2xl bg-[#08B9EF] hover:bg-[#07a6d7] text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+            >
+              <Award size={14} />
+              <span>Detail Evaluasi</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Voice Recording Control Area */}
       <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm text-center space-y-4">
         {/* State Display: Idle vs Recording vs Recorded */}
@@ -500,19 +670,54 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               onClick={handleStopRecording}
               icon={<Square size={20} className="fill-white" />}
             >
-              Hentikan Rekaman
+              Hentikan & Simpan Rekaman
             </Button>
           </div>
         ) : previewBlobUrl ? (
           /* Child preview & actions */
-          <div className="space-y-3 py-2 animate-in fade-in duration-150">
-            <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-sm">
+          <div className="space-y-3 py-2 animate-in fade-in duration-150 text-left">
+            <div className="flex items-center justify-center gap-2 text-emerald-600 font-bold text-sm text-center">
               <CheckCircle size={18} />
-              <span>Ayat {currentAyah?.ayahNumber} Berhasil Direkam!</span>
+              <span>Ayat {currentAyah?.ayahNumber} Berhasil Direkam & Tersimpan di Database!</span>
             </div>
 
             {/* Audio Playback of Child's Voice */}
             <audio controls src={previewBlobUrl} className="w-full h-10 mt-2" />
+
+            {/* Persistence & Evaluation Badge */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-2.5 text-xs text-emerald-900 flex items-center gap-2">
+              <Check size={14} className="text-emerald-600 shrink-0" />
+              <span>Tersimpan permanen di database • Siap dievaluasi oleh Ustadz atau Orang Tua</span>
+            </div>
+
+            {/* Optional Student Note */}
+            <div className="space-y-1 pt-1">
+              <label className="text-[11px] font-bold text-[#8C9BA7] flex items-center gap-1">
+                <MessageSquare size={13} />
+                <span>Pesan / Catatan untuk Guru atau Orang Tua (Opsional):</span>
+              </label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={studentNote}
+                  onChange={(e) => setStudentNote(e.target.value)}
+                  placeholder="Misal: Sudah lancar tanpa melihat teks, mohon koreksi..."
+                  className="flex-1 bg-[#EEF8FF] border border-[#C9E1ED] rounded-xl px-3 py-2 text-xs font-semibold text-[#164C68] focus:outline-none focus:border-[#08B9EF]"
+                />
+                <button
+                  onClick={() => handleUpdateStudentNote(studentNote)}
+                  className="px-3 py-2 bg-[#164C68] hover:bg-[#113d54] text-white text-xs font-bold rounded-xl cursor-pointer shadow-2xs"
+                >
+                  Simpan Catatan
+                </button>
+              </div>
+            </div>
+
+            {saveToast && (
+              <div className="text-xs font-bold text-emerald-700 bg-emerald-50 p-2 rounded-xl border border-emerald-200 text-center">
+                {saveToast}
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button
@@ -539,9 +744,15 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         ) : (
           /* Ready to Record State */
           <div className="space-y-3 py-1">
-            <p className="text-xs text-[#8C9BA7] font-semibold">
-              Mulai dari <strong className="text-[#164C68]">Ayat {currentAyah?.ayahNumber}</strong> • rekam tiap ayat lalu tekan lanjut
-            </p>
+            <div>
+              <h4 className="font-heading font-black text-sm text-[#164C68] flex items-center justify-center gap-1.5">
+                <Mic size={18} className="text-[#08B9EF]" />
+                <span>Fitur Rekam Suara Hafalan</span>
+              </h4>
+              <p className="text-xs text-[#8C9BA7] font-semibold mt-0.5">
+                Mulai dari <strong className="text-[#164C68]">Ayat {currentAyah?.ayahNumber}</strong> • rekaman tersimpan di database untuk evaluasi Guru & Orang Tua
+              </p>
+            </div>
 
             <Button
               variant="green"
@@ -550,7 +761,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               onClick={handleStartRecording}
               icon={<Mic size={22} />}
             >
-              Rekam Hafalanmu
+              Mulai Rekam Suara
             </Button>
           </div>
         )}
@@ -577,6 +788,15 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           setShowResultModal(false);
           onFinishHafalan();
         }}
+      />
+
+      {/* Riwayat Rekaman & Evaluasi Guru/Orang Tua Modal */}
+      <RiwayatEvaluasiModal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        childId={childId}
+        surahNumber={selectedSurahNumber}
+        surahName={surahMeta.nameLatin}
       />
 
       {/* Subtle Companion Reaction in corner */}

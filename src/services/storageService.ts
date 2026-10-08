@@ -5,6 +5,7 @@ import {
   ChildAyahProgress,
   PointsLedgerEntry,
   AyahRecording,
+  TeacherEvaluation,
   PracticeSessionItem,
   PointsEventType,
   PaymentTransaction,
@@ -17,6 +18,7 @@ import {
   INITIAL_RECENT_ACTIVITIES,
   INITIAL_LEADERBOARD_PLAYERS,
 } from '../data/leaderboardAndActivityData';
+import { AudioDatabaseService } from './audioDatabaseService';
 
 const STORAGE_KEYS = {
   USER_ACCOUNT: 'cahaya_tahfiz_user_account',
@@ -622,16 +624,44 @@ export class StorageService {
     return data ? JSON.parse(data) : [];
   }
 
+  static getRecordingByAyah(childId: string, surahNumber: number, ayahNumber: number): AyahRecording | undefined {
+    const list = this.getRecordings(childId);
+    return list.find((r) => r.surahNumber === surahNumber && r.ayahNumber === ayahNumber);
+  }
+
   static saveRecording(recording: AyahRecording): void {
     const list = this.getRecordings(recording.childId);
-    list.unshift(recording);
+    const existingIdx = list.findIndex(
+      (r) => r.id === recording.id || (r.surahNumber === recording.surahNumber && r.ayahNumber === recording.ayahNumber)
+    );
+    if (existingIdx >= 0) {
+      list[existingIdx] = { ...list[existingIdx], ...recording };
+    } else {
+      list.unshift(recording);
+    }
     localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + recording.childId, JSON.stringify(list));
+  }
+
+  static updateRecordingEvaluation(
+    childId: string,
+    recordingId: string,
+    evaluation: TeacherEvaluation
+  ): AyahRecording | null {
+    const list = this.getRecordings(childId);
+    const idx = list.findIndex((r) => r.id === recordingId);
+    if (idx >= 0) {
+      list[idx].evaluation = evaluation;
+      localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + childId, JSON.stringify(list));
+      return list[idx];
+    }
+    return null;
   }
 
   static deleteRecording(childId: string, recordingId: string): void {
     let list = this.getRecordings(childId);
     list = list.filter((r) => r.id !== recordingId);
     localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + childId, JSON.stringify(list));
+    AudioDatabaseService.deleteAudio(recordingId).catch(() => {});
   }
 
   // --- Iqra & Tajwid & Vocab Progress ---
