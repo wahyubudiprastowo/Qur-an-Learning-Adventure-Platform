@@ -13,7 +13,8 @@ export interface AudioProgressInfo {
   totalBlockRepeat: number; // -1 for infinity
 }
 
-type AudioStopListener = () => void;
+export type AudioStopSource = QuranAudioPlayer | HTMLAudioElement;
+export type AudioStopListener = (source?: AudioStopSource) => void;
 
 /**
  * Global audio manager to guarantee single-channel audio playback across the entire app.
@@ -67,10 +68,10 @@ export class GlobalAudioManager {
       }
     }
 
-    // 3. Notify stop listeners so UI components update their play/pause indicators
+    // 3. Notify stop listeners so other UI components update their play/pause indicators
     for (const listener of Array.from(this.stopListeners)) {
       try {
-        listener();
+        listener(source);
       } catch (e) {}
     }
   }
@@ -97,7 +98,7 @@ export class GlobalAudioManager {
 
     for (const listener of Array.from(this.stopListeners)) {
       try {
-        listener();
+        listener(undefined);
       } catch (e) {}
     }
   }

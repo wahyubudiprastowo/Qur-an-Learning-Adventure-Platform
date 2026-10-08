@@ -81,14 +81,17 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     recorder.onStateChange = (state) => setRecordingState(state);
     recorder.onVolumeChange = (vol) => setAudioVolume(vol);
 
-    const unsubStop = GlobalAudioManager.addStopListener(() => {
+    const unsubStop = GlobalAudioManager.addStopListener((source) => {
+      if (source && audioAssistRef.current && source === audioAssistRef.current) {
+        return;
+      }
       if (audioAssistRef.current) {
         audioAssistRef.current.onended = null;
         audioAssistRef.current.onerror = null;
         GlobalAudioManager.unregisterRawAudio(audioAssistRef.current);
         try {
           audioAssistRef.current.pause();
-          audioAssistRef.current.src = '';
+          audioAssistRef.current.currentTime = 0;
         } catch (e) {}
         audioAssistRef.current = null;
       }

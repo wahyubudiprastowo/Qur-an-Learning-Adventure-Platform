@@ -119,7 +119,10 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
       }
     };
 
-    const unsubStop = GlobalAudioManager.addStopListener(() => {
+    const unsubStop = GlobalAudioManager.addStopListener((source) => {
+      if (source && playerRef.current && source === playerRef.current) {
+        return;
+      }
       setPlaybackState('IDLE');
     });
 

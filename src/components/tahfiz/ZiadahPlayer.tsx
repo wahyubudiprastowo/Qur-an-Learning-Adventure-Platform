@@ -103,7 +103,10 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
       }
     };
 
-    const unsubStop = GlobalAudioManager.addStopListener(() => {
+    const unsubStop = GlobalAudioManager.addStopListener((source) => {
+      if (source && playerRef.current && source === playerRef.current) {
+        return;
+      }
       setPlaybackState('PAUSED');
       setActiveWordIndex(null);
     });

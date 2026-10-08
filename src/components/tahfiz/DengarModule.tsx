@@ -118,7 +118,10 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
       setCompanionPulseTrigger((prev) => prev + 1);
     };
 
-    const unsubStop = GlobalAudioManager.addStopListener(() => {
+    const unsubStop = GlobalAudioManager.addStopListener((source) => {
+      if (source && playerRef.current && source === playerRef.current) {
+        return;
+      }
       setPlaybackState('IDLE');
       setActiveWordIndex(null);
     });

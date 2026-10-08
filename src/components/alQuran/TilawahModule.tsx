@@ -57,14 +57,19 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
 
   // Load Ayahs when active surah is selected
   useEffect(() => {
-    // Global stop listener: when any other module (Ziadah, Dengar, etc.) starts playing, reset our playing state & disarm audio
-    const unsub = GlobalAudioManager.addStopListener(() => {
+    // Global stop listener: when any other module starts playing or GlobalAudioManager.stopAll() is invoked
+    const unsub = GlobalAudioManager.addStopListener((source) => {
+      // If the audio that started playing is this Tilawah audio itself, do not stop!
+      if (source && audioRef.current && source === audioRef.current) {
+        return;
+      }
       if (audioRef.current) {
         audioRef.current.onended = null;
         audioRef.current.onerror = null;
+        GlobalAudioManager.unregisterRawAudio(audioRef.current);
         try {
           audioRef.current.pause();
-          audioRef.current.src = '';
+          audioRef.current.currentTime = 0;
         } catch (e) {}
         audioRef.current = null;
       }
@@ -72,17 +77,7 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
     });
 
     if (!activeSurah) {
-      if (audioRef.current) {
-        audioRef.current.onended = null;
-        audioRef.current.onerror = null;
-        GlobalAudioManager.unregisterRawAudio(audioRef.current);
-        try {
-          audioRef.current.pause();
-          audioRef.current.src = '';
-        } catch (e) {}
-        audioRef.current = null;
-      }
-      setCurrentPlayingAyah(null);
+      handleStopAudio();
       return () => unsub();
     }
 
@@ -98,46 +93,45 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
     return () => {
       isMounted = false;
       unsub();
-      if (audioRef.current) {
-        audioRef.current.onended = null;
-        audioRef.current.onerror = null;
-        GlobalAudioManager.unregisterRawAudio(audioRef.current);
-        try {
-          audioRef.current.pause();
-          audioRef.current.src = '';
-        } catch (e) {}
-        audioRef.current = null;
-      }
-      setCurrentPlayingAyah(null);
+      handleStopAudio();
     };
   }, [activeSurah]);
 
-  const handlePlayAyah = (ayahNumber: number, forceSingle: boolean = false) => {
+  const handlePlayAyah = (
+    ayahNumber: number,
+    forceSingle: boolean = false,
+    forceRestart: boolean = false,
+    customReciter?: string
+  ) => {
     if (!activeSurah) return;
 
-    // Toggle pause if clicking already playing ayah
-    if (currentPlayingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
+    // Toggle pause if clicking already playing ayah (unless forceRestart is true)
+    if (!forceRestart && currentPlayingAyah === ayahNumber && audioRef.current && !audioRef.current.paused) {
       handleStopAudio();
       return;
     }
 
+    // Stop and unregister existing audio cleanly
     if (audioRef.current) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
       GlobalAudioManager.unregisterRawAudio(audioRef.current);
       try {
         audioRef.current.pause();
-        audioRef.current.src = '';
+        audioRef.current.currentTime = 0;
       } catch (e) {}
       audioRef.current = null;
     }
 
-    const url = getAyahAudioUrl(reciterId, activeSurah.number, ayahNumber);
+    const currentReciter = customReciter || reciterId;
+    const url = getAyahAudioUrl(currentReciter, activeSurah.number, ayahNumber);
     const audio = new Audio(url);
+    audio.preload = 'auto';
+
     audioRef.current = audio;
     setCurrentPlayingAyah(ayahNumber);
 
-    // Register with global coordinator and stop any other player (Ziadah, Dengar, Murojaah, etc.)
+    // Register with global coordinator and stop any other audio source
     GlobalAudioManager.registerRawAudio(audio);
     GlobalAudioManager.notifyPlayStarted(audio);
 
@@ -152,9 +146,10 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
     audio.onerror = () => {
       if (audioRef.current !== audio) return;
       console.warn('Audio primary URL failed, trying fallback URL');
-      const fallbackUrl = getAyahAudioFallbackUrl(reciterId, activeSurah.number, ayahNumber);
+      const fallbackUrl = getAyahAudioFallbackUrl(currentReciter, activeSurah.number, ayahNumber);
       if (audio.src !== fallbackUrl) {
         audio.src = fallbackUrl;
+        audio.load();
         audio.play().catch(() => {
           GlobalAudioManager.unregisterRawAudio(audio);
           if (audioRef.current === audio) {
@@ -206,7 +201,6 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
       try {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
-        audioRef.current.src = '';
       } catch (e) {}
       audioRef.current = null;
     }
@@ -216,13 +210,13 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
   const handleNextAyah = () => {
     if (!activeSurah) return;
     const target = currentPlayingAyah ? Math.min(currentPlayingAyah + 1, activeSurah.ayahCount) : 1;
-    handlePlayAyah(target);
+    handlePlayAyah(target, false, true);
   };
 
   const handlePrevAyah = () => {
     if (!activeSurah) return;
     const target = currentPlayingAyah ? Math.max(currentPlayingAyah - 1, 1) : 1;
-    handlePlayAyah(target);
+    handlePlayAyah(target, false, true);
   };
 
   // --- Render 1: Mushaf Reader View ---
@@ -295,9 +289,10 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
             <select
               value={reciterId}
               onChange={(e) => {
-                setReciterId(e.target.value);
+                const newReciter = e.target.value;
+                setReciterId(newReciter);
                 if (currentPlayingAyah !== null) {
-                  handlePlayAyah(currentPlayingAyah);
+                  handlePlayAyah(currentPlayingAyah, false, true, newReciter);
                 }
               }}
               className="bg-[#EEF8FF] text-[#164C68] font-bold rounded-lg px-2 py-1 border border-[#C9E1ED] max-w-[170px] truncate"
