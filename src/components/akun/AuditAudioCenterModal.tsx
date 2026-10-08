@@ -425,14 +425,14 @@ export const AuditAudioCenterModal: React.FC<AuditAudioCenterModalProps> = ({
 
         const mappedRate =
           speed === 0.25
-            ? 0.55
+            ? 0.35
             : speed === 0.5
-            ? 0.72
+            ? 0.55
             : speed === 0.75
-            ? 0.85
+            ? 0.75
             : speed === 1.0
             ? 0.95
-            : 1.15;
+            : 1.25;
 
         utterance.rate = mappedRate;
 

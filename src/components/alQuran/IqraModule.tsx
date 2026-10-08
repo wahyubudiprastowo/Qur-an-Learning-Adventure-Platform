@@ -524,17 +524,22 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'ar-SA';
 
-      // Map speed gracefully to speech synthesis engine rate
+      // Map speed gracefully to speech synthesis engine rate with distinct auditory pacing
+      // Rate calibration: 0.25x -> 0.35 (very slow, deliberate articulation for children)
+      // 0.5x -> 0.55 (clear half-tempo learning pace)
+      // 0.75x -> 0.75 (moderately relaxed)
+      // 1.0x -> 0.95 (standard natural tempo)
+      // 1.25x -> 1.25 (swift fluent tempo)
       const mappedRate =
         speed === 0.25
-          ? 0.55
+          ? 0.35
           : speed === 0.5
-          ? 0.72
+          ? 0.55
           : speed === 0.75
-          ? 0.85
+          ? 0.75
           : speed === 1.0
           ? 0.95
-          : 1.15;
+          : 1.25;
 
       utterance.rate = mappedRate;
 
@@ -700,21 +705,22 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       const current = allCoords[index];
       setPointedItem({ rowIdx: current.rowIdx, itemIdx: current.itemIdx });
       // Natural breathing pause after audio completes (calibrated by playback speed)
+      // Generous delay on 0.25x and 0.5x allows children to repeat the recitation comfortably
       const pauseAfterSpeechMs =
         autoSpeed === 0.25
-          ? 1400
+          ? 2200
           : autoSpeed === 0.5
-          ? 1000
+          ? 1400
           : autoSpeed === 0.75
-          ? 700
+          ? 850
           : autoSpeed === 1.0
           ? 500
-          : 350;
+          : 300;
 
       // Estimate natural safety fallback timeout based on Arabic text length
       const charCount = current.arabic.replace(/\s+/g, '').length;
       const rateMultiplier =
-        autoSpeed === 0.25 ? 0.55 : autoSpeed === 0.5 ? 0.72 : autoSpeed === 0.75 ? 0.85 : 0.95;
+        autoSpeed === 0.25 ? 0.35 : autoSpeed === 0.5 ? 0.55 : autoSpeed === 0.75 ? 0.75 : autoSpeed === 1.0 ? 0.95 : 1.25;
       const estimatedSpeakMs = Math.max(1200, Math.round((charCount * 170) / rateMultiplier));
       const safetyTimeoutMs = estimatedSpeakMs + pauseAfterSpeechMs + 800;
 
@@ -1557,61 +1563,136 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white border-2 border-amber-300 rounded-3xl p-3.5 shadow-md flex items-center justify-between gap-3 flex-wrap"
+              className="bg-white border-2 border-amber-300 rounded-3xl p-4 shadow-xl shadow-amber-500/10 space-y-3"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-900 font-quran text-2xl font-bold shrink-0">
-                  {currentPointedData.arabic}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
-                      KOTAK SEDANG DITUNJUK
-                    </span>
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                      {audioMode === 'full_page' ? '🎧 Sync & Listen' : '🔤 Per Karakter'}
-                    </span>
-                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-1 rounded">
-                      {autoSpeed}x
-                    </span>
+              <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+                {/* Left: Box Info Preview */}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-200 border-2 border-amber-400 flex items-center justify-center text-amber-950 font-quran text-3xl font-bold shrink-0 shadow-inner">
+                    {currentPointedData.arabic}
                   </div>
-                  <h4 className="text-sm font-black text-[#164C68]">
-                    {currentPointedData.latin || currentPointedData.arabic}
-                  </h4>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-black tracking-wider uppercase text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md">
+                        Kotak {currentFlatIndex >= 0 ? currentFlatIndex + 1 : 1} / {pageFlatItems.length}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                        {audioMode === 'full_page' ? '🎧 Sync & Listen' : '🔤 Per Karakter'}
+                      </span>
+                      <span className="text-[10px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                        {autoSpeed}x
+                      </span>
+                    </div>
+                    <h4 className="text-base font-black text-[#164C68] truncate mt-0.5">
+                      {currentPointedData.latin || currentPointedData.arabic}
+                    </h4>
+                  </div>
+                </div>
+
+                {/* Center / Action Controls: Sebelumnya, Ulangi Bunyi, Berikutnya */}
+                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end flex-wrap">
+                  {/* Step to previous box */}
+                  <button
+                    onClick={handlePointPrevItem}
+                    disabled={currentFlatIndex <= 0 && currentPageNum <= 1}
+                    className="flex-1 md:flex-initial px-3.5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-[#164C68] font-black text-xs border border-[#C9E1ED] flex items-center justify-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-xs"
+                    title="Pindah ke huruf/kotak sebelumnya"
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Sebelumnya</span>
+                  </button>
+
+                  {/* Primary Ulangi Bunyi Button */}
+                  <button
+                    onClick={() => speakArabic(currentPointedData.arabic)}
+                    className="flex-1 md:flex-initial px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-amber-950 font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all active:scale-95 cursor-pointer ring-2 ring-amber-300"
+                    title="Dengarkan kembali pelafalan huruf ini"
+                  >
+                    <Volume2 size={16} className="animate-pulse" />
+                    <span>Ulangi Bunyi</span>
+                  </button>
+
+                  {/* Step to next box */}
+                  <button
+                    onClick={handlePointNextItem}
+                    disabled={currentFlatIndex >= pageFlatItems.length - 1 && currentPageNum >= maxPages}
+                    className="flex-1 md:flex-initial px-3.5 py-2.5 rounded-2xl bg-[#08B9EF] hover:bg-[#07a6d7] text-white font-black text-xs flex items-center justify-center gap-1.5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer active:scale-95 shadow-md shadow-cyan-500/20"
+                    title="Pindah ke huruf/kotak berikutnya"
+                  >
+                    <span>Berikutnya</span>
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Bottom Row inside dock: Speed Bar + Voice Selector + Sync Full Page */}
+              <div className="pt-2 border-t border-amber-100 flex items-center justify-between gap-2 flex-wrap">
+                {/* Speed selector pills */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-bold text-slate-500 mr-1 hidden sm:inline">
+                    Tempo:
+                  </span>
+                  {SPEED_OPTIONS.map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => {
+                        setAutoSpeed(speed);
+                        speakArabic(currentPointedData.arabic, speed);
+                      }}
+                      className={`px-2 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
+                        autoSpeed === speed
+                          ? 'bg-amber-400 text-amber-950 shadow-xs ring-1 ring-amber-400'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                      title={`Pilih kecepatan ${speed}x`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+
+                {/* Voice Gender Switcher */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleSetVoiceGender('male')}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      voiceGender === 'male'
+                        ? 'bg-teal-600 text-white font-black shadow-xs'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                    title="Suara Ustadz"
+                  >
+                    <span>👨</span>
+                    <span className="text-[11px]">Ustadz</span>
+                  </button>
+                  <button
+                    onClick={() => handleSetVoiceGender('female')}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      voiceGender === 'female'
+                        ? 'bg-rose-500 text-white font-black shadow-xs'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                    title="Suara Ustadzah"
+                  >
+                    <span>👩</span>
+                    <span className="text-[11px]">Ustadzah</span>
+                  </button>
+                </div>
+
+                {/* Full-Page recitation trigger if in full page mode */}
                 {audioMode === 'full_page' && (
                   <button
                     onClick={isAutoPlaying ? stopAutoPlay : () => startFullPageRecitation(pointedItem?.rowIdx, pointedItem?.itemIdx)}
-                    className={`px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer ${
+                    className={`px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
                       isAutoPlaying
                         ? 'bg-red-500 hover:bg-red-600 text-white'
-                        : 'bg-[#08B9EF] hover:bg-[#07a6d7] text-white'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                     }`}
                   >
-                    {isAutoPlaying ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
-                    <span>{isAutoPlaying ? 'Jeda Resitasi' : 'Lanjut Resitasi'}</span>
+                    {isAutoPlaying ? <Pause size={13} /> : <Play size={13} fill="currentColor" />}
+                    <span>{isAutoPlaying ? 'Jeda Mengalir' : 'Mulai Mengalir'}</span>
                   </button>
                 )}
-
-                <button
-                  onClick={() => speakArabic(currentPointedData.arabic)}
-                  className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-amber-950 font-black text-xs flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
-                >
-                  <RotateCcw size={14} />
-                  <span>Ulangi Bunyi</span>
-                </button>
-
-                <button
-                  onClick={handleNextPage}
-                  disabled={currentPageNum >= maxPages}
-                  className="px-3 py-2 rounded-xl bg-[#EEF8FF] hover:bg-[#d8eefc] text-[#164C68] font-bold text-xs flex items-center gap-1 disabled:opacity-30 cursor-pointer"
-                >
-                  <span>Berikutnya</span>
-                  <ChevronRight size={14} />
-                </button>
               </div>
             </motion.div>
           )}
