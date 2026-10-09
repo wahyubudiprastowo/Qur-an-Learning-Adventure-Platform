@@ -51,6 +51,46 @@ export interface UserAccount {
   createdAt: string;
   isRegistered?: boolean;
   authProvider?: 'email' | 'whatsapp' | 'google' | 'apple';
+  aiTokensBalance?: number;
+  dailyAiQuota?: number;
+  customGeminiApiKey?: string;
+  affiliateEnabled?: boolean;
+  affiliateCode?: string;
+  affiliateCommissionRate?: number; // 10%
+  affiliateTotalEarnings?: number;
+  affiliatePendingBalance?: number;
+  affiliateBankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  };
+}
+
+export interface AffiliateReferralRecord {
+  id: string;
+  affiliateUserId: string;
+  referralCode: string;
+  referredUserName: string;
+  referredUserEmail?: string;
+  planName: string;
+  transactionAmountIdr: number;
+  commissionPercent: number; // 10%
+  commissionEarnedIdr: number;
+  status: 'pending' | 'ready_to_claim' | 'paid';
+  createdAt: string;
+  isRenewal?: boolean;
+}
+
+export interface AiTokenPackage {
+  id: string;
+  name: string;
+  tokenCount: number;
+  bonusTokens?: number;
+  priceIdr: number;
+  priceUsd: number;
+  badge?: string;
+  description: string;
+  isPopular?: boolean;
 }
 
 export type BlockState = 'NOT_STARTED' | 'LEARNING' | 'MEMORIZED' | 'REVIEW_REQUIRED';

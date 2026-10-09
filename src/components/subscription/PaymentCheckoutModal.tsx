@@ -247,6 +247,17 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       StorageService.recordPayment(newTx);
       setCompletedTx(newTx);
 
+      // Record 10% affiliate commission for referral code owner
+      if (referralCode) {
+        StorageService.recordReferralCommission(
+          referralCode,
+          plan.name,
+          finalPriceIdr,
+          payerName || userAccount.parentName || 'Santri Baru',
+          false
+        );
+      }
+
       // Add activity to live feed
       StorageService.addActivity({
         userName: payerName,

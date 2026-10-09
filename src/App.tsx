@@ -30,6 +30,7 @@ import { QuickChildSwitcherModal } from './components/akun/QuickChildSwitcherMod
 import { AuthModal } from './components/auth/AuthModal';
 import { ProVsFreeModal } from './components/subscription/ProVsFreeModal';
 import { PaymentCheckoutModal } from './components/subscription/PaymentCheckoutModal';
+import { AiTokenTopupModal } from './components/subscription/AiTokenTopupModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
@@ -80,6 +81,7 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'switch'>('register');
   const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
+  const [showAiTokenModal, setShowAiTokenModal] = useState<boolean>(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -604,6 +606,10 @@ export default function App() {
             setCheckoutPlanId(planId);
             setShowCheckoutModal(true);
           }}
+          onOpenAiTokenTopup={() => {
+            setShowPlanModal(false);
+            setShowAiTokenModal(true);
+          }}
         />
 
         {/* Payment Checkout Modal */}
@@ -615,6 +621,20 @@ export default function App() {
           onSuccess={(updated) => {
             setUserAccount(updated);
             setShowCheckoutModal(false);
+          }}
+        />
+
+        {/* AI Token Top-Up Modal (Flexible Pay-as-you-go) */}
+        <AiTokenTopupModal
+          isOpen={showAiTokenModal}
+          onClose={() => setShowAiTokenModal(false)}
+          userAccount={userAccount}
+          onSuccess={(updated) => {
+            setUserAccount(updated);
+          }}
+          onOpenProModal={() => {
+            setShowAiTokenModal(false);
+            setShowPlanModal(true);
           }}
         />
 

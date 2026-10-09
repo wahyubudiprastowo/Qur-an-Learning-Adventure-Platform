@@ -21,6 +21,7 @@ interface ProVsFreeModalProps {
   userAccount: UserAccount;
   onPlanChanged: (updatedAccount: UserAccount) => void;
   onOpenCheckout: (planId: string) => void;
+  onOpenAiTokenTopup?: () => void;
 }
 
 export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
@@ -29,6 +30,7 @@ export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
   userAccount,
   onPlanChanged,
   onOpenCheckout,
+  onOpenAiTokenTopup,
 }) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>('1_year');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
@@ -171,6 +173,22 @@ export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
                   <span>Akses instan</span>
                 </span>
               </div>
+
+              {/* Alternative: Token top-up without subscription */}
+              {onOpenAiTokenTopup && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenAiTokenTopup();
+                    }}
+                    className="text-xs font-bold text-[#08B9EF] hover:underline flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                  >
+                    <span>🪙 Beli Token Koreksi AI saja tanpa langganan? Klik di sini</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -185,13 +203,13 @@ export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
               <div className="space-y-2.5 text-xs text-slate-700">
                 {[
                   'Akses tak terbatas ke 8 arena game & seluruh fitur Al-Qur\'an',
-                  'Pantau progres belajar & analitik tajwid anak',
+                  '20x evaluasi tajwid AI / hari (Fair Usage Policy) + opsi top-up token',
+                  'Pantau progres belajar & analitik tajwid anak di Dasbor Wali',
                   'Buka semua level mini game & mode PVP cerdas',
-                  'Buka fitur voice record setoran tanpa batas',
+                  'Buka fitur voice record setoran tanpa batas di memori lokal',
                   'Kapasitas lebih besar untuk buku hafalan dan catatan',
                   'Mahkota khusus & dekorasi eksklusif Sahabat Lumi',
-                  'Dukungan prioritas dari tim pengembang',
-                  'Bebas iklan komersial',
+                  'Dukungan prioritas & bebas iklan komersial',
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2">
                     <div className="w-4 h-4 rounded-full bg-amber-400 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">

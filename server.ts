@@ -94,14 +94,19 @@ async function startServer() {
         assistanceUsed = [],
         audioLevel = { peak: 50, avg: 35 },
         spokenTranscript = '',
+        customApiKey,
       } = req.body;
+
+      const userProvidedKey = ((req.headers['x-gemini-api-key'] as string) || customApiKey || '').trim();
+      const activeApiKey = userProvidedKey || process.env.GEMINI_API_KEY;
+      const activeAi = userProvidedKey ? new GoogleGenAI({ apiKey: userProvidedKey }) : ai;
 
       const words = targetArabicText ? targetArabicText.trim().split(/\s+/) : [];
       const wordCount = Math.max(1, words.length);
       const referenceDuration = Math.max(3, Math.round(wordCount * 1.3));
 
       // 1. Attempt Gemini Multimodal Evaluation with Model Fallback Cascade
-      if (process.env.GEMINI_API_KEY) {
+      if (activeApiKey) {
         const candidateModels = [
           'gemini-2.5-flash',
           'gemini-flash-latest',
@@ -152,7 +157,7 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
             }
             parts.push({ text: promptText });
 
-            const geminiPromise = ai.models.generateContent({
+            const geminiPromise = activeAi.models.generateContent({
               model: modelName,
               contents: [{ role: 'user', parts }],
               config: {

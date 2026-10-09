@@ -29,7 +29,10 @@ import {
   Trash2,
   Activity,
   Crown,
+  Coins,
+  Key,
 } from 'lucide-react';
+import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
 import { getAyahAudioUrl } from '../../data/recitersData';
@@ -109,6 +112,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
   const [latestAiCorrection, setLatestAiCorrection] = useState<AiCorrectionResult | null>(null);
   const [aiQuotaExhausted, setAiQuotaExhausted] = useState<boolean>(false);
+  const [isAiTokenModalOpen, setIsAiTokenModalOpen] = useState<boolean>(false);
 
   // Rekam Suara Database & Evaluation states
   const [studentNote, setStudentNote] = useState<string>('');
@@ -351,11 +355,15 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         assistanceUsed: assistanceUsedMap.get(ayahItem.ayahNumber) || [],
         audioLevel: audioLevel || { peak: 50, avg: 35 },
         spokenTranscript: spokenTranscript || '',
+        customApiKey: userAccount.customGeminiApiKey,
       };
 
       const response = await fetch('/api/ai-correction', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userAccount.customGeminiApiKey ? { 'x-gemini-api-key': userAccount.customGeminiApiKey } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
@@ -366,8 +374,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       const aiResult: AiCorrectionResult = await response.json();
       setLatestAiCorrection(aiResult);
 
-      // Record daily usage for analytics and quota accounting
-      StorageService.incrementDailyAiUsage(childId);
+      // Consume quota from daily allowance or purchased token balance
+      StorageService.consumeAiEvaluation(childId);
 
       // Update the stored recording in StorageService with the AI result
       const storedRec = StorageService.getRecordingByAyah(childId, selectedSurahNumber, ayahItem.ayahNumber);
@@ -1157,41 +1165,70 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         </div>
       )}
 
-      {/* AI QUOTA EXHAUSTED PRO CONVERSION CARD */}
+      {/* AI QUOTA EXHAUSTED PRO CONVERSION / TOP-UP CARD */}
       {aiQuotaExhausted && !latestAiCorrection && !isAiAnalyzing && (
-        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-3 text-left shadow-sm animate-in fade-in duration-200">
+        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-3.5 text-left shadow-sm animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs text-xl">
-                👑
+                {isPro ? '⚡' : '👑'}
               </div>
               <div>
                 <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <span>Fitur Guru AI Eksklusif PRO</span>
+                  <span>{isPro ? 'Batas Kuota Harian Pro Selesai' : 'Uji Coba Koreksi AI Selesai'}</span>
                   <Sparkles size={14} className="text-amber-500 fill-amber-500" />
                 </h4>
                 <p className="text-[11px] text-amber-800 font-semibold">
-                  Kuota Gratis Hari Ini Telah Selesai ({aiAccess.dailyLimit}/{aiAccess.dailyLimit} Terpakai)
+                  {isPro
+                    ? `Kuota harian (${aiAccess.dailyLimit}/${aiAccess.dailyLimit}) telah digunakan untuk menjaga stabilitas server.`
+                    : `Kuota gratis (${aiAccess.dailyLimit}/${aiAccess.dailyLimit}) hari ini telah selesai.`}
                 </p>
               </div>
             </div>
             <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-              Paket Free
+              {isPro ? 'Paket Pro' : 'Paket Free'}
             </span>
           </div>
 
-          <p className="text-xs text-slate-700 leading-relaxed bg-white/80 p-3 rounded-2xl border border-amber-200">
-            Alhamdulillah, rekaman hafalan ananda tetap tersimpan aman di database! Ingin evaluasi makhraj huruf otomatis, tajwid mendalam, dan ulasan Guru AI tanpa batas setiap saat?
-          </p>
+          <div className="text-xs text-slate-700 leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-amber-200 space-y-1.5">
+            <p className="font-bold text-[#164C68]">
+              ✅ Rekaman hafalan ananda tetap tersimpan aman di aplikasi!
+            </p>
+            <p className="text-slate-600 text-[11px]">
+              Orang tua/ustadz tetap dapat mendengarkan rekaman dan memberi nilai di Dasbor Wali. Untuk melanjutkan analisis makhraj dan tajwid otomatis Guru AI:
+            </p>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => onOpenPlanModal?.()}
-            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-          >
-            <Crown size={15} />
-            <span>Buka Akses Guru AI Tanpa Batas (Upgrade ke PRO) 👑</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsAiTokenModalOpen(true)}
+              className="py-3 px-4 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#164C68] hover:from-sky-500 hover:to-[#113a50] text-white font-black text-xs shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+            >
+              <Coins size={15} />
+              <span>Beli Token AI (Mulai Rp 15rb) 🪙</span>
+            </button>
+
+            {!isPro ? (
+              <button
+                type="button"
+                onClick={() => onOpenPlanModal?.()}
+                className="py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+              >
+                <Crown size={15} />
+                <span>Upgrade PRO (20x/hari) 👑</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAiTokenModalOpen(true)}
+                className="py-3 px-4 rounded-2xl border border-amber-300 bg-amber-100/70 hover:bg-amber-200 text-amber-900 font-black text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <Key size={14} />
+                <span>Pakai API Key Sendiri (Gratis)</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1214,22 +1251,58 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {isPro ? (
-                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
-                  <Crown size={11} className="text-amber-600" />
-                  <span>PRO Aktif</span>
-                </span>
-              ) : (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {aiAccess.hasCustomApiKey ? (
                 <button
                   type="button"
-                  onClick={() => onOpenPlanModal?.()}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-300 transition-colors cursor-pointer flex items-center gap-1"
-                  title="Klik untuk upgrade ke PRO"
+                  onClick={() => setIsAiTokenModalOpen(true)}
+                  className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 cursor-pointer hover:bg-emerald-200 transition-colors"
+                  title="Klik untuk kelola API Key Pribadi"
                 >
-                  <span>Free (sisa: {aiAccess.remaining}x)</span>
-                  <span className="text-amber-600 font-extrabold">• PRO 👑</span>
+                  <Key size={11} className="text-emerald-700" />
+                  <span>API Key Pribadi (Unlimited)</span>
                 </button>
+              ) : aiAccess.tokenBalance > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAiTokenModalOpen(true)}
+                  className="text-[10px] font-black px-2.5 py-1 rounded-full bg-sky-100 text-sky-900 border border-sky-300 flex items-center gap-1 cursor-pointer hover:bg-sky-200 transition-colors"
+                  title="Klik untuk top-up token"
+                >
+                  <Coins size={11} className="text-[#08B9EF]" />
+                  <span>{aiAccess.tokenBalance} Token AI</span>
+                </button>
+              ) : isPro ? (
+                <button
+                  type="button"
+                  onClick={() => setIsAiTokenModalOpen(true)}
+                  className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 cursor-pointer hover:bg-amber-200 transition-colors"
+                  title="Klik untuk top-up token tambahan"
+                >
+                  <Crown size={11} className="text-amber-600" />
+                  <span>PRO ({aiAccess.remainingDaily}/{aiAccess.dailyLimit} hari ini)</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onOpenPlanModal?.()}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-300 transition-colors cursor-pointer flex items-center gap-1"
+                    title="Klik untuk upgrade ke PRO"
+                  >
+                    <span>Free ({aiAccess.remainingDaily}/{aiAccess.dailyLimit}x)</span>
+                    <span className="text-amber-600 font-extrabold">• PRO 👑</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAiTokenModalOpen(true)}
+                    className="text-[10px] font-black px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 transition-colors cursor-pointer flex items-center gap-1"
+                    title="Top-Up Token Koreksi AI"
+                  >
+                    <Coins size={10} className="text-[#08B9EF]" />
+                    <span>Top-up AI</span>
+                  </button>
+                </div>
               )}
 
               {latestAiCorrection && (
@@ -1723,6 +1796,19 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Top-up AI Token Modal */}
+      {isAiTokenModalOpen && (
+        <AiTokenTopupModal
+          isOpen={isAiTokenModalOpen}
+          onClose={() => setIsAiTokenModalOpen(false)}
+          userAccount={userAccount}
+          onSuccess={(updated) => {
+            setRefreshVersion((v) => v + 1);
+          }}
+          onOpenProModal={onOpenPlanModal}
+        />
       )}
 
       {/* Subtle Companion Reaction in corner */}

@@ -12,6 +12,10 @@ import {
   Clock,
   LogOut,
   BarChart3,
+  Coins,
+  Lock,
+  ShieldCheck,
+  Gift,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, PointsLedgerEntry } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -22,8 +26,9 @@ import { ChildProfileModal } from './ChildProfileModal';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 import { ProVsFreeModal } from '../subscription/ProVsFreeModal';
 import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
+import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
+import { AffiliateDashboardModal } from '../affiliate/AffiliateDashboardModal';
 import { AuthModal } from '../auth/AuthModal';
-import { AuditAudioCenterModal } from './AuditAudioCenterModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -45,9 +50,10 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showWeeklyReportModal, setShowWeeklyReportModal] = useState<boolean>(false);
   const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
+  const [showAiTokenModal, setShowAiTokenModal] = useState<boolean>(false);
+  const [showAffiliateModal, setShowAffiliateModal] = useState<boolean>(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [showAuditAudioModal, setShowAuditAudioModal] = useState<boolean>(false);
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -119,34 +125,62 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         </div>
       </div>
 
-      {/* Weekly Progress Report CTA Card (Visual Charts with Recharts) */}
+      {/* 1. Dasbor Wali & Laporan Progres Anak (Terproteksi PIN & Pengaturan Password) */}
       <div
-        onClick={() => setShowWeeklyReportModal(true)}
-        className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-3xl p-5 shadow-md shadow-emerald-500/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        onClick={() => setShowParentModal(true)}
+        className="bg-gradient-to-r from-[#164C68] via-[#11405a] to-[#0f3447] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-cyan-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
       >
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs">
-            <BarChart3 size={26} />
+          <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-cyan-300 shrink-0 shadow-inner">
+            <ShieldCheck size={26} />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black font-heading">
-                Laporan Progres Mingguan Anak
+                Dasbor Wali & Laporan Progres Anak
               </h3>
-              <span className="text-[10px] bg-white/25 px-2 py-0.2 rounded-full font-bold">
-                Grafik Visual
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 border border-cyan-300/30 flex items-center gap-1">
+                <Lock size={10} />
+                <span>PIN Terlindungi</span>
               </span>
             </div>
-            <p className="text-xs text-teal-50 font-medium mt-0.5">
-              Grafik Recharts pencapaian Ziadah, Murojaah, dan Skor Mutqin
+            <p className="text-xs text-cyan-100 font-medium mt-0.5">
+              Grafik mingguan lengkap, audit rekaman suara anak, evaluasi tajwid, & atur PIN keamanan
             </p>
           </div>
         </div>
 
-        <ChevronRight size={22} className="text-white group-hover:translate-x-1 transition-transform" />
+        <ChevronRight size={22} className="text-cyan-200 group-hover:translate-x-1 transition-transform" />
       </div>
 
-      {/* Klasifikasi Fitur PRO vs FREE Card */}
+      {/* 2. Program Kemitraan & Afiliasi Santri (Sahabat Syiar 10% Komisi Renewal) */}
+      <div
+        onClick={() => setShowAffiliateModal(true)}
+        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-5 shadow-md shadow-emerald-700/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs shrink-0">
+            🤝
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black font-heading">
+                Program Sahabat Syiar & Afiliasi
+              </h3>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 shadow-2xs">
+                KOMISI 10% RECURRENT
+              </span>
+            </div>
+            <p className="text-xs text-emerald-50 font-medium mt-0.5">
+              Dapatkan komisi 10% setiap santri baru mendaftar PRO & setiap kali perpanjangan (renewal)!
+            </p>
+          </div>
+        </div>
+
+        <ChevronRight size={22} className="text-emerald-100 group-hover:translate-x-1 transition-transform" />
+      </div>
+
+      {/* 3. Klasifikasi Fitur PRO vs FREE Card */}
       <div
         onClick={() => setShowPlanModal(true)}
         className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
@@ -171,7 +205,7 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-300 font-medium mt-0.5">
-              Bandingkan hak akses 30 Juz, AI voice analysis, & 5 karakter Tamagotchi
+              Bandingkan hak akses 30 Juz, 20x AI Guru/hari, 8 arena game, & 5 karakter Tamagotchi
             </p>
           </div>
         </div>
@@ -179,7 +213,34 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         <ChevronRight size={22} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
       </div>
 
-      {/* Account / Registration Status Card (Hijalearn-style Auth trigger) */}
+      {/* 4. Top-Up Token AI Guru Card */}
+      <div
+        onClick={() => setShowAiTokenModal(true)}
+        className="bg-gradient-to-r from-sky-50 via-cyan-50 to-blue-50 border-2 border-[#08B9EF]/40 text-[#164C68] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#08B9EF] active:scale-[0.99] transition-all group"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#08B9EF] text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+            <Coins size={24} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-black font-heading">
+                Saldo & Token Koreksi AI Guru
+              </h3>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white border border-[#08B9EF]/30 text-[#164C68]">
+                {userAccount.aiTokensBalance || 0} Token Tersedia
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 font-medium mt-0.5">
+              Beli kuota koreksi makhraj & tajwid tambahan fleksibel tanpa langganan penuh
+            </p>
+          </div>
+        </div>
+
+        <ChevronRight size={22} className="text-[#08B9EF] group-hover:translate-x-1 transition-transform" />
+      </div>
+
+      {/* 5. Account / Registration Status Card (Hijalearn-style Auth trigger) */}
       <div
         onClick={() => setShowAuthModal(true)}
         className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#22C55E] transition-all group"
@@ -210,55 +271,6 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         <span className="text-xs font-bold text-[#22C55E] group-hover:underline">
           {userAccount.isRegistered ? 'Kelola' : 'Daftar Sekarang →'}
         </span>
-      </div>
-
-      {/* Parent Mode CTA Card */}
-      <div
-        onClick={() => setShowParentModal(true)}
-        className="bg-gradient-to-r from-[#164C68] to-[#103a50] text-white rounded-3xl p-5 shadow-md shadow-slate-900/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-cyan-300">
-            <Shield size={26} />
-          </div>
-          <div>
-            <h3 className="text-base font-black font-heading">
-              Dashboard & Evaluasi Orang Tua
-            </h3>
-            <p className="text-xs text-cyan-100 font-medium mt-0.5">
-              Pantau rekaman suara anak, ayat lemah, & privasi
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-cyan-200 group-hover:translate-x-1 transition-transform" />
-      </div>
-
-      {/* Audit Audio Center & Pelafalan Card (Pemeriksaan Mendalam & Kalibrasi Suara) */}
-      <div
-        onClick={() => setShowAuditAudioModal(true)}
-        className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-5 shadow-md shadow-amber-500/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs">
-            🎧
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black font-heading">
-                Audit Audio Center
-              </h3>
-              <span className="text-[10px] bg-amber-950/40 text-amber-100 px-2.5 py-0.5 rounded-full font-bold border border-white/20">
-                Pemeriksaan Mendalam
-              </span>
-            </div>
-            <p className="text-xs text-amber-50 font-medium mt-0.5">
-              Bandingkan pelafalan Ustadz & Ustadzah berdampingan, uji harakat/makhraj, & tandai evaluasi
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-amber-100 group-hover:translate-x-1 transition-transform" />
       </div>
 
       {/* Achievements / Lencana Badge Section */}
@@ -392,11 +404,26 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         onAuthSuccess={() => onRefreshData()}
       />
 
-      {/* Audit Audio Center Modal */}
-      <AuditAudioCenterModal
-        isOpen={showAuditAudioModal}
-        onClose={() => setShowAuditAudioModal(false)}
-      />
+      {/* Affiliate & Sahabat Syiar Dashboard Modal */}
+      {showAffiliateModal && (
+        <AffiliateDashboardModal
+          isOpen={showAffiliateModal}
+          onClose={() => setShowAffiliateModal(false)}
+          userAccount={userAccount}
+          onAccountUpdated={() => onRefreshData()}
+        />
+      )}
+
+      {/* Top-up AI Token Modal */}
+      {showAiTokenModal && (
+        <AiTokenTopupModal
+          isOpen={showAiTokenModal}
+          onClose={() => setShowAiTokenModal(false)}
+          userAccount={userAccount}
+          onSuccess={() => onRefreshData()}
+          onOpenProModal={() => setShowPlanModal(true)}
+        />
+      )}
     </div>
   );
 };

@@ -13,6 +13,7 @@ import {
   AudioStorageSettings,
   AudioStorageStats,
   AudioRetentionDays,
+  AffiliateReferralRecord,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
 import {
@@ -46,6 +47,7 @@ const STORAGE_KEYS = {
   SETTINGS_PREFIX: 'cahaya_tahfiz_settings_',
   AUDIO_AUDIT_FLAGS: 'cahaya_tahfiz_audio_audit_flags',
   AUDIO_STORAGE_SETTINGS: 'cahaya_tahfiz_audio_storage_settings',
+  AFFILIATE_REFERRALS: 'cahaya_tahfiz_affiliate_referrals',
 };
 
 // Initial default parent and child profiles
@@ -60,6 +62,11 @@ const DEFAULT_USER: UserAccount = {
   isRegistered: false,
   entitlementExpiry: '2027-12-31',
   createdAt: '2026-01-15T00:00:00.000Z',
+  affiliateEnabled: true,
+  affiliateCode: 'SARAH828',
+  affiliateCommissionRate: 10,
+  affiliateTotalEarnings: 59800,
+  affiliatePendingBalance: 59800,
 };
 
 const DEFAULT_CHILDREN: ChildProfile[] = [
@@ -282,20 +289,128 @@ export class StorageService {
     isPro: boolean;
     usedToday: number;
     dailyLimit: number;
-    remaining: number;
+    remainingDaily: number;
+    tokenBalance: number;
+    hasCustomApiKey: boolean;
+    source: 'daily' | 'token_balance' | 'byok' | 'none';
+    reason: 'ok' | 'need_upgrade_or_token' | 'pro_daily_exceeded_need_token';
   } {
     const account = this.getUserAccount();
+    const hasCustomApiKey = Boolean(account.customGeminiApiKey && account.customGeminiApiKey.trim().length > 10);
     const isPro = account.planTier === 'pro' || account.entitlement === 'active';
-    const dailyLimit = isPro ? 999999 : 2; // 2x kuota harian untuk paket Free sebagai uji coba
     const usedToday = this.getDailyAiUsageCount(childId);
-    const remaining = isPro ? 999999 : Math.max(0, dailyLimit - usedToday);
+    const tokenBalance = account.aiTokensBalance || 0;
+
+    // 1. BYOK (Bring Your Own Key) - completely free & unlimited from user's personal Google key
+    if (hasCustomApiKey) {
+      return {
+        allowed: true,
+        isPro,
+        usedToday,
+        dailyLimit: 9999,
+        remainingDaily: 9999,
+        tokenBalance,
+        hasCustomApiKey: true,
+        source: 'byok',
+        reason: 'ok',
+      };
+    }
+
+    // 2. Free vs Pro Daily Quota:
+    // Free: 1x kuota per hari (uji coba awal aman biaya server)
+    // Pro: 20x kuota per hari (Fair Usage Policy untuk melindungi kapasitas token server)
+    const dailyLimit = isPro ? (account.dailyAiQuota || 20) : (account.dailyAiQuota || 1);
+    const remainingDaily = Math.max(0, dailyLimit - usedToday);
+
+    if (remainingDaily > 0) {
+      return {
+        allowed: true,
+        isPro,
+        usedToday,
+        dailyLimit,
+        remainingDaily,
+        tokenBalance,
+        hasCustomApiKey: false,
+        source: 'daily',
+        reason: 'ok',
+      };
+    }
+
+    // 3. If daily quota exhausted, check purchased Top-Up AI Token Balance
+    if (tokenBalance > 0) {
+      return {
+        allowed: true,
+        isPro,
+        usedToday,
+        dailyLimit,
+        remainingDaily: 0,
+        tokenBalance,
+        hasCustomApiKey: false,
+        source: 'token_balance',
+        reason: 'ok',
+      };
+    }
+
+    // 4. Exhausted
     return {
-      allowed: isPro || usedToday < dailyLimit,
+      allowed: false,
       isPro,
       usedToday,
       dailyLimit,
-      remaining,
+      remainingDaily: 0,
+      tokenBalance: 0,
+      hasCustomApiKey: false,
+      source: 'none',
+      reason: isPro ? 'pro_daily_exceeded_need_token' : 'need_upgrade_or_token',
     };
+  }
+
+  static consumeAiEvaluation(childId: string): {
+    success: boolean;
+    source: 'daily' | 'token_balance' | 'byok' | 'none';
+  } {
+    const access = this.checkAiEvaluationAccess(childId);
+    if (!access.allowed) {
+      return { success: false, source: 'none' };
+    }
+
+    if (access.source === 'byok') {
+      return { success: true, source: 'byok' };
+    }
+
+    if (access.source === 'daily') {
+      this.incrementDailyAiUsage(childId);
+      return { success: true, source: 'daily' };
+    }
+
+    if (access.source === 'token_balance') {
+      const account = this.getUserAccount();
+      const current = account.aiTokensBalance || 0;
+      if (current > 0) {
+        account.aiTokensBalance = current - 1;
+        this.updateUserAccount({ aiTokensBalance: account.aiTokensBalance });
+      }
+      return { success: true, source: 'token_balance' };
+    }
+
+    return { success: true, source: 'daily' };
+  }
+
+  static addAiTokens(tokens: number, packageName?: string): UserAccount {
+    const account = this.getUserAccount();
+    const newBalance = (account.aiTokensBalance || 0) + tokens;
+    const updated = this.updateUserAccount({ aiTokensBalance: newBalance });
+
+    this.addActivity({
+      userName: account.parentName,
+      actionText: `berhasil top-up ${tokens} Token Koreksi AI Guru${packageName ? ` (${packageName})` : ''}!`,
+      score: 300,
+    });
+    return updated;
+  }
+
+  static setCustomGeminiApiKey(apiKey: string): UserAccount {
+    return this.updateUserAccount({ customGeminiApiKey: apiKey.trim() });
   }
 
   // --- Payment History & Transactions ---
@@ -323,6 +438,143 @@ export class StorageService {
       actionText: `berhasil mengaktifkan ${tx.planName}!`,
       score: 1000,
     });
+  }
+
+  // --- Affiliate & Referral System (Sahabat Syiar 10%) ---
+  static getAffiliateReferrals(userId: string): AffiliateReferralRecord[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.AFFILIATE_REFERRALS);
+    if (!raw) {
+      // Seed initial sample referrals for immediate delight & transparency
+      const sample: AffiliateReferralRecord[] = [
+        {
+          id: 'ref-sample-1',
+          affiliateUserId: userId,
+          referralCode: 'SARAH828',
+          referredUserName: 'Keluarga Ananda Zaidan',
+          referredUserEmail: 'zaidan.tahfiz@gmail.com',
+          planName: 'Cahaya Tahfiz Premium 1 Tahun',
+          transactionAmountIdr: 299000,
+          commissionPercent: 10,
+          commissionEarnedIdr: 29900,
+          status: 'ready_to_claim',
+          createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+          isRenewal: false,
+        },
+        {
+          id: 'ref-sample-2',
+          affiliateUserId: userId,
+          referralCode: 'SARAH828',
+          referredUserName: 'Ustadzah Fatimah (Santri Rumah Quran)',
+          referredUserEmail: 'fatimah.rq@gmail.com',
+          planName: 'Perpanjangan Paket 1 Tahun (Renewal)',
+          transactionAmountIdr: 299000,
+          commissionPercent: 10,
+          commissionEarnedIdr: 29900,
+          status: 'ready_to_claim',
+          createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+          isRenewal: true,
+        },
+      ];
+      localStorage.setItem(STORAGE_KEYS.AFFILIATE_REFERRALS, JSON.stringify(sample));
+      return sample.filter((r) => r.affiliateUserId === userId);
+    }
+    try {
+      const all: AffiliateReferralRecord[] = JSON.parse(raw);
+      return all.filter((r) => r.affiliateUserId === userId);
+    } catch {
+      return [];
+    }
+  }
+
+  static toggleAffiliateProgram(enabled: boolean): UserAccount {
+    const account = this.getUserAccount();
+    if (!account.affiliateCode) {
+      account.affiliateCode = this.generateAffiliateCode(account);
+    }
+    return this.updateUserAccount({
+      affiliateEnabled: enabled,
+      affiliateCode: account.affiliateCode,
+      affiliateCommissionRate: 10,
+    });
+  }
+
+  static generateAffiliateCode(user: UserAccount): string {
+    const cleanName = (user.parentName || 'TAHFIZ')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 6) || 'SYIAR';
+    const rand = Math.floor(100 + Math.random() * 900);
+    return `${cleanName}${rand}`;
+  }
+
+  static recordReferralCommission(
+    referralCode: string,
+    planName: string,
+    amountIdr: number,
+    studentName: string,
+    isRenewal: boolean = false
+  ): boolean {
+    const cleanCode = referralCode.trim().toUpperCase();
+    const users = this.getAllUsers();
+    let owner = users.find((u) => u.affiliateCode?.toUpperCase() === cleanCode);
+    const currentUser = this.getUserAccount();
+    if (!owner && currentUser.affiliateCode?.toUpperCase() === cleanCode) {
+      owner = currentUser;
+    }
+    if (!owner) return false;
+
+    const commissionPercent = owner.affiliateCommissionRate || 10;
+    const commissionEarnedIdr = Math.round((amountIdr * commissionPercent) / 100);
+
+    const record: AffiliateReferralRecord = {
+      id: `aff-ref-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      affiliateUserId: owner.id,
+      referralCode: cleanCode,
+      referredUserName: studentName,
+      planName: isRenewal ? `${planName} (Perpanjangan/Renewal)` : planName,
+      transactionAmountIdr: amountIdr,
+      commissionPercent,
+      commissionEarnedIdr,
+      status: 'ready_to_claim',
+      createdAt: new Date().toISOString(),
+      isRenewal,
+    };
+
+    const raw = localStorage.getItem(STORAGE_KEYS.AFFILIATE_REFERRALS);
+    let allRecords: AffiliateReferralRecord[] = [];
+    if (raw) {
+      try {
+        allRecords = JSON.parse(raw);
+      } catch {}
+    }
+    allRecords.unshift(record);
+    localStorage.setItem(STORAGE_KEYS.AFFILIATE_REFERRALS, JSON.stringify(allRecords));
+
+    // Update owner balances
+    const newTotal = (owner.affiliateTotalEarnings || 0) + commissionEarnedIdr;
+    const newPending = (owner.affiliatePendingBalance || 0) + commissionEarnedIdr;
+    owner.affiliateTotalEarnings = newTotal;
+    owner.affiliatePendingBalance = newPending;
+    this.saveUserToRegistry(owner);
+
+    if (currentUser.id === owner.id) {
+      this.updateUserAccount({
+        affiliateTotalEarnings: newTotal,
+        affiliatePendingBalance: newPending,
+      });
+    }
+
+    this.addActivity({
+      userName: owner.parentName,
+      actionText: `mendapatkan komisi 10% Sahabat Syiar (Rp ${commissionEarnedIdr.toLocaleString('id-ID')}) dari pendaftaran santri baru!`,
+      score: 500,
+    });
+
+    return true;
+  }
+
+  static updateParentPin(newPin: string): UserAccount {
+    return this.updateUserAccount({ pin: newPin.trim() });
   }
 
   // --- Live Activity Feed & Leaderboard ---

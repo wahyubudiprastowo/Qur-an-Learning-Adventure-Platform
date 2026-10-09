@@ -27,7 +27,11 @@ import {
   HardDrive,
   ExternalLink,
   Activity,
+  Coins,
+  Key,
+  Crown,
 } from 'lucide-react';
+import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress, TeacherEvaluation, EvaluationGrade, AudioRetentionDays } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { AudioDatabaseService } from '../../services/audioDatabaseService';
@@ -95,6 +99,17 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   const [storageStats, setStorageStats] = useState(() =>
     StorageService.getAudioStorageStats(activeChild.id)
   );
+
+  // AI Token and BYOK Management States
+  const [isTokenModalOpen, setIsTokenModalOpen] = useState<boolean>(false);
+  const [byokInput, setByokInput] = useState<string>(userAccount.customGeminiApiKey || '');
+  const [byokMessage, setByokMessage] = useState<string>('');
+
+  // Parent PIN Configuration States
+  const [newPinInput, setNewPinInput] = useState<string>('');
+  const [confirmPinInput, setConfirmPinInput] = useState<string>('');
+  const [pinChangeError, setPinChangeError] = useState<string>('');
+  const [pinChangeSuccess, setPinChangeSuccess] = useState<string>('');
 
   // Synchronize fresh recordings and progress whenever dashboard opens or active child changes
   useEffect(() => {
@@ -339,11 +354,12 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
               </button>
               <button
                 onClick={() => setActiveTab('privacy')}
-                className={`flex-1 min-w-[65px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                className={`flex-1 min-w-[95px] py-1.5 px-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center justify-center gap-1 ${
                   activeTab === 'privacy' ? 'bg-white text-[#164C68] shadow-xs' : 'text-[#8C9BA7]'
                 }`}
               >
-                Privasi
+                <Lock size={12} />
+                <span>Keamanan & PIN</span>
               </button>
               <button
                 onClick={() => setActiveTab('subscription')}
@@ -1104,19 +1120,107 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
               </div>
             )}
 
-            {/* TAB 4: PRIVACY & DATA CONTROLS */}
+            {/* TAB 4: KEAMANAN, PRIVASI & PENGATURAN PIN ORANG TUA */}
             {activeTab === 'privacy' && (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 text-xs">
+              <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1 text-xs text-left">
+                {/* Form Ubah PIN Orang Tua */}
+                <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-2xl border border-cyan-200 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-[#164C68] text-white flex items-center justify-center shadow-xs">
+                      <Lock size={16} />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-[#164C68] text-xs font-heading">
+                        Atur / Ganti PIN Keamanan Orang Tua
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        PIN ini digunakan untuk membuka Dasbor Wali, audit rekaman, dan laporan anak.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          PIN Baru (4-6 Angka):
+                        </label>
+                        <input
+                          type="password"
+                          maxLength={6}
+                          value={newPinInput}
+                          onChange={(e) => {
+                            setNewPinInput(e.target.value);
+                            setPinChangeError('');
+                          }}
+                          placeholder="Misal: 1234"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-center tracking-widest font-mono font-bold text-xs bg-white focus:border-[#08B9EF] outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          Konfirmasi PIN Baru:
+                        </label>
+                        <input
+                          type="password"
+                          maxLength={6}
+                          value={confirmPinInput}
+                          onChange={(e) => {
+                            setConfirmPinInput(e.target.value);
+                            setPinChangeError('');
+                          }}
+                          placeholder="Ketik ulang PIN"
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 text-center tracking-widest font-mono font-bold text-xs bg-white focus:border-[#08B9EF] outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    {pinChangeError && (
+                      <p className="text-xs text-rose-500 font-bold">{pinChangeError}</p>
+                    )}
+
+                    {pinChangeSuccess && (
+                      <div className="p-2 bg-emerald-100 border border-emerald-300 rounded-xl text-emerald-800 text-xs font-bold text-center">
+                        {pinChangeSuccess}
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!newPinInput.trim() || newPinInput.trim().length < 4) {
+                          setPinChangeError('PIN minimal 4 digit angka.');
+                          return;
+                        }
+                        if (newPinInput !== confirmPinInput) {
+                          setPinChangeError('Konfirmasi PIN tidak cocok.');
+                          return;
+                        }
+                        StorageService.updateParentPin(newPinInput);
+                        setPinChangeSuccess('✅ PIN Keamanan Orang Tua berhasil diperbarui!');
+                        setNewPinInput('');
+                        setConfirmPinInput('');
+                        setTimeout(() => setPinChangeSuccess(''), 3500);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#164C68] hover:bg-[#113a50] text-white font-black text-xs cursor-pointer shadow-xs transition-all"
+                    >
+                      Simpan PIN Keamanan Baru
+                    </button>
+                  </div>
+                </div>
+
+                {/* Info Keamanan Privasi Rekaman */}
                 <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-1">
                   <span className="font-bold text-emerald-900 flex items-center gap-1.5">
                     <ShieldCheck size={16} /> Keamanan & Perlindungan Privasi Anak
                   </span>
                   <p className="text-emerald-800 leading-relaxed text-[11px]">
-                    Seluruh rekaman suara anak disimpan secara privat dan hanya dapat didengarkan oleh akun orang tua terverifikasi. Tidak ada publikasi ke publik.
+                    Seluruh rekaman suara anak disimpan secara lokal & terenkripsi di perangkat ini dan hanya dapat diakses melalui verifikasi PIN orang tua terdaftar.
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-2">
+                {/* Ekspor Salinan Data */}
+                <div className="space-y-2 pt-1">
                   <Button
                     variant="outline"
                     size="md"
@@ -1130,28 +1234,149 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
               </div>
             )}
 
-            {/* TAB 5: SUBSCRIPTION & ENTITLEMENT */}
+            {/* TAB 5: SUBSCRIPTION, TOKENS & AI GOVERNANCE */}
             {activeTab === 'subscription' && (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 text-xs">
-                <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-2xl space-y-2">
+              <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1 text-xs text-left">
+                {/* Plan Card */}
+                <div className="p-4 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 border border-cyan-200 rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-[#164C68] text-sm font-heading">
-                      Tahfiz Full Access
-                    </span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold uppercase text-[10px]">
-                      {userAccount.entitlement}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">👑</span>
+                      <div>
+                        <span className="font-black text-[#164C68] text-sm font-heading block">
+                          {userAccount.planTier === 'pro' ? 'Cahaya Tahfiz Premium PRO' : 'Paket Cahaya Tahfiz Free'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-semibold">
+                          Status: {userAccount.entitlement === 'active' || userAccount.planTier === 'pro' ? 'Aktif Penuh' : 'Akses Dasar'}
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] ${
+                      userAccount.planTier === 'pro' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {userAccount.planTier.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-[#8C9BA7] font-medium leading-relaxed">
-                    Akses penuh untuk seluruh 114 surah, fitur rekaman suara, analisis kelancaran, Iqra Jilid A-4, Tajwid lengkap, dan multi-profil anak.
+                  <p className="text-slate-600 font-medium leading-relaxed text-[11px]">
+                    {userAccount.planTier === 'pro'
+                      ? 'Akses tak terbatas seluruh 114 surah, arena game, rekaman audio HQ, analitik tajwid orang tua, dan 20x kuota koreksi AI/hari (FUP).'
+                      : 'Paket dasar gratis mencakup surat-surat pilihan, rekaman lokal, dan 1x uji coba koreksi AI/hari.'}
                   </p>
-                  <div className="text-[11px] text-[#164C68] font-bold pt-1 border-t border-cyan-100">
-                    Masa Berlaku Aktif hingga: {userAccount.entitlementExpiry}
+                  <div className="text-[11px] text-[#164C68] font-bold pt-1 border-t border-cyan-100 flex items-center justify-between">
+                    <span>Masa Aktif hingga: {userAccount.entitlementExpiry}</span>
+                  </div>
+                </div>
+
+                {/* AI Token & Quota Balance Card */}
+                <div className="p-4 bg-gradient-to-r from-amber-50/70 via-orange-50/50 to-yellow-50/70 border border-amber-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                        <Coins size={16} />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-amber-950 text-xs">
+                          Saldo Token & Kuota AI Guru
+                        </h4>
+                        <p className="text-[10px] text-amber-800">
+                          Analisis makhraj & tajwid mendalam via audio multimodal
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTokenModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs shadow-xs cursor-pointer flex items-center gap-1 transition-all"
+                    >
+                      <Coins size={13} />
+                      <span>Top-Up Token</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-center">
+                    <div className="p-2.5 bg-white/90 rounded-xl border border-amber-200">
+                      <span className="text-[10px] font-bold text-slate-500 block">Kuota AI Harian</span>
+                      <span className="text-sm font-black text-[#164C68]">
+                        {StorageService.getDailyAiUsageCount(activeChild.id)} / {userAccount.planTier === 'pro' ? 20 : 1}
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Reset otomatis tiap hari</span>
+                    </div>
+                    <div className="p-2.5 bg-white/90 rounded-xl border border-amber-200">
+                      <span className="text-[10px] font-bold text-slate-500 block">Saldo Token Tambahan</span>
+                      <span className="text-sm font-black text-amber-600">
+                        {userAccount.aiTokensBalance || 0} Token
+                      </span>
+                      <span className="text-[9px] text-slate-400 block">Tanpa kedaluwarsa</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BYOK: Bring Your Own Key */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <Key size={16} className="text-[#08B9EF]" />
+                    <h4 className="font-black text-[#164C68] text-xs">
+                      Opsi Lanjutan: Gunakan Google Gemini API Key Sendiri
+                    </h4>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Bagi ustadz, sekolah, atau orang tua yang memiliki akun Google, Anda dapat membuat Google Gemini API Key gratis di Google AI Studio. Jika diisi, penggunaan AI akan 100% gratis tanpa batas kuota!
+                  </p>
+                  <div className="space-y-1.5">
+                    <input
+                      type="password"
+                      value={byokInput}
+                      onChange={(e) => setByokInput(e.target.value)}
+                      placeholder="Masukkan AIzaSy... (kosongkan untuk pakai server)"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono bg-white focus:border-[#08B9EF] outline-hidden"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          StorageService.setCustomGeminiApiKey(byokInput);
+                          setByokMessage('✅ API Key berhasil disimpan!');
+                          setTimeout(() => setByokMessage(''), 3000);
+                        }}
+                        className="py-1.5 px-3 rounded-lg bg-[#164C68] hover:bg-[#113a50] text-white font-bold text-xs cursor-pointer transition-all"
+                      >
+                        Simpan Key
+                      </button>
+                      {userAccount.customGeminiApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setByokInput('');
+                            StorageService.setCustomGeminiApiKey('');
+                            setByokMessage('API Key dihapus (kembali ke kuota server).');
+                            setTimeout(() => setByokMessage(''), 3000);
+                          }}
+                          className="py-1.5 px-2.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                      {byokMessage && (
+                        <span className="text-xs text-emerald-700 font-bold">{byokMessage}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
+        )}
+
+        {/* Top-Up AI Token Modal */}
+        {isTokenModalOpen && (
+          <AiTokenTopupModal
+            isOpen={isTokenModalOpen}
+            onClose={() => setIsTokenModalOpen(false)}
+            userAccount={userAccount}
+            onSuccess={() => {
+              // Refresh
+            }}
+          />
         )}
       </div>
     </div>
