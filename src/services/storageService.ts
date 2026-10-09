@@ -10,6 +10,9 @@ import {
   PointsEventType,
   PaymentTransaction,
   AudioAuditFlag,
+  AudioStorageSettings,
+  AudioStorageStats,
+  AudioRetentionDays,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
 import {
@@ -42,6 +45,7 @@ const STORAGE_KEYS = {
   GAMES_PREFIX: 'cahaya_tahfiz_games_',
   SETTINGS_PREFIX: 'cahaya_tahfiz_settings_',
   AUDIO_AUDIT_FLAGS: 'cahaya_tahfiz_audio_audit_flags',
+  AUDIO_STORAGE_SETTINGS: 'cahaya_tahfiz_audio_storage_settings',
 };
 
 // Initial default parent and child profiles
@@ -662,6 +666,162 @@ export class StorageService {
     list = list.filter((r) => r.id !== recordingId);
     localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + childId, JSON.stringify(list));
     AudioDatabaseService.deleteAudio(recordingId).catch(() => {});
+  }
+
+  // --- Audio Storage Settings & Retention Policy ---
+  static getAudioStorageSettings(): AudioStorageSettings {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUDIO_STORAGE_SETTINGS);
+    if (!raw) {
+      const defaultSettings: AudioStorageSettings = {
+        retentionDays: 30, // Default 30 hari otomatis dibersihkan
+        autoCleanupEnabled: true,
+        saveToDeviceEnabled: true,
+      };
+      localStorage.setItem(STORAGE_KEYS.AUDIO_STORAGE_SETTINGS, JSON.stringify(defaultSettings));
+      return defaultSettings;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {
+        retentionDays: 30,
+        autoCleanupEnabled: true,
+        saveToDeviceEnabled: true,
+      };
+    }
+  }
+
+  static updateAudioStorageSettings(updates: Partial<AudioStorageSettings>): AudioStorageSettings {
+    const current = this.getAudioStorageSettings();
+    const updated: AudioStorageSettings = { ...current, ...updates };
+    localStorage.setItem(STORAGE_KEYS.AUDIO_STORAGE_SETTINGS, JSON.stringify(updated));
+    return updated;
+  }
+
+  /**
+   * Automatically cleans up recordings older than retentionDays (e.g. 7 or 30 days)
+   * to ensure device and browser database storage does not fill up in multi-user settings.
+   */
+  static runAutoCleanupRecordings(childId?: string): { deletedCount: number; remainingCount: number } {
+    const settings = this.getAudioStorageSettings();
+    if (!settings.autoCleanupEnabled || settings.retentionDays <= 0) {
+      const currentList = childId ? this.getRecordings(childId) : [];
+      return { deletedCount: 0, remainingCount: currentList.length };
+    }
+
+    const cutoffMs = Date.now() - settings.retentionDays * 24 * 60 * 60 * 1000;
+    let totalDeleted = 0;
+
+    const childrenToClean: string[] = childId ? [childId] : this.getChildren().map((c) => c.id);
+
+    for (const cId of childrenToClean) {
+      const list = this.getRecordings(cId);
+      const toKeep: AyahRecording[] = [];
+      const toDeleteIds: string[] = [];
+
+      for (const rec of list) {
+        const recTime = new Date(rec.createdAt).getTime();
+        if (recTime < cutoffMs) {
+          toDeleteIds.push(rec.id);
+        } else {
+          toKeep.push(rec);
+        }
+      }
+
+      if (toDeleteIds.length > 0) {
+        totalDeleted += toDeleteIds.length;
+        localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + cId, JSON.stringify(toKeep));
+        AudioDatabaseService.deleteMultipleAudio(toDeleteIds).catch(() => {});
+      }
+    }
+
+    this.updateAudioStorageSettings({ lastCleanupTimestamp: new Date().toISOString() });
+
+    const remaining = childId ? this.getRecordings(childId).length : 0;
+    return { deletedCount: totalDeleted, remainingCount: remaining };
+  }
+
+  /**
+   * Deletes all recordings for a child, or optionally for a specific surah.
+   */
+  static deleteAllRecordings(childId: string, surahNumber?: number): number {
+    const list = this.getRecordings(childId);
+    let toDeleteIds: string[] = [];
+    let toKeep: AyahRecording[] = [];
+
+    if (surahNumber !== undefined) {
+      for (const rec of list) {
+        if (rec.surahNumber === surahNumber) {
+          toDeleteIds.push(rec.id);
+        } else {
+          toKeep.push(rec);
+        }
+      }
+    } else {
+      toDeleteIds = list.map((r) => r.id);
+      toKeep = [];
+    }
+
+    localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + childId, JSON.stringify(toKeep));
+    if (toDeleteIds.length > 0) {
+      AudioDatabaseService.deleteMultipleAudio(toDeleteIds).catch(() => {});
+    }
+    return toDeleteIds.length;
+  }
+
+  /**
+   * Computes storage metrics for a child's recordings.
+   */
+  static getAudioStorageStats(childId: string): AudioStorageStats {
+    const list = this.getRecordings(childId);
+    const totalRecordings = list.length;
+    let totalDurationSeconds = 0;
+    let estimatedSizeBytes = 0;
+    let pendingCount = 0;
+    let evaluatedCount = 0;
+
+    let oldestMs: number | null = null;
+    let newestMs: number | null = null;
+
+    for (const rec of list) {
+      totalDurationSeconds += rec.durationSeconds || 0;
+      if (rec.evaluation?.status === 'evaluated') {
+        evaluatedCount++;
+      } else {
+        pendingCount++;
+      }
+
+      // If dataUrl exists, count its byte length; otherwise estimate ~16KB per second of voice
+      if (rec.audioDataUrl) {
+        estimatedSizeBytes += rec.audioDataUrl.length;
+      } else {
+        estimatedSizeBytes += Math.max(8192, (rec.durationSeconds || 5) * 16000);
+      }
+
+      const t = new Date(rec.createdAt).getTime();
+      if (!isNaN(t)) {
+        if (oldestMs === null || t < oldestMs) oldestMs = t;
+        if (newestMs === null || t > newestMs) newestMs = t;
+      }
+    }
+
+    let estimatedSizeFormatted = '0 KB';
+    if (estimatedSizeBytes > 1024 * 1024) {
+      estimatedSizeFormatted = `${(estimatedSizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else if (estimatedSizeBytes > 0) {
+      estimatedSizeFormatted = `${Math.round(estimatedSizeBytes / 1024)} KB`;
+    }
+
+    return {
+      totalRecordings,
+      totalDurationSeconds,
+      estimatedSizeBytes,
+      estimatedSizeFormatted,
+      oldestRecordingDate: oldestMs ? new Date(oldestMs).toISOString() : null,
+      newestRecordingDate: newestMs ? new Date(newestMs).toISOString() : null,
+      pendingCount,
+      evaluatedCount,
+    };
   }
 
   // --- Iqra & Tajwid & Vocab Progress ---

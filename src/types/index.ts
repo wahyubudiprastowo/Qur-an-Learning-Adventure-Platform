@@ -146,6 +146,20 @@ export interface TeacherEvaluation {
   evaluatedAt: string;
 }
 
+export interface AiCorrectionResult {
+  overallScore: number;
+  grade: EvaluationGrade;
+  accuracyScore: number;
+  tajwidScore: number;
+  fluencyScore: number;
+  feedback: string;
+  tajwidNotes: string[];
+  correctedLafal?: string;
+  isPassed: boolean;
+  evaluatedAt: string;
+  modelUsed?: string;
+}
+
 export interface AyahRecording {
   id: string;
   childId: string;
@@ -167,6 +181,27 @@ export interface AyahRecording {
   needsReview: boolean;
   studentNote?: string;
   evaluation?: TeacherEvaluation;
+  aiCorrection?: AiCorrectionResult;
+}
+
+export type AudioRetentionDays = 7 | 14 | 30 | 60 | 0; // 0 = simpan selamanya (manual)
+
+export interface AudioStorageSettings {
+  retentionDays: AudioRetentionDays;
+  autoCleanupEnabled: boolean;
+  saveToDeviceEnabled: boolean;
+  lastCleanupTimestamp?: string;
+}
+
+export interface AudioStorageStats {
+  totalRecordings: number;
+  totalDurationSeconds: number;
+  estimatedSizeBytes: number;
+  estimatedSizeFormatted: string;
+  oldestRecordingDate: string | null;
+  newestRecordingDate: string | null;
+  pendingCount: number;
+  evaluatedCount: number;
 }
 
 export type PointsEventType =

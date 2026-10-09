@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -24,8 +24,10 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  HardDrive,
+  ExternalLink,
 } from 'lucide-react';
-import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress, TeacherEvaluation, EvaluationGrade } from '../../types';
+import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress, TeacherEvaluation, EvaluationGrade, AudioRetentionDays } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { AudioDatabaseService } from '../../services/audioDatabaseService';
 import { CompanionService } from '../../services/companionService';
@@ -83,6 +85,24 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   const [ayahProgress, setAyahProgress] = useState<ChildAyahProgress[]>(() =>
     StorageService.getAyahProgress(activeChild.id)
   );
+
+  const [storageSettings, setStorageSettings] = useState(() =>
+    StorageService.getAudioStorageSettings()
+  );
+  const [storageStats, setStorageStats] = useState(() =>
+    StorageService.getAudioStorageStats(activeChild.id)
+  );
+
+  // Synchronize fresh recordings and progress whenever dashboard opens or active child changes
+  useEffect(() => {
+    if (isOpen) {
+      StorageService.runAutoCleanupRecordings(activeChild.id);
+      setRecordings(StorageService.getRecordings(activeChild.id));
+      setAyahProgress(StorageService.getAyahProgress(activeChild.id));
+      setStorageStats(StorageService.getAudioStorageStats(activeChild.id));
+      setStorageSettings(StorageService.getAudioStorageSettings());
+    }
+  }, [isOpen, activeChild.id, activeTab]);
 
   if (!isOpen) return null;
 
@@ -611,6 +631,44 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
 
               return (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {/* Storage Info & Auto Retention Control */}
+                  <div className="p-3 bg-white border border-[#C9E1ED] rounded-2xl space-y-2 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-[#164C68]">
+                        <HardDrive size={14} className="text-[#08B9EF]" />
+                        <span>Penyimpanan Lokal: {storageStats.totalRecordings} Rekaman ({storageStats.estimatedSizeFormatted})</span>
+                      </div>
+                      <span className="text-[10px] bg-slate-100 text-[#8C9BA7] px-2 py-0.5 rounded-md font-semibold">
+                        Retensi: {storageSettings.retentionDays === 0 ? 'Selamanya' : `${storageSettings.retentionDays} Hari`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-1 text-[11px] pt-1 border-t border-slate-100">
+                      <span className="text-[#8C9BA7]">Hapus otomatis:</span>
+                      <div className="flex gap-1">
+                        {([7, 14, 30, 0] as AudioRetentionDays[]).map((d) => (
+                          <button
+                            key={d}
+                            onClick={() => {
+                              const updated = StorageService.updateAudioStorageSettings({ retentionDays: d, autoCleanupEnabled: d > 0 });
+                              setStorageSettings(updated);
+                              StorageService.runAutoCleanupRecordings(activeChild.id);
+                              setRecordings(StorageService.getRecordings(activeChild.id));
+                              setStorageStats(StorageService.getAudioStorageStats(activeChild.id));
+                            }}
+                            className={`px-2 py-0.5 rounded-lg font-bold text-[10px] cursor-pointer transition-colors ${
+                              storageSettings.retentionDays === d
+                                ? 'bg-[#08B9EF] text-white'
+                                : 'bg-slate-100 text-[#164C68] hover:bg-slate-200'
+                            }`}
+                          >
+                            {d === 0 ? 'Selamanya' : `${d}h`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Filter Pills */}
                   <div className="flex items-center gap-1.5 p-1 bg-white border border-[#C9E1ED] rounded-2xl shadow-2xs">
                     <button
@@ -708,8 +766,16 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                               )}
 
                               <button
+                                onClick={() => AudioDatabaseService.downloadAudioFile(rec)}
+                                className="text-sky-500 hover:text-sky-700 p-1 transition-colors cursor-pointer"
+                                title="Unduh Rekaman Audio ke Perangkat"
+                              >
+                                <Download size={14} />
+                              </button>
+
+                              <button
                                 onClick={() => handleDeleteRecording(rec.id)}
-                                className="text-rose-400 hover:text-rose-600 p-1 transition-colors"
+                                className="text-rose-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
                                 title="Hapus Rekaman"
                               >
                                 <Trash2 size={14} />
@@ -753,6 +819,24 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                               <span>Qari ({rec.referenceDurationSeconds}s)</span>
                             </button>
                           </div>
+
+                          {/* AI Correction Summary */}
+                          {rec.aiCorrection && (
+                            <div className="p-2.5 bg-sky-50/90 border border-sky-200 rounded-xl space-y-1 text-xs">
+                              <div className="flex items-center justify-between text-[10px] font-black text-[#164C68]">
+                                <span className="flex items-center gap-1 text-[#08B9EF]">
+                                  <Sparkles size={11} className="text-amber-500 fill-amber-500" />
+                                  Koreksi Otomatis AI: {rec.aiCorrection.overallScore}% ({rec.aiCorrection.grade.toUpperCase()})
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  Tajwid: {rec.aiCorrection.tajwidScore}% • Lafal: {rec.aiCorrection.accuracyScore}%
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-700 italic">
+                                "{rec.aiCorrection.feedback}"
+                              </p>
+                            </div>
+                          )}
 
                           {/* Teacher / Parent Evaluation Card if already evaluated */}
                           {isEvaluated && !isFormOpen && (
