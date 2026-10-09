@@ -147,7 +147,19 @@ export class StorageService {
       this.saveUserToRegistry(DEFAULT_USER);
       return DEFAULT_USER;
     }
-    return JSON.parse(data);
+    try {
+      const parsed: UserAccount = JSON.parse(data);
+      if (!parsed.affiliateCode) {
+        parsed.affiliateCode = this.generateAffiliateCode(parsed);
+        parsed.affiliateCommissionRate = 10;
+        parsed.affiliateEnabled = true;
+        localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(parsed));
+        this.saveUserToRegistry(parsed);
+      }
+      return parsed;
+    } catch {
+      return DEFAULT_USER;
+    }
   }
 
   static updateUserAccount(updates: Partial<UserAccount>): UserAccount {
@@ -566,7 +578,9 @@ export class StorageService {
 
     this.addActivity({
       userName: owner.parentName,
-      actionText: `mendapatkan komisi 10% Sahabat Syiar (Rp ${commissionEarnedIdr.toLocaleString('id-ID')}) dari pendaftaran santri baru!`,
+      actionText: isRenewal
+        ? `mendapatkan komisi 10% Sahabat Syiar (Rp ${commissionEarnedIdr.toLocaleString('id-ID')}) dari perpanjangan (renewal) santri PRO! 🔄`
+        : `mendapatkan komisi 10% Sahabat Syiar (Rp ${commissionEarnedIdr.toLocaleString('id-ID')}) dari pendaftaran santri baru! 🎓`,
       score: 500,
     });
 

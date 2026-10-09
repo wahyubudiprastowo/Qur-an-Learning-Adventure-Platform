@@ -16,6 +16,11 @@ import {
   Lock,
   ShieldCheck,
   Gift,
+  Copy,
+  Check,
+  Share2,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, PointsLedgerEntry } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -29,6 +34,7 @@ import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
 import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { AffiliateDashboardModal } from '../affiliate/AffiliateDashboardModal';
 import { AuthModal } from '../auth/AuthModal';
+import { PusatIbadahDoaModal } from '../ibadah/PusatIbadahDoaModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -52,8 +58,33 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
   const [showAiTokenModal, setShowAiTokenModal] = useState<boolean>(false);
   const [showAffiliateModal, setShowAffiliateModal] = useState<boolean>(false);
+  const [showIbadahModal, setShowIbadahModal] = useState<boolean>(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [copiedAffiliate, setCopiedAffiliate] = useState<boolean>(false);
+  const affiliateCode = userAccount.affiliateCode || StorageService.generateAffiliateCode(userAccount);
+
+  const handleCopyAffiliateCode = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText(affiliateCode);
+    setCopiedAffiliate(true);
+    setTimeout(() => setCopiedAffiliate(false), 2500);
+  };
+
+  const handleShareAffiliateWhatsApp = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const shareUrl = `https://cahayatahfiz.id/daftar?ref=${affiliateCode}`;
+    const text = `Assalamu'alaikum! Yuk temani anak belajar & menghafal Al-Qur'an dengan aplikasi cerdas Cahaya Tahfiz. Belajar jadi seru dengan Guru AI, arena game interaktif, dan laporan tajwid lengkap! Dapatkan akses khusus dengan kode rujukan saya: *${affiliateCode}* di link ini: ${shareUrl}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleShareAffiliateTelegram = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const shareUrl = `https://cahayatahfiz.id/daftar?ref=${affiliateCode}`;
+    const text = `Assalamu'alaikum! Yuk temani anak belajar & menghafal Al-Qur'an dengan aplikasi cerdas Cahaya Tahfiz. Belajar jadi seru dengan Guru AI, arena game interaktif, dan laporan tajwid lengkap! Dapatkan akses khusus dengan kode rujukan saya: *${affiliateCode}* di link ini: ${shareUrl}`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   const [ledgerEntries] = useState<PointsLedgerEntry[]>(() =>
     StorageService.getLedger(activeChild.id)
   );
@@ -154,30 +185,117 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
       </div>
 
       {/* 2. Program Kemitraan & Afiliasi Santri (Sahabat Syiar 10% Komisi Renewal) */}
+      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-5 shadow-md shadow-emerald-700/20 space-y-3.5 border border-emerald-500/50">
+        <div
+          onClick={() => setShowAffiliateModal(true)}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs shrink-0">
+              🤝
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black font-heading">
+                  Program Sahabat Syiar & Afiliasi
+                </h3>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 shadow-2xs">
+                  KOMISI 10% RECURRENT
+                </span>
+                <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full border ${
+                  userAccount.affiliateEnabled
+                    ? 'bg-emerald-200 text-emerald-950 border-emerald-300'
+                    : 'bg-white/20 text-white border-white/30'
+                }`}>
+                  {userAccount.affiliateEnabled ? '🟢 AKTIF' : '⚪ BISA DIAKTIFKAN'}
+                </span>
+              </div>
+              <p className="text-xs text-emerald-50 font-medium mt-0.5">
+                Dapatkan komisi 10% setiap santri baru mendaftar PRO & <strong>setiap kali perpanjangan (renewal)</strong>!
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight size={22} className="text-emerald-100 group-hover:translate-x-1 transition-transform shrink-0" />
+        </div>
+
+        {/* Kode Referral Box & Share Buttons */}
+        <div className="bg-black/15 backdrop-blur-xs p-3.5 rounded-2xl border border-white/20 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <span className="text-[10px] font-bold text-emerald-200 block uppercase tracking-wider">
+                Kode Afiliasi Akun Anda:
+              </span>
+              <span className="text-base sm:text-lg font-black font-mono tracking-wider text-amber-300">
+                {affiliateCode}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyAffiliateCode}
+              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#164C68] font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+            >
+              {copiedAffiliate ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              <span>{copiedAffiliate ? 'Tersalin!' : 'Salin Kode'}</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1 border-t border-white/10 flex-wrap sm:flex-nowrap">
+            <button
+              type="button"
+              onClick={handleShareAffiliateWhatsApp}
+              className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+            >
+              <MessageCircle size={14} />
+              <span>Bagi ke WA</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleShareAffiliateTelegram}
+              className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+            >
+              <Send size={13} />
+              <span>Telegram</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAffiliateModal(true)}
+              className="w-full sm:w-auto py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 text-center"
+            >
+              Dasbor & Tarik Dana →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Pusat Ibadah, Jadwal Sholat & Doa Santri (Pengganti Audit Audio Center) */}
       <div
-        onClick={() => setShowAffiliateModal(true)}
-        className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-5 shadow-md shadow-emerald-700/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        onClick={() => setShowIbadahModal(true)}
+        className="bg-gradient-to-r from-sky-600 via-cyan-600 to-teal-700 text-white rounded-3xl p-5 shadow-md shadow-cyan-900/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group border border-cyan-400/40"
       >
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs shrink-0">
-            🤝
+          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl shadow-xs shrink-0">
+            🕌
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-black font-heading">
-                Program Sahabat Syiar & Afiliasi
+                Pusat Ibadah, Sholat & Doa Santri
               </h3>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 shadow-2xs">
-                KOMISI 10% RECURRENT
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-300 text-cyan-950 shadow-2xs">
+                PENGGANTI AUDIO CENTER • BARU
               </span>
             </div>
-            <p className="text-xs text-emerald-50 font-medium mt-0.5">
-              Dapatkan komisi 10% setiap santri baru mendaftar PRO & setiap kali perpanjangan (renewal)!
+            <p className="text-xs text-cyan-50 font-medium mt-0.5">
+              Jadwal sholat 5 waktu, waktu emas hafalan (Ba'da Subuh & Maghrib), doa anak sholeh lengkap audio, & tasbih digital
             </p>
           </div>
         </div>
 
-        <ChevronRight size={22} className="text-emerald-100 group-hover:translate-x-1 transition-transform" />
+        <ChevronRight size={22} className="text-cyan-100 group-hover:translate-x-1 transition-transform shrink-0" />
       </div>
 
       {/* 3. Klasifikasi Fitur PRO vs FREE Card */}
@@ -422,6 +540,14 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           userAccount={userAccount}
           onSuccess={() => onRefreshData()}
           onOpenProModal={() => setShowPlanModal(true)}
+        />
+      )}
+
+      {/* Pusat Ibadah, Sholat & Doa Santri Modal */}
+      {showIbadahModal && (
+        <PusatIbadahDoaModal
+          isOpen={showIbadahModal}
+          onClose={() => setShowIbadahModal(false)}
         />
       )}
     </div>

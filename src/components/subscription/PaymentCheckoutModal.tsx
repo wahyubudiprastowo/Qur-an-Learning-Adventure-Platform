@@ -126,9 +126,11 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   const [cardCvv, setCardCvv] = useState<string>('888');
 
   // Referral discount
-  const [referralCode, setReferralCode] = useState<string>('');
-  const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
-  const [referralFeedback, setReferralFeedback] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState<string>(() => userAccount.referredByCode || '');
+  const [appliedDiscount, setAppliedDiscount] = useState<number>(() => userAccount.referredByCode ? 10 : 0);
+  const [referralFeedback, setReferralFeedback] = useState<string | null>(() => 
+    userAccount.referredByCode ? 'Kode rujukan afiliasi aktif! Diskon 10% diterapkan.' : null
+  );
   const [agreeTerms, setAgreeTerms] = useState<boolean>(true);
 
   // Processing & Simulation
@@ -144,11 +146,16 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    if (userAccount.referredByCode && !referralCode) {
+      setReferralCode(userAccount.referredByCode);
+      setAppliedDiscount(10);
+      setReferralFeedback('Kode rujukan afiliasi aktif! Diskon 10% diterapkan.');
+    }
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, [isOpen]);
+  }, [isOpen, userAccount.referredByCode]);
 
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -247,15 +254,22 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       StorageService.recordPayment(newTx);
       setCompletedTx(newTx);
 
-      // Record 10% affiliate commission for referral code owner
-      if (referralCode) {
+      // Record 10% affiliate commission for referral code owner (Initial signup or Renewal)
+      const effectiveReferralCode = (referralCode.trim() || userAccount.referredByCode || '').toUpperCase();
+      const isRenewalPayment = userAccount.planTier === 'pro';
+
+      if (effectiveReferralCode) {
         StorageService.recordReferralCommission(
-          referralCode,
+          effectiveReferralCode,
           plan.name,
           finalPriceIdr,
           payerName || userAccount.parentName || 'Santri Baru',
-          false
+          isRenewalPayment
         );
+        // Persist referrer to current user account for continuous renewal commissions
+        StorageService.updateUserAccount({
+          referredByCode: effectiveReferralCode,
+        });
       }
 
       // Add activity to live feed

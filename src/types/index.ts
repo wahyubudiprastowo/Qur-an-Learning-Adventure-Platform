@@ -64,6 +64,7 @@ export interface UserAccount {
     accountNumber: string;
     accountHolder: string;
   };
+  referredByCode?: string;
 }
 
 export interface AffiliateReferralRecord {

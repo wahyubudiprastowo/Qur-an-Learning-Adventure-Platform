@@ -1131,10 +1131,10 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                     </div>
                     <div>
                       <h4 className="font-black text-[#164C68] text-xs font-heading">
-                        Atur / Ganti PIN Keamanan Orang Tua
+                        Atur / Ganti Password & PIN Keamanan Orang Tua
                       </h4>
                       <p className="text-[10px] text-slate-500">
-                        PIN ini digunakan untuk membuka Dasbor Wali, audit rekaman, dan laporan anak.
+                        Password/PIN ini memproteksi Dasbor Wali, grafik laporan mingguan, audit rekaman anak, dan pengaturan akun.
                       </p>
                     </div>
                   </div>
@@ -1143,33 +1143,33 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          PIN Baru (4-6 Angka):
+                          Password/PIN Baru (min. 4 karakter):
                         </label>
                         <input
                           type="password"
-                          maxLength={6}
+                          maxLength={12}
                           value={newPinInput}
                           onChange={(e) => {
                             setNewPinInput(e.target.value);
                             setPinChangeError('');
                           }}
-                          placeholder="Misal: 1234"
+                          placeholder="Misal: 2026 atau sandi"
                           className="w-full px-3 py-2 rounded-xl border border-slate-300 text-center tracking-widest font-mono font-bold text-xs bg-white focus:border-[#08B9EF] outline-hidden"
                         />
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          Konfirmasi PIN Baru:
+                          Konfirmasi Password/PIN:
                         </label>
                         <input
                           type="password"
-                          maxLength={6}
+                          maxLength={12}
                           value={confirmPinInput}
                           onChange={(e) => {
                             setConfirmPinInput(e.target.value);
                             setPinChangeError('');
                           }}
-                          placeholder="Ketik ulang PIN"
+                          placeholder="Ketik ulang password/PIN"
                           className="w-full px-3 py-2 rounded-xl border border-slate-300 text-center tracking-widest font-mono font-bold text-xs bg-white focus:border-[#08B9EF] outline-hidden"
                         />
                       </div>
@@ -1189,22 +1189,22 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                       type="button"
                       onClick={() => {
                         if (!newPinInput.trim() || newPinInput.trim().length < 4) {
-                          setPinChangeError('PIN minimal 4 digit angka.');
+                          setPinChangeError('Password/PIN minimal 4 karakter.');
                           return;
                         }
                         if (newPinInput !== confirmPinInput) {
-                          setPinChangeError('Konfirmasi PIN tidak cocok.');
+                          setPinChangeError('Konfirmasi Password/PIN tidak cocok.');
                           return;
                         }
                         StorageService.updateParentPin(newPinInput);
-                        setPinChangeSuccess('✅ PIN Keamanan Orang Tua berhasil diperbarui!');
+                        setPinChangeSuccess('✅ Password & PIN Keamanan Orang Tua berhasil disimpan!');
                         setNewPinInput('');
                         setConfirmPinInput('');
                         setTimeout(() => setPinChangeSuccess(''), 3500);
                       }}
                       className="w-full py-2.5 px-4 rounded-xl bg-[#164C68] hover:bg-[#113a50] text-white font-black text-xs cursor-pointer shadow-xs transition-all"
                     >
-                      Simpan PIN Keamanan Baru
+                      Simpan Password / PIN Baru
                     </button>
                   </div>
                 </div>
