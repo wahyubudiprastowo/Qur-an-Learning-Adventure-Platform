@@ -260,6 +260,44 @@ export class StorageService {
     return updated;
   }
 
+  // --- AI Correction Access & Daily Quota ---
+  static getDailyAiUsageCount(childId: string): number {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `cahaya_tahfiz_ai_usage_${childId}_${today}`;
+    const raw = localStorage.getItem(key);
+    return raw ? parseInt(raw, 10) : 0;
+  }
+
+  static incrementDailyAiUsage(childId: string): number {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `cahaya_tahfiz_ai_usage_${childId}_${today}`;
+    const current = this.getDailyAiUsageCount(childId);
+    const updated = current + 1;
+    localStorage.setItem(key, String(updated));
+    return updated;
+  }
+
+  static checkAiEvaluationAccess(childId: string): {
+    allowed: boolean;
+    isPro: boolean;
+    usedToday: number;
+    dailyLimit: number;
+    remaining: number;
+  } {
+    const account = this.getUserAccount();
+    const isPro = account.planTier === 'pro' || account.entitlement === 'active';
+    const dailyLimit = isPro ? 999999 : 2; // 2x kuota harian untuk paket Free sebagai uji coba
+    const usedToday = this.getDailyAiUsageCount(childId);
+    const remaining = isPro ? 999999 : Math.max(0, dailyLimit - usedToday);
+    return {
+      allowed: isPro || usedToday < dailyLimit,
+      isPro,
+      usedToday,
+      dailyLimit,
+      remaining,
+    };
+  }
+
   // --- Payment History & Transactions ---
   static getPaymentHistory(): PaymentTransaction[] {
     const raw = localStorage.getItem(STORAGE_KEYS.PAYMENT_HISTORY);

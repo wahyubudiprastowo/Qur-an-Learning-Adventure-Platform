@@ -61,6 +61,28 @@ export class AudioDatabaseService {
   }
 
   /**
+   * Converts a Base64 data URL back to a binary Blob.
+   */
+  static dataUrlToBlob(dataUrl: string): Blob | null {
+    try {
+      const parts = dataUrl.split(',');
+      if (parts.length < 2) return null;
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'audio/webm';
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new Blob([u8arr], { type: mime });
+    } catch (e) {
+      console.warn('Failed to convert dataUrl to Blob:', e);
+      return null;
+    }
+  }
+
+  /**
    * Saves an audio Blob into IndexedDB and returns its base64 representation.
    */
   static async saveAudioBlob(recordingId: string, blob: Blob): Promise<{ objectUrl: string; dataUrl: string }> {
@@ -88,6 +110,35 @@ export class AudioDatabaseService {
     }
 
     return { objectUrl, dataUrl };
+  }
+
+  /**
+   * Retrieves raw binary Blob for a given recording ID.
+   */
+  static async getAudioBlob(recordingId: string, fallbackDataUrl?: string): Promise<Blob | null> {
+    try {
+      const db = await this.getDB();
+      const blob = await new Promise<Blob | null>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(recordingId);
+        req.onsuccess = () => resolve(req.result instanceof Blob ? req.result : null);
+        req.onerror = () => reject(req.error);
+      });
+
+      if (blob instanceof Blob) {
+        return blob;
+      }
+    } catch (e) {
+      console.warn('Could not read Blob from IndexedDB:', e);
+    }
+
+    if (fallbackDataUrl && fallbackDataUrl.length > 0) {
+      const parsedBlob = this.dataUrlToBlob(fallbackDataUrl);
+      if (parsedBlob) return parsedBlob;
+    }
+
+    return null;
   }
 
   /**
@@ -149,6 +200,117 @@ export class AudioDatabaseService {
       });
     } catch (e) {
       console.warn('Failed to delete audio from IndexedDB:', e);
+    }
+  }
+
+  /**
+   * Deletes multiple audio entries from the database.
+   */
+  static async deleteMultipleAudio(recordingIds: string[]): Promise<void> {
+    for (const id of recordingIds) {
+      await this.deleteAudio(id);
+    }
+  }
+
+  /**
+   * Clears all audio records from IndexedDB.
+   */
+  static async clearAllAudio(): Promise<void> {
+    this.urlCache.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {}
+    });
+    this.urlCache.clear();
+
+    try {
+      const db = await this.getDB();
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn('Failed to clear audio store:', e);
+    }
+  }
+
+  /**
+   * Downloads an individual recording audio file directly to the user's local device.
+   */
+  static async downloadAudioFile(rec: {
+    id: string;
+    surahName?: string;
+    ayahNumber: number;
+    audioBlobUrl?: string;
+    audioDataUrl?: string;
+    createdAt?: string;
+  }): Promise<boolean> {
+    try {
+      const blob = await this.getAudioBlob(rec.id, rec.audioDataUrl || rec.audioBlobUrl);
+      if (!blob) {
+        alert('File audio tidak ditemukan di memori perangkat.');
+        return false;
+      }
+
+      const surahClean = (rec.surahName || 'Surah').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const dateClean = rec.createdAt ? new Date(rec.createdAt).toISOString().split('T')[0] : 'hafalan';
+      const ext = blob.type.includes('mp3') ? 'mp3' : blob.type.includes('wav') ? 'wav' : 'webm';
+      const filename = `CahayaTahfiz_${surahClean}_Ayat_${rec.ayahNumber}_${dateClean}.${ext}`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1500);
+
+      return true;
+    } catch (err) {
+      console.error('Failed to download audio file:', err);
+      alert('Gagal mengunduh berkas audio.');
+      return false;
+    }
+  }
+
+  /**
+   * Estimates total audio records and approximate size in bytes stored in IndexedDB.
+   */
+  static async getStorageUsageEstimate(): Promise<{ count: number; estimatedBytes: number }> {
+    try {
+      const db = await this.getDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        let count = 0;
+        let estimatedBytes = 0;
+
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest).result as IDBCursorWithValue;
+          if (cursor) {
+            count++;
+            if (cursor.value instanceof Blob) {
+              estimatedBytes += cursor.value.size;
+            } else if (typeof cursor.value === 'string') {
+              estimatedBytes += cursor.value.length;
+            }
+            cursor.continue();
+          } else {
+            resolve({ count, estimatedBytes });
+          }
+        };
+        req.onerror = () => resolve({ count: 0, estimatedBytes: 0 });
+      });
+    } catch {
+      return { count: 0, estimatedBytes: 0 };
     }
   }
 }

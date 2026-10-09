@@ -28,6 +28,7 @@ import {
   Download,
   Trash2,
   Activity,
+  Crown,
 } from 'lucide-react';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
@@ -51,6 +52,7 @@ interface HafalanModuleProps {
   initialSurahNumber?: number;
   onFinishHafalan: () => void;
   onBack: () => void;
+  onOpenPlanModal?: () => void;
 }
 
 export type AyahDisplayMode = 'awalan' | 'sebagian' | 'tertutup' | 'lengkap';
@@ -65,6 +67,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   initialSurahNumber = 1,
   onFinishHafalan,
   onBack,
+  onOpenPlanModal,
 }) => {
   // Surah selection state - initialized with provided surah or defaults safely
   const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(() => {
@@ -105,6 +108,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   // AI Automatic Correction states
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
   const [latestAiCorrection, setLatestAiCorrection] = useState<AiCorrectionResult | null>(null);
+  const [aiQuotaExhausted, setAiQuotaExhausted] = useState<boolean>(false);
 
   // Rekam Suara Database & Evaluation states
   const [studentNote, setStudentNote] = useState<string>('');
@@ -129,6 +133,11 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const currentAyah = ayahs[currentAyahIndex];
 
   const [refreshVersion, setRefreshVersion] = useState(0);
+
+  // Pro & AI Quota Access
+  const userAccount = useMemo(() => StorageService.getUserAccount(), [refreshVersion]);
+  const isPro = userAccount.planTier === 'pro' || userAccount.entitlement === 'active';
+  const aiAccess = useMemo(() => StorageService.checkAiEvaluationAccess(childId), [childId, refreshVersion]);
 
   // Existing saved recording from database for active ayah (reactive with refreshVersion)
   const existingSavedRecording = useMemo(() => {
@@ -233,6 +242,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           audioBlobUrl: r.audioBlobUrl,
           durationSeconds: r.durationSeconds,
           scoreResult: {
+            durationSeconds: r.durationSeconds,
             overallScore: r.score,
             timingScore: r.timingScore,
             wordCoverageScore: r.wordCoverageScore,
@@ -241,7 +251,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
             missingWords: r.missingWords || [],
             extraWords: r.extraWords || [],
             needsReview: r.needsReview,
-            feedback: '',
+            scoreLabel: '',
           },
         });
       }
@@ -275,6 +285,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         audioBlobUrl: r.audioBlobUrl,
         durationSeconds: r.durationSeconds,
         scoreResult: {
+          durationSeconds: r.durationSeconds,
           overallScore: r.score,
           timingScore: r.timingScore,
           wordCoverageScore: r.wordCoverageScore,
@@ -283,7 +294,7 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           missingWords: r.missingWords || [],
           extraWords: r.extraWords || [],
           needsReview: r.needsReview,
-          feedback: '',
+          scoreLabel: '',
         },
       });
     }
@@ -313,7 +324,15 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     audioLevel?: { peak?: number; avg?: number },
     spokenTranscript?: string
   ): Promise<AiCorrectionResult | null> => {
+    // 1. Check AI access & daily quota limit
+    const access = StorageService.checkAiEvaluationAccess(childId);
+    if (!access.allowed) {
+      setAiQuotaExhausted(true);
+      return null;
+    }
+    setAiQuotaExhausted(false);
     setIsAiAnalyzing(true);
+
     try {
       let audioBase64: string | undefined = undefined;
       try {
@@ -346,6 +365,9 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
       const aiResult: AiCorrectionResult = await response.json();
       setLatestAiCorrection(aiResult);
+
+      // Record daily usage for analytics and quota accounting
+      StorageService.incrementDailyAiUsage(childId);
 
       // Update the stored recording in StorageService with the AI result
       const storedRec = StorageService.getRecordingByAyah(childId, selectedSurahNumber, ayahItem.ayahNumber);
@@ -1135,17 +1157,55 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         </div>
       )}
 
+      {/* AI QUOTA EXHAUSTED PRO CONVERSION CARD */}
+      {aiQuotaExhausted && !latestAiCorrection && !isAiAnalyzing && (
+        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-3 text-left shadow-sm animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs text-xl">
+                👑
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Fitur Guru AI Eksklusif PRO</span>
+                  <Sparkles size={14} className="text-amber-500 fill-amber-500" />
+                </h4>
+                <p className="text-[11px] text-amber-800 font-semibold">
+                  Kuota Gratis Hari Ini Telah Selesai ({aiAccess.dailyLimit}/{aiAccess.dailyLimit} Terpakai)
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
+              Paket Free
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-700 leading-relaxed bg-white/80 p-3 rounded-2xl border border-amber-200">
+            Alhamdulillah, rekaman hafalan ananda tetap tersimpan aman di database! Ingin evaluasi makhraj huruf otomatis, tajwid mendalam, dan ulasan Guru AI tanpa batas setiap saat?
+          </p>
+
+          <button
+            type="button"
+            onClick={() => onOpenPlanModal?.()}
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+          >
+            <Crown size={15} />
+            <span>Buka Akses Guru AI Tanpa Batas (Upgrade ke PRO) 👑</span>
+          </button>
+        </div>
+      )}
+
       {/* AI AUTOMATIC CORRECTION RESULT CARD */}
       {(isAiAnalyzing || latestAiCorrection) && (
         <div className="bg-gradient-to-r from-cyan-50/90 via-sky-50/90 to-blue-50/90 border-2 border-[#08B9EF]/40 rounded-3xl p-4.5 space-y-3 text-left shadow-sm animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-[#08B9EF] text-white flex items-center justify-center shadow-xs">
                 <Bot size={18} />
               </div>
               <div>
                 <h4 className="text-xs font-black text-[#164C68] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>Koreksi Otomatis AI (Tahfiz Smart Engine)</span>
+                  <span>Koreksi Otomatis AI</span>
                   <Sparkles size={13} className="text-amber-500 fill-amber-500" />
                 </h4>
                 <p className="text-[11px] text-[#8C9BA7]">
@@ -1154,23 +1214,42 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               </div>
             </div>
 
-            {latestAiCorrection && (
-              <span
-                className={`text-xs font-black px-3 py-1 rounded-full border ${
-                  latestAiCorrection.grade === 'mumtaz'
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+            <div className="flex items-center gap-2">
+              {isPro ? (
+                <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                  <Crown size={11} className="text-amber-600" />
+                  <span>PRO Aktif</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onOpenPlanModal?.()}
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-300 transition-colors cursor-pointer flex items-center gap-1"
+                  title="Klik untuk upgrade ke PRO"
+                >
+                  <span>Free (sisa: {aiAccess.remaining}x)</span>
+                  <span className="text-amber-600 font-extrabold">• PRO 👑</span>
+                </button>
+              )}
+
+              {latestAiCorrection && (
+                <span
+                  className={`text-xs font-black px-3 py-1 rounded-full border ${
+                    latestAiCorrection.grade === 'mumtaz'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : latestAiCorrection.grade === 'jayyid'
+                      ? 'bg-blue-100 text-blue-800 border-blue-300'
+                      : 'bg-amber-100 text-amber-900 border-amber-300'
+                  }`}
+                >
+                  {latestAiCorrection.grade === 'mumtaz'
+                    ? '🌟 Mumtaz'
                     : latestAiCorrection.grade === 'jayyid'
-                    ? 'bg-blue-100 text-blue-800 border-blue-300'
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                }`}
-              >
-                {latestAiCorrection.grade === 'mumtaz'
-                  ? '🌟 Mumtaz'
-                  : latestAiCorrection.grade === 'jayyid'
-                  ? '👍 Jayyid'
-                  : '⚠️ Perlu Latihan'}
-              </span>
-            )}
+                    ? '👍 Jayyid'
+                    : '⚠️ Perlu Latihan'}
+                </span>
+              )}
+            </div>
           </div>
 
           {isAiAnalyzing ? (

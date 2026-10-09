@@ -477,6 +477,7 @@ export default function App() {
                     navigateTahfiz('home');
                   }}
                   onBack={() => navigateTahfiz('home')}
+                  onOpenPlanModal={() => setShowPlanModal(true)}
                 />
               )}
             </>
