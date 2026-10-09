@@ -381,12 +381,49 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       const storedRec = StorageService.getRecordingByAyah(childId, selectedSurahNumber, ayahItem.ayahNumber);
       if (storedRec) {
         storedRec.aiCorrection = aiResult;
-        if (aiResult.overallScore) {
+        if (aiResult.overallScore !== undefined) {
           storedRec.score = aiResult.overallScore;
         }
+        storedRec.needsReview = !aiResult.isPassed;
         StorageService.saveRecording(storedRec);
-        setRefreshVersion((prev) => prev + 1);
       }
+
+      // Persist the real AI score to child's ayah memorization database
+      StorageService.saveAyahScore(
+        childId,
+        selectedSurahNumber,
+        ayahItem.ayahNumber,
+        aiResult.overallScore,
+        aiResult.isPassed
+      );
+
+      // Update state so UI reflects the true AI score immediately
+      setRecordedAyahs((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(ayahItem.ayahNumber);
+        if (existing) {
+          next.set(ayahItem.ayahNumber, {
+            ...existing,
+            scoreResult: {
+              ...existing.scoreResult,
+              overallScore: aiResult.overallScore,
+              timingScore: aiResult.fluencyScore,
+              wordCoverageScore: aiResult.accuracyScore,
+              fluencyScore: aiResult.fluencyScore,
+              needsReview: !aiResult.isPassed,
+              scoreLabel:
+                aiResult.grade === 'mumtaz'
+                  ? '🌟 Mumtaz (Lulus Sempurna)'
+                  : aiResult.grade === 'jayyid'
+                  ? '👍 Jayyid (Lulus Baik)'
+                  : '⚠️ Perlu Diulang Lagi',
+            },
+          });
+        }
+        return next;
+      });
+
+      setRefreshVersion((prev) => prev + 1);
 
       return aiResult;
     } catch (err) {

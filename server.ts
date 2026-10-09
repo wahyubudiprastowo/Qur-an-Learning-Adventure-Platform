@@ -109,9 +109,8 @@ async function startServer() {
       if (activeApiKey) {
         const candidateModels = [
           'gemini-2.5-flash',
-          'gemini-flash-latest',
-          'gemini-3.1-flash-lite',
-          'gemini-3.8-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
         ];
 
         let cleanBase64 = '';
@@ -123,24 +122,46 @@ async function startServer() {
           cleanMime = rawMime.startsWith('audio/') ? rawMime : 'audio/webm';
         }
 
-        const promptText = `Anda adalah Guru Tahfiz Al-Qur'an anak-anak (Ustadz/Ustadzah) yang bijaksana, teliti tajwid dan makhrajnya, serta penuh kasih sayang mendidik anak santri.
-Tugas Anda mendengarkan rekaman suara anak santri yang sedang menyetorkan hafalan ayat Al-Qur'an dan menilainya secara objektif dan mendidik:
+        const promptText = `Anda adalah Dewan Penguji Tahfiz Al-Qur'an dan Ustadz/Ustadzah Ahli Tajwid yang teliti, adil, amanah, dan mendidik.
+Tugas Anda mendengarkan rekaman suara santri dan mencocokkannya secara SANGAT KETAT dengan teks ayat Al-Qur'an target:
 - Surat: ${surahName} (Surat ke-${surahNumber})
 - Ayat: ${ayahNumber}
-- Teks Ayat yang Harus Dibaca: "${targetArabicText}"
+- Teks Ayat Target Wajib: "${targetArabicText}"
 - Terjemahan: "${targetTranslation}"
-- Durasi Rekaman: ${durationSeconds} detik (durasi rujukan standar qari: ~${referenceDuration} detik)
-- Bantuan yang digunakan anak: ${assistanceUsed.length > 0 ? assistanceUsed.join(', ') : 'Murni mandiri tanpa bantuan'}
-${spokenTranscript ? `- Deteksi ucapan anak (Speech-to-Text): "${spokenTranscript}"` : ''}
+- Durasi Rekaman: ${durationSeconds} detik (durasi wajar membaca tartil: ~${referenceDuration} detik)
+- Bantuan yang digunakan: ${assistanceUsed.length > 0 ? assistanceUsed.join(', ') : 'Mandiri tanpa bantuan'}
+${spokenTranscript ? `- Deteksi ucapan suara (Speech-to-Text): "${spokenTranscript}"` : ''}
 
-PANDUAN EVALUASI SUARA:
-1. Dengarkan audio rekaman anak dengan saksama:
-   - Evaluasi makharijul huruf, tajwid (mad, ghunnah, tasydid), dan kelancaran membaca ayat.
-   - Perhatikan apakah ayat dibaca lengkap atau ada kata yang terlewat atau tertukar.
-   - Berikan ulasan (feedback) berbahasa Indonesia yang ramah, hangat, menyemangati anak, dan spesifik mengenai ayat ini.
-   - Berikan 1-3 poin catatan tajwid spesifik.
-   - Berikan grade: "mumtaz" (skor >= 85), "jayyid" (skor 70-84), atau "perlu_ulang" (skor < 70).
-   - Catatan: Hanya jika rekaman benar-benar mutlak hening tanpa suara manusia sama sekali (0 desibel / audio kosong), berikan skor 45 dengan ulasan ramah untuk mendekatkan mikrofon. Jika terdengar anak berusaha membaca, berikan apresiasi dan skor yang objektif.
+ATURAN PENILAIAN KRITIS & TEGAS (WAJIB DIIKUTI):
+1. VALIDASI KEASLIAN BACAAN AYAT AL-QUR'AN:
+   - Dengarkan rekaman suara dengan saksama: Apakah audio tersebut BENAR-BENAR berisi pelafalan ayat Al-Qur'an yang dimaksud ("${targetArabicText}")?
+   - JIKA TERJADI KONDISI BERIKUT:
+     a. Rekaman ngasal / bersuara sembarangan / bergumam tanpa membaca ayat / bernyanyi / tertawa / bermain-main / batuk.
+     b. Berbicara bahasa Indonesia, Inggris, atau obrolan santai yang bukan teks ayat Quran target.
+     c. Hanya berisi hening, derau mic, tiupan angin, atau bunyi ketukan benda.
+     d. Membaca ayat atau surah lain yang sama sekali berbeda dari ayat target.
+     e. Durasi membaca terlalu singkat/terpotong sehingga ayat belum selesai dibaca.
+     -> MAKA ANDA HARUS SECARA TEGAS MEMBERIKAN SKOR RENDAH:
+        * overallScore: antara 15 sampai 35 (MAKSIMAL 35, TIDAK BOLEH LEBIH DARI 35, TIDAK BOLEH LULUS).
+        * grade: "perlu_ulang"
+        * isPassed: false
+        * accuracyScore: antara 10 sampai 30.
+        * tajwidScore: antara 15 sampai 30.
+        * fluencyScore: antara 15 sampai 35.
+        * feedback: "Afwan ananda, rekaman suara belum terdengar melafalkan Ayat ${ayahNumber} (${surahName}) dengan benar. Terdengar [sebutkan apa yang terdengar: suara latar / kata belum sesuai / gumaman]. Silakan dengarkan contoh qari dan rekam kembali dengan membaca ayat: ${targetArabicText}."
+        * tajwidNotes: ["Lafalkan setiap kata ayat secara jelas dan tartil.", "Pastikan membaca ayat yang sesuai sebelum menekan tombol selesai."]
+        JANGAN PERNAH MEMBERIKAN SKOR MUMTAZ ATAU JAYYID PADA BACAAN YANG NGASAL ATAU TIDAK SESUAI TEKS AYAT!
+
+2. JIKA SANTRI BENAR MEMBACA AYAT TARGET:
+   - Nilai kelengkapan kata: tidak boleh ada kata yang hilang, tertukar, atau salah harakat.
+   - Nilai makharijul huruf: kefasihan huruf Arab (huruf halq, lisan, syafatan).
+   - Nilai tajwid: panjang mad (2 harakat mad thabi'i, 4-5 harakat mad wajib/jaiz), dengung ghunnah, tasydid, qolqolah.
+   - Nilai tempo kelancaran (fluency).
+   - Berikan skor objektif:
+     * "mumtaz" (skor 85-100): Jika ayat terbaca lengkap, fasih, dan tertib tajwidnya.
+     * "jayyid" (skor 70-84): Jika ayat terbaca lengkap namun ada koreksi minor pada panjang mad atau makhraj tipis.
+     * "perlu_ulang" (skor < 70): Jika ada kata yang terlewat, salah lafal berat, atau tajwid belum terpenuhi.
+     * feedback: Ulasan ramah santri yang mendidik dan spesifik pada ayat ini.
 
 Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
 
@@ -170,7 +191,7 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
                     accuracyScore: { type: Type.INTEGER, description: 'Skor akurasi kelafalan dan kelengkapan kata 0-100' },
                     tajwidScore: { type: Type.INTEGER, description: 'Skor tajwid dan makhraj 0-100' },
                     fluencyScore: { type: Type.INTEGER, description: 'Skor kelancaran dan tempo 0-100' },
-                    feedback: { type: Type.STRING, description: 'Ulasan ramah anak yang menyemangati' },
+                    feedback: { type: Type.STRING, description: 'Ulasan ramah anak yang mendidik dan objektif' },
                     tajwidNotes: {
                       type: Type.ARRAY,
                       items: { type: Type.STRING },
@@ -216,19 +237,19 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
 
       // 2. Intelligent Acoustic & Linguistic Fallback Engine
       const cleanAudioLen = audioBase64 ? audioBase64.replace(/^data:[a-zA-Z0-9/.-]+;base64,/, '').length : 0;
-      const isCompletelyEmptyAudio = cleanAudioLen < 200 && (!audioLevel || audioLevel.peak === 0) && durationSeconds < 1;
+      const isCompletelyEmptyAudio = cleanAudioLen < 200 || (!audioLevel || audioLevel.peak === 0) || durationSeconds < 1;
 
       if (isCompletelyEmptyAudio) {
         return res.json({
-          overallScore: 48,
+          overallScore: 25,
           grade: 'perlu_ulang',
-          accuracyScore: 42,
-          tajwidScore: 50,
-          fluencyScore: 45,
-          feedback: `Rekaman suara belum tertangkap pada Ayat ${ayahNumber}. Silakan klik Izinkan Mikrofon dan rekam kembali dengan suara yang terdengar jelas ya ananda.`,
+          accuracyScore: 20,
+          tajwidScore: 20,
+          fluencyScore: 25,
+          feedback: `Rekaman suara tidak tertangkap pada Ayat ${ayahNumber}. Silakan klik Izinkan Mikrofon dan rekam kembali dengan suara yang terdengar jelas ya ananda.`,
           tajwidNotes: [
-            'Pastikan mikrofon browser aktif saat tombol rekam ditekan.',
-            'Lafalkan setiap huruf ayat secara tartil dan jelas.',
+            'Pastikan mikrofon aktif dan berbicara dekat mikrofon.',
+            'Lafalkan ayat secara tartil dan jelas.',
           ],
           isPassed: false,
           evaluatedAt: new Date().toISOString(),
@@ -236,33 +257,93 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
         });
       }
 
-      const durationRatio = durationSeconds / referenceDuration;
-      let accuracyScore = 90;
-      let tajwidScore = 88;
-      let fluencyScore = 90;
+      // Check for Speech Recognition Transcript sanity:
+      const trimmedTranscript = (spokenTranscript || '').trim();
+      const hasArabicCharacters = /[\u0600-\u06FF]/.test(trimmedTranscript);
 
-      if (assistanceUsed.includes('lihat_ayah')) {
-        accuracyScore -= 12;
-      } else if (assistanceUsed.includes('play_ayah')) {
-        accuracyScore -= 8;
-      } else if (assistanceUsed.includes('lihat_awalan')) {
-        accuracyScore -= 4;
+      // If transcript has non-empty Latin text without any Arabic (e.g. child chatted in Indonesian / noise)
+      if (trimmedTranscript.length > 3 && !hasArabicCharacters) {
+        return res.json({
+          overallScore: 28,
+          grade: 'perlu_ulang',
+          accuracyScore: 20,
+          tajwidScore: 25,
+          fluencyScore: 30,
+          feedback: `Suara yang tertangkap (${trimmedTranscript.slice(0, 30)}) belum sesuai dengan lafal Ayat ${ayahNumber} dari Surat ${surahName}. Silakan dengarkan contoh qari dan lafalkan ayat: "${targetArabicText}".`,
+          tajwidNotes: [
+            'Pastikan melafalkan ayat Al-Qur\'an, bukan percakapan biasa.',
+            'Dengarkan qari terlebih dahulu sebelum menyetor hafalan.',
+          ],
+          isPassed: false,
+          evaluatedAt: new Date().toISOString(),
+          modelUsed: 'tahfiz-transcript-check',
+        });
       }
 
-      // Check duration pacing
-      if (durationRatio < 0.35) {
-        fluencyScore = Math.max(55, fluencyScore - 25);
-        accuracyScore = Math.max(60, accuracyScore - 18);
-      } else if (durationRatio > 2.8) {
-        fluencyScore = Math.max(60, fluencyScore - 18);
-      } else if (durationRatio >= 0.7 && durationRatio <= 1.6) {
-        fluencyScore = Math.min(98, fluencyScore + 4);
-        accuracyScore = Math.min(98, accuracyScore + 3);
+      // If duration is too short for the ayah (e.g. < 1.8s for multi-word ayah)
+      const durationRatio = durationSeconds / referenceDuration;
+      if (durationSeconds < 1.8 && wordCount >= 3) {
+        return res.json({
+          overallScore: 32,
+          grade: 'perlu_ulang',
+          accuracyScore: 25,
+          tajwidScore: 30,
+          fluencyScore: 35,
+          feedback: `Durasi rekaman (${durationSeconds} detik) terlalu singkat untuk membaca Ayat ${ayahNumber} secara lengkap. Silakan baca ayat secara tenang dan tartil.`,
+          tajwidNotes: [
+            'Baca seluruh kata dalam ayat hingga tuntas.',
+            'Jaga ketukan tempo dan tidak tergesa-gesa.',
+          ],
+          isPassed: false,
+          evaluatedAt: new Date().toISOString(),
+          modelUsed: 'tahfiz-duration-check',
+        });
+      }
+
+      // If audio peak level is extremely low (< 12 out of 100) -> whispering or silence
+      if (audioLevel && audioLevel.peak < 12) {
+        return res.json({
+          overallScore: 30,
+          grade: 'perlu_ulang',
+          accuracyScore: 25,
+          tajwidScore: 30,
+          fluencyScore: 30,
+          feedback: `Suara rekaman terlalu pelan atau jauh dari mikrofon. Mohon dekatkan perangkat dan bacakan Ayat ${ayahNumber} dengan suara lantang.`,
+          tajwidNotes: [
+            'Gunakan volume suara yang cukup agar makhraj terdengar jelas.',
+          ],
+          isPassed: false,
+          evaluatedAt: new Date().toISOString(),
+          modelUsed: 'tahfiz-volume-check',
+        });
+      }
+
+      // Realistic heuristic evaluation when Gemini is offline
+      let accuracyScore = 70;
+      let tajwidScore = 68;
+      let fluencyScore = 70;
+
+      if (assistanceUsed.includes('lihat_ayah')) {
+        accuracyScore -= 15;
+      } else if (assistanceUsed.includes('play_ayah')) {
+        accuracyScore -= 10;
+      } else if (assistanceUsed.includes('lihat_awalan')) {
+        accuracyScore -= 6;
+      }
+
+      if (durationRatio < 0.5) {
+        fluencyScore = Math.max(40, fluencyScore - 25);
+        accuracyScore = Math.max(45, accuracyScore - 20);
+      } else if (durationRatio > 2.5) {
+        fluencyScore = Math.max(50, fluencyScore - 18);
+      } else if (durationRatio >= 0.8 && durationRatio <= 1.4) {
+        fluencyScore = Math.min(85, fluencyScore + 5);
+        accuracyScore = Math.min(82, accuracyScore + 4);
       }
 
       const overallScore = Math.min(
-        100,
-        Math.max(50, Math.round(accuracyScore * 0.45 + tajwidScore * 0.3 + fluencyScore * 0.25))
+        88,
+        Math.max(35, Math.round(accuracyScore * 0.45 + tajwidScore * 0.3 + fluencyScore * 0.25))
       );
 
       const grade =
@@ -283,10 +364,10 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
 
       const feedback =
         grade === 'mumtaz'
-          ? `Masya Allah, hafalan Ayat ${ayahNumber} terdengar sangat baik dan tartil! Terus pertahankan hafalannya ya ananda.`
+          ? `Alhamdulillah, rekaman Ayat ${ayahNumber} tersimpan baik. Pertahankan hafalanmu ya ananda.`
           : grade === 'jayyid'
-          ? `Alhamdulillah bacaan Ayat ${ayahNumber} sudah baik. Latih lagi ketukan tempo dan panjang pendek mad agar semakin fasih.`
-          : `Tetap semangat ya ananda! Terus dengarkan murottal qari dan ulangi kembali hafalan Ayat ${ayahNumber} perlahan-lahan.`;
+          ? `Bagus, rekaman Ayat ${ayahNumber} sudah tersimpan. Latih lagi ketukan tempo dan makhraj agar semakin mutqin.`
+          : `Rekaman tersimpan, namun disarankan untuk mengulang kembali hafalan Ayat ${ayahNumber} bersama murottal qari agar lebih lancar.`;
 
       return res.json({
         overallScore,

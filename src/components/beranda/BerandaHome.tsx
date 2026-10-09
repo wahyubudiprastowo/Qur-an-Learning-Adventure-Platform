@@ -23,6 +23,7 @@ import { DailyQuestsCard } from '../companion/DailyQuestsCard';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
 import { WeeklyReportService } from '../../services/weeklyReportService';
 import { StorageService } from '../../services/storageService';
+import { AdabService } from '../../services/adabService';
 
 interface BerandaHomeProps {
   child: ChildProfile;
@@ -47,6 +48,7 @@ interface BerandaHomeProps {
   userAccount?: UserAccount;
   onOpenAuth?: (mode: 'login' | 'register') => void;
   onOpenPlanModal?: () => void;
+  onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
@@ -65,6 +67,7 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   userAccount,
   onOpenAuth,
   onOpenPlanModal,
+  onOpenIbadahModal,
 }) => {
   const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
@@ -72,6 +75,9 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   const memorizedAyahsCount = ayahProgressList.filter((a) => a.memorized).length;
   const weakAyahsCount = ayahProgressList.filter((a) => a.needsReview).length;
   const weeklyReport = WeeklyReportService.getWeeklyReport(child.id, 0);
+
+  const adabTasks = AdabService.getDailyTasks(child.id);
+  const completedAdabCount = AdabService.getCompletedCount(adabTasks);
 
   return (
     <div className="pb-24 animate-in fade-in duration-200">
@@ -170,6 +176,113 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               </div>
 
               <ChevronRight size={18} className="text-emerald-700 group-hover:translate-x-1 transition-transform shrink-0" />
+            </div>
+          </div>
+
+          {/* 3. Pusat Ibadah, Adab & Doa Santri (Fitur Utama Baru) */}
+          <div className="bg-gradient-to-r from-sky-600 via-cyan-600 to-teal-700 text-white rounded-3xl p-5 shadow-md shadow-cyan-950/20 space-y-3.5 border border-cyan-400/40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 text-white flex items-center justify-center text-2xl shadow-inner shrink-0">
+                  🕌
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-base font-black font-heading tracking-tight">
+                      Pusat Ibadah, Adab & Doa Santri
+                    </h4>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-300 text-cyan-950 shadow-2xs">
+                      FITUR HARIAN
+                    </span>
+                  </div>
+                  <p className="text-xs text-cyan-100 font-medium mt-0.5">
+                    Sholat tepat waktu, waktu emas tahfiz, amalan adab, doa & notifikasi murojaah
+                  </p>
+                </div>
+              </div>
+
+              {onOpenIbadahModal && (
+                <button
+                  onClick={() => onOpenIbadahModal('jadwal')}
+                  className="hidden sm:flex items-center gap-1 py-1.5 px-3 rounded-xl bg-white text-[#164C68] hover:bg-cyan-50 font-bold text-xs shadow-xs cursor-pointer transition-all active:scale-95 shrink-0"
+                >
+                  <span>Buka Semua</span>
+                  <ChevronRight size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Quick status bar: Adab progress & Prayer Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              {/* Daily Task Adab Preview */}
+              <div
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('adab')}
+                className="bg-black/15 hover:bg-black/25 p-3 rounded-2xl border border-white/20 cursor-pointer transition-all flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">🌟</span>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold block truncate">
+                      Daily Task Adab Santri
+                    </span>
+                    <span className="text-[10px] text-cyan-200">
+                      {completedAdabCount}/{adabTasks.length} Misi Selesai Hari Ini
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black px-2 py-1 rounded-lg bg-amber-400 text-amber-950 shrink-0 font-mono">
+                  +{completedAdabCount * 2} ⭐
+                </span>
+              </div>
+
+              {/* Murojaah Reminder Quick Setup */}
+              <div
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('notifikasi')}
+                className="bg-black/15 hover:bg-black/25 p-3 rounded-2xl border border-white/20 cursor-pointer transition-all flex items-center justify-between gap-2"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg">🔔</span>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold block truncate">
+                      Pengingat Murojaah PWA
+                    </span>
+                    <span className="text-[10px] text-cyan-200">
+                      Subuh (05:30) • Maghrib (18:30)
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-400 text-slate-950 shrink-0 font-mono">
+                  Atur Jam →
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Jump Pills */}
+            <div className="flex items-center gap-2 pt-1 border-t border-white/10 overflow-x-auto">
+              <button
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('jadwal')}
+                className="py-1 px-2.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold whitespace-nowrap cursor-pointer transition-all"
+              >
+                🕌 Jadwal Sholat 5 Waktu
+              </button>
+              <button
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('adab')}
+                className="py-1 px-2.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold whitespace-nowrap cursor-pointer transition-all"
+              >
+                🌟 Misi Adab Santri
+              </button>
+              <button
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('doa')}
+                className="py-1 px-2.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold whitespace-nowrap cursor-pointer transition-all"
+              >
+                📖 Doa Harian
+              </button>
+              <button
+                onClick={() => onOpenIbadahModal && onOpenIbadahModal('tasbih')}
+                className="py-1 px-2.5 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold whitespace-nowrap cursor-pointer transition-all"
+              >
+                📿 Tasbih Digital
+              </button>
             </div>
           </div>
         </div>
@@ -294,75 +407,7 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
             </button>
           </div>
 
-          {/* Banner 1: Klasifikasi Fitur PRO vs FREE */}
-          {onOpenPlanModal && (
-            <div
-              onClick={onOpenPlanModal}
-              className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-4 sm:p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-amber-400/60 group select-none"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl shrink-0 group-hover:scale-105 transition-transform">
-                  👑
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black font-heading text-white">
-                      Klasifikasi Fitur PRO & FREE
-                    </h4>
-                    <span
-                      className={`text-[9px] font-black px-2 py-0.2 rounded-full border ${
-                        userAccount?.planTier === 'pro'
-                          ? 'bg-amber-400 text-amber-950 border-amber-300'
-                          : 'bg-[#22C55E]/20 text-[#22C55E] border-[#22C55E]/40'
-                      }`}
-                    >
-                      {userAccount?.planTier === 'pro' ? 'PRO AKTIF' : 'CEK PERBANDINGAN'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-300 font-medium mt-0.5">
-                    Bandingkan hak akses Juz 30 vs 30 Juz, AI Tartil & 5 Karakter
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-xs font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-xl group-hover:bg-amber-400 group-hover:text-amber-950 transition-all shrink-0">
-                Detail →
-              </span>
-            </div>
-          )}
-
-          {/* Banner 2: Hijalearn-style Family Register Banner (if not registered) */}
-          {!userAccount?.isRegistered && onOpenAuth && (
-            <div
-              onClick={() => onOpenAuth('register')}
-              className="bg-gradient-to-r from-emerald-950 via-teal-950 to-[#0F172A] border border-emerald-500/40 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all hover:border-emerald-400 group select-none"
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-[#22C55E]/20 border border-[#22C55E]/40 flex items-center justify-center text-emerald-400 text-2xl shrink-0 group-hover:scale-105 transition-transform">
-                  ✨
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black font-heading text-white">
-                      Daftar Akun Keluarga
-                    </h4>
-                    <span className="text-[9px] font-black bg-[#22C55E] text-slate-950 px-2 py-0.2 rounded-full">
-                      GRATIS
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">
-                    Simpan progres hafalan & rapor mutqin anak di cloud keluarga
-                  </p>
-                </div>
-              </div>
-
-              <span className="text-xs font-black text-slate-950 bg-[#22C55E] hover:bg-[#16A34A] px-3.5 py-1.5 rounded-xl shadow-xs group-hover:scale-105 transition-all shrink-0">
-                Daftar →
-              </span>
-            </div>
-          )}
-
-          {/* 6. Quick Launch Cards to 3 Steps */}
+          {/* Akses Cepat Tahfiz (3-Langkah) */}
           <div className="space-y-2 pt-1">
             <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
               AKSES CEPAT TAHFIZ (3-LANGKAH)

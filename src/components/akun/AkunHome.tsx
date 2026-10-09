@@ -34,7 +34,6 @@ import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
 import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { AffiliateDashboardModal } from '../affiliate/AffiliateDashboardModal';
 import { AuthModal } from '../auth/AuthModal';
-import { PusatIbadahDoaModal } from '../ibadah/PusatIbadahDoaModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -58,7 +57,6 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
   const [showAiTokenModal, setShowAiTokenModal] = useState<boolean>(false);
   const [showAffiliateModal, setShowAffiliateModal] = useState<boolean>(false);
-  const [showIbadahModal, setShowIbadahModal] = useState<boolean>(false);
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [copiedAffiliate, setCopiedAffiliate] = useState<boolean>(false);
@@ -93,302 +91,320 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">
-      {/* Active Child Profile Card */}
-      <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="w-16 h-16 rounded-3xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-4xl shadow-xs shrink-0">
-            {activeChild.avatar}
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-[#164C68] font-heading">
-              {activeChild.name}
-            </h2>
-            <div className="flex items-center gap-2 text-xs font-bold text-[#8C9BA7] mt-0.5">
-              <span>{levelInfo.badge} Level {levelInfo.level}</span>
-              <span>•</span>
-              <span className="text-amber-600 flex items-center gap-0.5">
-                <Star size={12} className="fill-amber-400 text-amber-500" />
-                {activeChild.totalStars} Bintang
-              </span>
-            </div>
-            <span className="inline-block mt-1 text-[10px] font-bold text-cyan-800 bg-cyan-100 px-2 py-0.2 rounded-full uppercase">
-              Tingkat: {activeChild.learningLevel}
-            </span>
-          </div>
-        </div>
+      {/* Title & Introduction */}
+      <div className="pt-1 pb-1">
+        <h1 className="text-xl sm:text-2xl font-black font-heading text-[#164C68] tracking-tight">
+          Pusat Akun & Sistem
+        </h1>
+        <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
+          Kelola profil santri, akun orang tua, langganan PRO, dan dasbor wali
+        </p>
       </div>
 
-      {/* Switch Child Profile Horizontal Bar */}
-      <div className="bg-white border border-[#C9E1ED] rounded-3xl p-4 shadow-xs space-y-2.5">
-        <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
-          <span className="uppercase tracking-wider">PROFIL ANAK TERDAFTAR</span>
-          <button
-            onClick={() => setShowAddChildModal(true)}
-            className="text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <PlusCircle size={14} />
-            <span>Tambah Anak</span>
-          </button>
-        </div>
+      {/* 01. PROFIL SANTRI AKTIF & MULTI-ANAK */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          01. PROFIL SANTRI & MULTI-ANAK
+        </span>
 
-        <div className="flex gap-2.5 overflow-x-auto pb-1">
-          {childrenList.map((c) => {
-            const isSelected = c.id === activeChild.id;
-
-            return (
-              <button
-                key={c.id}
-                onClick={() => onSwitchChild(c.id)}
-                className={`flex items-center gap-2 py-2 px-3.5 rounded-2xl border-2 transition-all cursor-pointer whitespace-nowrap ${
-                  isSelected
-                    ? 'border-[#08B9EF] bg-cyan-50/40 shadow-xs'
-                    : 'border-[#C9E1ED] hover:border-slate-300'
-                }`}
-              >
-                <span className="text-xl">{c.avatar}</span>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-[#164C68]">{c.name}</div>
-                  <div className="text-[10px] text-[#8C9BA7]">⭐ {c.totalStars}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 1. Dasbor Wali & Laporan Progres Anak (Terproteksi PIN & Pengaturan Password) */}
-      <div
-        onClick={() => setShowParentModal(true)}
-        className="bg-gradient-to-r from-[#164C68] via-[#11405a] to-[#0f3447] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-cyan-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-cyan-300 shrink-0 shadow-inner">
-            <ShieldCheck size={26} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black font-heading">
-                Dasbor Wali & Laporan Progres Anak
-              </h3>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 border border-cyan-300/30 flex items-center gap-1">
-                <Lock size={10} />
-                <span>PIN Terlindungi</span>
-              </span>
-            </div>
-            <p className="text-xs text-cyan-100 font-medium mt-0.5">
-              Grafik mingguan lengkap, audit rekaman suara anak, evaluasi tajwid, & atur PIN keamanan
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-cyan-200 group-hover:translate-x-1 transition-transform" />
-      </div>
-
-      {/* 2. Program Kemitraan & Afiliasi Santri (Sahabat Syiar 10% Komisi Renewal) */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-5 shadow-md shadow-emerald-700/20 space-y-3.5 border border-emerald-500/50">
-        <div
-          onClick={() => setShowAffiliateModal(true)}
-          className="flex items-center justify-between cursor-pointer group"
-        >
+        {/* Active Child Profile Card */}
+        <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs shrink-0">
-              🤝
+            <div className="w-16 h-16 rounded-3xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-4xl shadow-xs shrink-0">
+              {activeChild.avatar}
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-black font-heading">
-                  Program Sahabat Syiar & Afiliasi
-                </h3>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 shadow-2xs">
-                  KOMISI 10% RECURRENT
-                </span>
-                <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full border ${
-                  userAccount.affiliateEnabled
-                    ? 'bg-emerald-200 text-emerald-950 border-emerald-300'
-                    : 'bg-white/20 text-white border-white/30'
-                }`}>
-                  {userAccount.affiliateEnabled ? '🟢 AKTIF' : '⚪ BISA DIAKTIFKAN'}
+              <h2 className="text-xl font-black text-[#164C68] font-heading">
+                {activeChild.name}
+              </h2>
+              <div className="flex items-center gap-2 text-xs font-bold text-[#8C9BA7] mt-0.5">
+                <span>{levelInfo.badge} Level {levelInfo.level}</span>
+                <span>•</span>
+                <span className="text-amber-600 flex items-center gap-0.5">
+                  <Star size={12} className="fill-amber-400 text-amber-500" />
+                  {activeChild.totalStars} Bintang
                 </span>
               </div>
-              <p className="text-xs text-emerald-50 font-medium mt-0.5">
-                Dapatkan komisi 10% setiap santri baru mendaftar PRO & <strong>setiap kali perpanjangan (renewal)</strong>!
+              <span className="inline-block mt-1 text-[10px] font-bold text-cyan-800 bg-cyan-100 px-2 py-0.2 rounded-full uppercase">
+                Tingkat: {activeChild.learningLevel}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Switch Child Profile Horizontal Bar */}
+        <div className="bg-white border border-[#C9E1ED] rounded-3xl p-4 shadow-xs space-y-2.5">
+          <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
+            <span className="uppercase tracking-wider">BERALIH KE PROFIL ANAK LAIN</span>
+            <button
+              onClick={() => setShowAddChildModal(true)}
+              className="text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <PlusCircle size={14} />
+              <span>Tambah Anak</span>
+            </button>
+          </div>
+
+          <div className="flex gap-2.5 overflow-x-auto pb-1">
+            {childrenList.map((c) => {
+              const isSelected = c.id === activeChild.id;
+
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onSwitchChild(c.id)}
+                  className={`flex items-center gap-2 py-2 px-3.5 rounded-2xl border-2 transition-all cursor-pointer whitespace-nowrap ${
+                    isSelected
+                      ? 'border-[#08B9EF] bg-cyan-50/40 shadow-xs'
+                      : 'border-[#C9E1ED] hover:border-slate-300'
+                  }`}
+                >
+                  <span className="text-xl">{c.avatar}</span>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-[#164C68]">{c.name}</div>
+                    <div className="text-[10px] text-[#8C9BA7]">⭐ {c.totalStars}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 02. AKUN ORANG TUA & SINKRONISASI CLOUD */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          02. AKUN ORANG TUA & SINKRONISASI CLOUD
+        </span>
+
+        {/* Account / Registration Status Card */}
+        <div
+          onClick={() => setShowAuthModal(true)}
+          className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#22C55E] transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#22C55E] text-2xl shrink-0">
+              {userAccount.isRegistered ? '✅' : '📝'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black text-[#164C68] font-heading">
+                  {userAccount.isRegistered ? `Akun Terdaftar: ${userAccount.parentName}` : 'Daftar / Masuk Akun Orang Tua'}
+                </h3>
+                <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full ${
+                  userAccount.isRegistered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {userAccount.isRegistered ? 'Cloud Aktif' : 'Tamu (Lokal)'}
+                </span>
+              </div>
+              <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
+                {userAccount.isRegistered
+                  ? userAccount.email
+                  : 'Simpan progres hafalan anak ke cloud & akses multi-perangkat'}
               </p>
             </div>
           </div>
 
-          <ChevronRight size={22} className="text-emerald-100 group-hover:translate-x-1 transition-transform shrink-0" />
-        </div>
-
-        {/* Kode Referral Box & Share Buttons */}
-        <div className="bg-black/15 backdrop-blur-xs p-3.5 rounded-2xl border border-white/20 space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <span className="text-[10px] font-bold text-emerald-200 block uppercase tracking-wider">
-                Kode Afiliasi Akun Anda:
-              </span>
-              <span className="text-base sm:text-lg font-black font-mono tracking-wider text-amber-300">
-                {affiliateCode}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleCopyAffiliateCode}
-              className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#164C68] font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
-            >
-              {copiedAffiliate ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-              <span>{copiedAffiliate ? 'Tersalin!' : 'Salin Kode'}</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 pt-1 border-t border-white/10 flex-wrap sm:flex-nowrap">
-            <button
-              type="button"
-              onClick={handleShareAffiliateWhatsApp}
-              className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
-            >
-              <MessageCircle size={14} />
-              <span>Bagi ke WA</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleShareAffiliateTelegram}
-              className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
-            >
-              <Send size={13} />
-              <span>Telegram</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowAffiliateModal(true)}
-              className="w-full sm:w-auto py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 text-center"
-            >
-              Dasbor & Tarik Dana →
-            </button>
-          </div>
+          <span className="text-xs font-bold text-[#22C55E] group-hover:underline">
+            {userAccount.isRegistered ? 'Kelola →' : 'Daftar Sekarang →'}
+          </span>
         </div>
       </div>
 
-      {/* 3. Pusat Ibadah, Jadwal Sholat & Doa Santri (Pengganti Audit Audio Center) */}
-      <div
-        onClick={() => setShowIbadahModal(true)}
-        className="bg-gradient-to-r from-sky-600 via-cyan-600 to-teal-700 text-white rounded-3xl p-5 shadow-md shadow-cyan-900/20 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group border border-cyan-400/40"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl shadow-xs shrink-0">
-            🕌
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black font-heading">
-                Pusat Ibadah, Sholat & Doa Santri
-              </h3>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-300 text-cyan-950 shadow-2xs">
-                PENGGANTI AUDIO CENTER • BARU
-              </span>
-            </div>
-            <p className="text-xs text-cyan-50 font-medium mt-0.5">
-              Jadwal sholat 5 waktu, waktu emas hafalan (Ba'da Subuh & Maghrib), doa anak sholeh lengkap audio, & tasbih digital
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-cyan-100 group-hover:translate-x-1 transition-transform shrink-0" />
-      </div>
-
-      {/* 3. Klasifikasi Fitur PRO vs FREE Card */}
-      <div
-        onClick={() => setShowPlanModal(true)}
-        className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl shrink-0">
-            👑
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black font-heading">
-                Klasifikasi Fitur PRO & FREE
-              </h3>
-              <span
-                className={`text-[10px] font-black px-2 py-0.2 rounded-full border ${
-                  userAccount.planTier === 'pro'
-                    ? 'bg-amber-400 text-amber-950 border-amber-300'
-                    : 'bg-[#22C55E]/20 text-[#22C55E] border-[#22C55E]/40'
-                }`}
-              >
-                {userAccount.planTier === 'pro' ? 'PRO AKTIF' : 'PAKET FREE'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 font-medium mt-0.5">
-              Bandingkan hak akses 30 Juz, 20x AI Guru/hari, 8 arena game, & 5 karakter Tamagotchi
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
-      </div>
-
-      {/* 4. Top-Up Token AI Guru Card */}
-      <div
-        onClick={() => setShowAiTokenModal(true)}
-        className="bg-gradient-to-r from-sky-50 via-cyan-50 to-blue-50 border-2 border-[#08B9EF]/40 text-[#164C68] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#08B9EF] active:scale-[0.99] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-[#08B9EF] text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
-            <Coins size={24} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-black font-heading">
-                Saldo & Token Koreksi AI Guru
-              </h3>
-              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white border border-[#08B9EF]/30 text-[#164C68]">
-                {userAccount.aiTokensBalance || 0} Token Tersedia
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 font-medium mt-0.5">
-              Beli kuota koreksi makhraj & tajwid tambahan fleksibel tanpa langganan penuh
-            </p>
-          </div>
-        </div>
-
-        <ChevronRight size={22} className="text-[#08B9EF] group-hover:translate-x-1 transition-transform" />
-      </div>
-
-      {/* 5. Account / Registration Status Card (Hijalearn-style Auth trigger) */}
-      <div
-        onClick={() => setShowAuthModal(true)}
-        className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#22C55E] transition-all group"
-      >
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#22C55E] text-2xl shrink-0">
-            {userAccount.isRegistered ? '✅' : '📝'}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-black text-[#164C68] font-heading">
-                {userAccount.isRegistered ? `Akun Terdaftar: ${userAccount.parentName}` : 'Daftar / Masuk Akun Orang Tua'}
-              </h3>
-              <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full ${
-                userAccount.isRegistered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-              }`}>
-                {userAccount.isRegistered ? 'Online' : 'Tamu'}
-              </span>
-            </div>
-            <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
-              {userAccount.isRegistered
-                ? userAccount.email
-                : 'Simpan progres hafalan anak ke cloud & akses multi-perangkat'}
-            </p>
-          </div>
-        </div>
-
-        <span className="text-xs font-bold text-[#22C55E] group-hover:underline">
-          {userAccount.isRegistered ? 'Kelola' : 'Daftar Sekarang →'}
+      {/* 03. LAYANAN & LANGGANAN PRO */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          03. LAYANAN & LANGGANAN PRO
         </span>
+
+        {/* Klasifikasi Fitur PRO vs FREE Card */}
+        <div
+          onClick={() => setShowPlanModal(true)}
+          className="bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-slate-700/80 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-400 text-2xl shrink-0">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black font-heading">
+                  Klasifikasi Fitur PRO & FREE
+                </h3>
+                <span
+                  className={`text-[10px] font-black px-2 py-0.2 rounded-full border ${
+                    userAccount.planTier === 'pro'
+                      ? 'bg-amber-400 text-amber-950 border-amber-300'
+                      : 'bg-[#22C55E]/20 text-[#22C55E] border-[#22C55E]/40'
+                  }`}
+                >
+                  {userAccount.planTier === 'pro' ? 'PRO AKTIF' : 'PAKET FREE'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 font-medium mt-0.5">
+                Bandingkan hak akses 30 Juz, 20x AI Guru/hari, 8 arena game, & 5 karakter Tamagotchi
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight size={22} className="text-amber-400 group-hover:translate-x-1 transition-transform" />
+        </div>
+
+        {/* Top-Up Token AI Guru Card */}
+        <div
+          onClick={() => setShowAiTokenModal(true)}
+          className="bg-gradient-to-r from-sky-50 via-cyan-50 to-blue-50 border-2 border-[#08B9EF]/40 text-[#164C68] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#08B9EF] active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#08B9EF] text-white flex items-center justify-center text-xl shrink-0 shadow-xs">
+              <Coins size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black font-heading">
+                  Saldo & Token Koreksi AI Guru
+                </h3>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white border border-[#08B9EF]/30 text-[#164C68]">
+                  {userAccount.aiTokensBalance || 0} Token Tersedia
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 font-medium mt-0.5">
+                Beli kuota koreksi makhraj & tajwid tambahan fleksibel tanpa langganan penuh
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight size={22} className="text-[#08B9EF] group-hover:translate-x-1 transition-transform" />
+        </div>
+      </div>
+
+      {/* 04. DASBOR WALI SANTRI (PIN & LAPORAN) */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          04. DASBOR WALI SANTRI (KONTROL PIN & GRAFIK)
+        </span>
+
+        {/* Dasbor Wali Card */}
+        <div
+          onClick={() => setShowParentModal(true)}
+          className="bg-gradient-to-r from-[#164C68] via-[#11405a] to-[#0f3447] text-white rounded-3xl p-5 shadow-lg shadow-slate-950/20 border border-cyan-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center text-cyan-300 shrink-0 shadow-inner">
+              <ShieldCheck size={26} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black font-heading">
+                  Dasbor Wali & Laporan Progres Anak
+                </h3>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-200 border border-cyan-300/30 flex items-center gap-1">
+                  <Lock size={10} />
+                  <span>PIN Terlindungi</span>
+                </span>
+              </div>
+              <p className="text-xs text-cyan-100 font-medium mt-0.5">
+                Grafik mingguan lengkap, audit rekaman suara anak, evaluasi tajwid, & atur PIN keamanan
+              </p>
+            </div>
+          </div>
+
+          <ChevronRight size={22} className="text-cyan-200 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </div>
+
+      {/* 05. PROGRAM SAHABAT SYIAR & AFILIASI */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          05. PROGRAM SAHABAT SYIAR (AFILIASI 10%)
+        </span>
+
+        {/* Program Kemitraan Card */}
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white rounded-3xl p-5 shadow-md shadow-emerald-700/20 space-y-3.5 border border-emerald-500/50">
+          <div
+            onClick={() => setShowAffiliateModal(true)}
+            className="flex items-center justify-between cursor-pointer group"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs text-2xl shadow-xs shrink-0">
+                🤝
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-black font-heading">
+                    Program Sahabat Syiar & Afiliasi
+                  </h3>
+                  <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 shadow-2xs">
+                    KOMISI 10% RECURRENT
+                  </span>
+                  <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full border ${
+                    userAccount.affiliateEnabled
+                      ? 'bg-emerald-200 text-emerald-950 border-emerald-300'
+                      : 'bg-white/20 text-white border-white/30'
+                  }`}>
+                    {userAccount.affiliateEnabled ? '🟢 AKTIF' : '⚪ BISA DIAKTIFKAN'}
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-50 font-medium mt-0.5">
+                  Dapatkan komisi 10% setiap santri baru mendaftar PRO & <strong>setiap kali perpanjangan (renewal)</strong>!
+                </p>
+              </div>
+            </div>
+
+            <ChevronRight size={22} className="text-emerald-100 group-hover:translate-x-1 transition-transform shrink-0" />
+          </div>
+
+          {/* Kode Referral Box & Share Buttons */}
+          <div className="bg-black/15 backdrop-blur-xs p-3.5 rounded-2xl border border-white/20 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] font-bold text-emerald-200 block uppercase tracking-wider">
+                  Kode Afiliasi Akun Anda:
+                </span>
+                <span className="text-base sm:text-lg font-black font-mono tracking-wider text-amber-300">
+                  {affiliateCode}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCopyAffiliateCode}
+                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#164C68] font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
+              >
+                {copiedAffiliate ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                <span>{copiedAffiliate ? 'Tersalin!' : 'Salin Kode'}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1 border-t border-white/10 flex-wrap sm:flex-nowrap">
+              <button
+                type="button"
+                onClick={handleShareAffiliateWhatsApp}
+                className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+              >
+                <MessageCircle size={14} />
+                <span>Bagi ke WA</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleShareAffiliateTelegram}
+                className="flex-1 min-w-[100px] py-1.5 px-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
+              >
+                <Send size={13} />
+                <span>Telegram</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAffiliateModal(true)}
+                className="w-full sm:w-auto py-1.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 text-center"
+              >
+                Dasbor & Tarik Dana →
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Achievements / Lencana Badge Section */}
@@ -540,14 +556,6 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           userAccount={userAccount}
           onSuccess={() => onRefreshData()}
           onOpenProModal={() => setShowPlanModal(true)}
-        />
-      )}
-
-      {/* Pusat Ibadah, Sholat & Doa Santri Modal */}
-      {showIbadahModal && (
-        <PusatIbadahDoaModal
-          isOpen={showIbadahModal}
-          onClose={() => setShowIbadahModal(false)}
         />
       )}
     </div>

@@ -36,6 +36,9 @@ import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
 import { FloatingSocialShareDock } from './components/common/FloatingSocialShareDock';
 import { ShareModal, SharePayload } from './components/common/ShareModal';
+import { PusatIbadahDoaModal } from './components/ibadah/PusatIbadahDoaModal';
+import { NotificationService, ReminderSchedule } from './services/notificationService';
+import { X } from 'lucide-react';
 
 export default function App() {
   // Navigation Tabs
@@ -85,6 +88,21 @@ export default function App() {
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [ibadahInitialTab, setIbadahInitialTab] = useState<'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi'>('jadwal');
+  const [activeInAppReminder, setActiveInAppReminder] = useState<ReminderSchedule | null>(null);
+
+  const handleOpenIbadah = (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => {
+    GlobalAudioManager.stopAll();
+    setIbadahInitialTab(tab || 'jadwal');
+    setActiveTab('ibadah');
+  };
+
+  useEffect(() => {
+    const unsubscribe = NotificationService.onInAppNotification((reminder) => {
+      setActiveInAppReminder(reminder);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const [companion, setCompanion] = useState(() =>
     CompanionService.getCompanionData(activeChild.id)
@@ -335,9 +353,15 @@ export default function App() {
       headerSubtitle = 'Kisah di Balik Surah';
     }
     onBackHandler = () => navigateAlQuran(null);
+  } else if (activeTab === 'ibadah') {
+    headerTitle = 'Pusat Ibadah, Adab & Doa';
+    headerSubtitle = 'Jadwal Sholat, Daily Task Adab, Doa & Tasbih';
   } else if (activeTab === 'game') {
     headerTitle = 'Peta Dunia & Petualangan';
     headerSubtitle = 'Sahabat, Dunia & Game';
+  } else if (activeTab === 'akun') {
+    headerTitle = 'Pusat Akun & Sistem';
+    headerSubtitle = 'Profil Santri, Orang Tua & Pengaturan';
   }
 
   const weakAyahsCount = ayahProgressList.filter((a) => a.needsReview).length;
@@ -352,17 +376,69 @@ export default function App() {
           subtitle={headerSubtitle}
           onBack={onBackHandler}
           activeChild={activeChild}
-          onSelectChild={() => setShowQuickChildSwitcher(true)}
+          childrenList={childrenList}
+          onSwitchChild={handleSwitchChild}
+          onOpenAddChild={() => setShowAddChildModal(true)}
           userAccount={userAccount}
           onOpenAuth={(mode) => {
             setAuthModalMode(mode);
             setShowAuthModal(true);
           }}
           onOpenPlanModal={() => setShowPlanModal(true)}
+          onOpenParentDashboard={() => navigateToTab('akun')}
+          onOpenAiTokens={() => setShowAiTokenModal(true)}
           activeTab={activeTab}
           onTabChange={navigateToTab}
           murojaahDueCount={weakAyahsCount}
+          onOpenIbadahModal={handleOpenIbadah}
         />
+
+        {/* In-App Browser Reminder Banner */}
+        {activeInAppReminder && (
+          <div className="mx-4 mt-2 mb-1 p-3.5 bg-gradient-to-r from-[#164C68] via-teal-800 to-emerald-800 text-white rounded-2xl shadow-xl border border-emerald-400/80 animate-in slide-in-from-top duration-300">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 text-xl flex items-center justify-center shrink-0">
+                  🔔
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-black font-heading text-amber-300">
+                      {activeInAppReminder.title}
+                    </h4>
+                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-emerald-400 text-slate-950">
+                      WAKTU MUROJAAH
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-100 mt-0.5 line-clamp-2">
+                    {activeInAppReminder.body}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveInAppReminder(null)}
+                className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-pointer"
+                title="Tutup Notifikasi"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => {
+                  setActiveInAppReminder(null);
+                  setActiveTab('tahfiz');
+                  navigateTahfiz('murojaah');
+                }}
+                className="py-1 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-xs cursor-pointer"
+              >
+                Buka Murojaah Sekarang →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Scrollable Content Container */}
         <main className="flex-1 px-4 sm:px-6 pt-3 md:pb-8 overflow-y-auto">
@@ -393,6 +469,7 @@ export default function App() {
                 setShowAuthModal(true);
               }}
               onOpenPlanModal={() => setShowPlanModal(true)}
+              onOpenIbadahModal={handleOpenIbadah}
             />
           )}
 
@@ -518,7 +595,19 @@ export default function App() {
             </>
           )}
 
-          {/* TAB 4: GAMES & WORLD MAP */}
+          {/* TAB 4: PUSAT IBADAH, ADAB & DOA SANTRI (FITUR UTAMA) */}
+          {activeTab === 'ibadah' && (
+            <PusatIbadahDoaModal
+              isOpen={true}
+              isFullPage={true}
+              activeChild={activeChild}
+              initialTab={ibadahInitialTab}
+              onClose={() => navigateToTab('beranda')}
+              onTasksUpdated={() => refreshChildData(activeChild.id)}
+            />
+          )}
+
+          {/* TAB 5: GAMES & WORLD MAP */}
           {activeTab === 'game' && (
             <GameHub
               childId={activeChild.id}

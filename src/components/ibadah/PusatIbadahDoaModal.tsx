@@ -17,13 +17,35 @@ import {
   Moon,
   Sunset,
   Sunrise,
-  Share2,
+  Bell,
+  BellRing,
+  BellOff,
+  CheckCircle2,
+  Circle,
+  Plus,
+  Trash2,
+  Award,
+  ChevronRight,
+  ShieldCheck,
+  AlertCircle,
+  Zap,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ChildProfile } from '../../types';
+import { AdabService, AdabTaskItem } from '../../services/adabService';
+import {
+  NotificationService,
+  ReminderSchedule,
+  DEFAULT_REMINDERS,
+} from '../../services/notificationService';
 
 interface PusatIbadahDoaModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
+  activeChild?: ChildProfile;
+  initialTab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi';
+  onTasksUpdated?: () => void;
+  isFullPage?: boolean;
 }
 
 interface DoaItem {
@@ -111,8 +133,17 @@ const DOA_LIST: DoaItem[] = [
   },
 ];
 
-export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'jadwal' | 'doa' | 'tasbih'>('jadwal');
+export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({
+  isOpen,
+  onClose,
+  activeChild,
+  initialTab = 'jadwal',
+  onTasksUpdated,
+  isFullPage = false,
+}) => {
+  const [activeTab, setActiveTab] = useState<'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi'>(
+    initialTab
+  );
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'hafalan' | 'harian' | 'masjid' | 'adab'>('all');
   const [copiedDoaId, setCopiedDoaId] = useState<string | null>(null);
   const [playingDoaId, setPlayingDoaId] = useState<string | null>(null);
@@ -122,18 +153,46 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
   const [tasbihTarget, setTasbihTarget] = useState<number>(33);
   const [tasbihZikir, setTasbihZikir] = useState<string>('Subhanallah');
 
+  // Adab Tasks State
+  const childId = activeChild?.id || 'default-child';
+  const [adabTasks, setAdabTasks] = useState<AdabTaskItem[]>(() =>
+    AdabService.getDailyTasks(childId)
+  );
+
+  // Notifications State
+  const [reminders, setReminders] = useState<ReminderSchedule[]>(() =>
+    NotificationService.getReminders()
+  );
+  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | 'unsupported'>(
+    () => NotificationService.getPermissionStatus()
+  );
+  const [testNotificationSent, setTestNotificationSent] = useState<boolean>(false);
+  const [showAddCustomTime, setShowAddCustomTime] = useState<boolean>(false);
+  const [customTimeInput, setCustomTimeInput] = useState<string>('20:00');
+  const [customNameInput, setCustomNameInput] = useState<string>('Murojaah Malam');
+
   // Clock state
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
     if (!isOpen) return;
+    setAdabTasks(AdabService.getDailyTasks(childId));
+    setReminders(NotificationService.getReminders());
+    setPermissionStatus(NotificationService.getPermissionStatus());
+
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, [isOpen, childId]);
 
   if (!isOpen) return null;
 
-  // Static prayer schedules for Indonesia (WIB baseline)
+  // Prayer times baseline (WIB)
   const prayerSchedule = [
     { name: 'Subuh', time: '04:36', icon: Sunrise, color: 'text-amber-500', isGoldenHafalan: true },
     { name: 'Terbit', time: '05:52', icon: Sun, color: 'text-orange-400', isGoldenHafalan: false },
@@ -142,6 +201,92 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
     { name: 'Maghrib', time: '17:59', icon: Moon, color: 'text-indigo-400', isGoldenHafalan: true },
     { name: 'Isya', time: '19:08', icon: Moon, color: 'text-purple-500', isGoldenHafalan: false },
   ];
+
+  // Adab Task Toggler
+  const handleToggleAdabTask = (taskId: string) => {
+    const res = AdabService.toggleTask(childId, taskId);
+    setAdabTasks(res.tasks);
+
+    if (res.completed && res.task) {
+      confetti({
+        particleCount: 45,
+        spread: 60,
+        origin: { y: 0.6 },
+      });
+      NotificationService.playChimeSound();
+    }
+
+    if (onTasksUpdated) {
+      onTasksUpdated();
+    }
+  };
+
+  // Notification Permission Request
+  const handleRequestPermission = async () => {
+    const granted = await NotificationService.requestPermission();
+    setPermissionStatus(granted ? 'granted' : NotificationService.getPermissionStatus());
+    if (granted) {
+      confetti({
+        particleCount: 50,
+        spread: 70,
+        origin: { y: 0.5 },
+      });
+      // Send welcoming notification
+      NotificationService.triggerNotification(
+        {
+          id: 'welcome-reminder',
+          name: 'Izin Notifikasi Aktif',
+          time: '',
+          title: '🔔 Pengingat Murojaah Aktif!',
+          body: 'Masha Allah! Browser Anda kini siap mengingatkan santri rutin murojaah di waktu emas tahfiz ✨',
+          enabled: true,
+          sound: true,
+          tag: 'welcome-reminder',
+        },
+        true
+      );
+    }
+  };
+
+  // Test Notification
+  const handleTestNotification = async () => {
+    setTestNotificationSent(true);
+    await NotificationService.triggerNotification(
+      {
+        id: 'test-reminder',
+        name: 'Uji Coba Pengingat',
+        time: '',
+        title: '📖 Waktunya Murojaah Santri!',
+        body: 'Assalamu\'alaikum! Ini adalah pengingat hafalan Al-Qur\'an dari Cahaya Tahfiz. Hafalan mutqin dimulai dari konsistensi harian ⭐',
+        enabled: true,
+        sound: true,
+        tag: 'test-reminder',
+      },
+      true
+    );
+    setTimeout(() => setTestNotificationSent(false), 3000);
+  };
+
+  // Toggle Reminder
+  const handleToggleReminder = (id: string, enabled: boolean) => {
+    const updated = NotificationService.toggleReminder(id, enabled);
+    setReminders(updated);
+  };
+
+  // Add Custom Reminder
+  const handleAddCustomTime = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customTimeInput) return;
+    const updated = NotificationService.addReminder(
+      customNameInput || 'Murojaah Pilihan',
+      customTimeInput
+    );
+    setReminders(updated);
+    setShowAddCustomTime(false);
+    setCustomNameInput('Murojaah Malam');
+  };
+
+  const completedAdabCount = AdabService.getCompletedCount(adabTasks);
 
   const handleCopyDoa = (item: DoaItem) => {
     const text = `${item.title}\n\n${item.arabic}\n\n${item.latin}\n\nArtinya: "${item.translation}"\n\n(Aplikasi Cahaya Tahfiz Santri)`;
@@ -174,6 +319,7 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
         spread: 60,
         origin: { y: 0.6 },
       });
+      NotificationService.playChimeSound();
     }
   };
 
@@ -182,21 +328,18 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
       ? DOA_LIST
       : DOA_LIST.filter((d) => d.category === selectedCategory);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 15 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 15 }}
-        className="bg-white rounded-3xl border border-[#C9E1ED] shadow-2xl max-w-2xl w-full overflow-hidden my-4 relative font-sans text-left"
-      >
-        {/* Close Button */}
+  const innerContent = (
+    <div className="bg-white rounded-3xl border border-[#C9E1ED] shadow-sm sm:shadow-lg overflow-hidden relative font-sans text-left">
+      {/* Close / Back Button */}
+      {onClose && (
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label={isFullPage ? 'Kembali' : 'Tutup'}
+          className="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
         >
-          <X size={16} />
+          {isFullPage ? <span>← Kembali</span> : <X size={16} />}
         </button>
+      )}
 
         {/* TOP HEADER */}
         <div className="pt-7 pb-5 px-6 bg-gradient-to-b from-sky-50 via-cyan-50/40 to-white border-b border-slate-100 space-y-3">
@@ -205,57 +348,85 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
               🕌
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl sm:text-2xl font-black font-heading text-[#164C68] tracking-tight">
-                  Pusat Ibadah, Sholat & Doa Santri
+                  Pusat Ibadah, Adab & Doa Santri
                 </h2>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300">
-                  HARIAN
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  HARIAN & PWA
                 </span>
               </div>
               <p className="text-xs text-slate-600 font-medium">
-                Jadwal sholat 5 waktu, waktu emas hafalan Al-Qur'an, doa anak sholeh, & tasbih digital interaktif.
+                Jadwal sholat 5 waktu, waktu emas tahfiz, misi adab harian berhadiah XP/Bintang, doa santri, & notifikasi murojaah.
               </p>
             </div>
           </div>
 
           {/* TAB NAVIGATION */}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 overflow-x-auto pb-1">
             <button
               type="button"
               onClick={() => setActiveTab('jadwal')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'jadwal'
                   ? 'bg-[#164C68] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               <Clock size={13} />
-              <span>Jadwal Sholat & Waktu Emas</span>
+              <span>Jadwal Sholat</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('adab')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'adab'
+                  ? 'bg-[#164C68] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Sparkles size={13} className="text-amber-400" />
+              <span>Daily Task Adab ({completedAdabCount}/{adabTasks.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('notifikasi')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'notifikasi'
+                  ? 'bg-[#164C68] text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Bell size={13} className="text-rose-400" />
+              <span>Pengingat Murojaah</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('doa')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'doa'
                   ? 'bg-[#164C68] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
               <BookOpen size={13} />
-              <span>Koleksi Doa Santri ({DOA_LIST.length})</span>
+              <span>Koleksi Doa</span>
             </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('tasbih')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'tasbih'
                   ? 'bg-[#164C68] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              <Sparkles size={13} />
-              <span>Tasbih Digital Santri</span>
+              <Heart size={13} />
+              <span>Tasbih Digital</span>
             </button>
           </div>
         </div>
@@ -320,32 +491,327 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
                 </div>
               </div>
 
-              {/* Sunnah Fasting & Reminders */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1 text-emerald-950">
-                  <div className="flex items-center gap-2 font-bold text-xs text-emerald-800">
-                    <Calendar size={14} />
-                    <span>Jadwal Puasa Sunnah Santri</span>
+              {/* Quick Jump to Murojaah Reminder */}
+              <div
+                onClick={() => setActiveTab('notifikasi')}
+                className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-emerald-100/60 transition-all"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                    <BellRing size={16} />
                   </div>
-                  <p className="text-[11px] text-emerald-900 leading-relaxed">
-                    Setiap hari <strong>Senin & Kamis</strong> serta <strong>Ayyamul Bidh</strong> (13, 14, 15 Hijriyah) sangat dianjurkan untuk melatih kesabaran hafiz cilik.
-                  </p>
+                  <div>
+                    <span className="text-xs font-black text-[#164C68] block">
+                      Ingin diingatkan otomatis saat waktu murojaah tiba?
+                    </span>
+                    <span className="text-[11px] text-emerald-800">
+                      Aktifkan notifikasi browser lokal harian (Subuh, Ashar, Maghrib)
+                    </span>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-emerald-700" />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: DAILY TASK ADAB & AMALAN SANTRI */}
+          {activeTab === 'adab' && (
+            <div className="space-y-4">
+              {/* Progress Summary Card */}
+              <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-[#164C68] text-white rounded-3xl shadow-md space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider block">
+                      Misi Harian Akhlak & Ibadah Santri
+                    </span>
+                    <h3 className="text-base sm:text-lg font-black font-heading text-amber-300">
+                      {completedAdabCount === adabTasks.length
+                        ? '🎉 Masha Allah! Seluruh Misi Hari Ini Tuntas!'
+                        : `${completedAdabCount} dari ${adabTasks.length} Adab Santri Tuntas`}
+                    </h3>
+                  </div>
+
+                  <span className="text-xs font-black px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white font-mono">
+                    {Math.round((completedAdabCount / adabTasks.length) * 100)}%
+                  </span>
                 </div>
 
-                <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-2xl space-y-1 text-sky-950">
-                  <div className="flex items-center gap-2 font-bold text-xs text-sky-800">
-                    <Compass size={14} />
-                    <span>Adab Sebelum Memulai Hafalan</span>
+                <div className="h-2.5 w-full bg-black/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-300 to-emerald-300 transition-all duration-300"
+                    style={{ width: `${(completedAdabCount / adabTasks.length) * 100}%` }}
+                  />
+                </div>
+
+                <p className="text-[11px] text-emerald-100 font-medium">
+                  Setiap adab yang diselesaikan melatih karakter mulia dan menghadiahkan bintang ⭐ serta poin XP untuk menaikkan level hafiz!
+                </p>
+              </div>
+
+              {/* Tasks List */}
+              <div className="space-y-2.5">
+                {adabTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    onClick={() => handleToggleAdabTask(task.id)}
+                    className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      task.completed
+                        ? 'bg-emerald-50/70 border-emerald-300 shadow-2xs'
+                        : 'bg-white border-slate-200 hover:border-cyan-300'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      className="mt-0.5 text-2xl shrink-0 cursor-pointer"
+                    >
+                      {task.completed ? (
+                        <CheckCircle2 size={24} className="text-emerald-600 fill-emerald-100" />
+                      ) : (
+                        <Circle size={24} className="text-slate-300 hover:text-cyan-500" />
+                      )}
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-base">{task.icon}</span>
+                          <h4
+                            className={`text-xs font-black font-heading ${
+                              task.completed ? 'text-emerald-950 line-through opacity-80' : 'text-[#164C68]'
+                            }`}
+                          >
+                            {task.title}
+                          </h4>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
+                            <Star size={10} className="fill-amber-400 text-amber-500" />
+                            +{task.starReward}
+                          </span>
+                          <span className="text-[10px] font-black text-[#08B9EF] bg-cyan-50 border border-cyan-200 px-1.5 py-0.5 rounded-md">
+                            +{task.xpReward} XP
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                        {task.description}
+                      </p>
+
+                      <p className="text-[10px] text-slate-400 italic mt-1 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
+                        {task.dalilOrHikmah}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-sky-900 leading-relaxed">
-                    Berwudhu dengan sempurna, menghadap kiblat, dan membaca ta'awwudz serta doa sebelum menatap mushaf Al-Qur'an.
-                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: PENGINGAT NOTIFIKASI MUROJAAH PWA (BROWSER LOKAL) */}
+          {activeTab === 'notifikasi' && (
+            <div className="space-y-4">
+              {/* Permission Status Alert */}
+              <div className={`p-4 rounded-3xl border space-y-2 ${
+                permissionStatus === 'granted'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                  : permissionStatus === 'denied'
+                  ? 'bg-rose-50 border-rose-300 text-rose-950'
+                  : 'bg-amber-50 border-amber-300 text-amber-950'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {permissionStatus === 'granted' ? (
+                      <BellRing size={20} className="text-emerald-600" />
+                    ) : permissionStatus === 'denied' ? (
+                      <BellOff size={20} className="text-rose-600" />
+                    ) : (
+                      <Bell size={20} className="text-amber-600" />
+                    )}
+                    <h4 className="text-xs sm:text-sm font-black font-heading">
+                      Status Notifikasi Browser: {
+                        permissionStatus === 'granted'
+                          ? 'Aktif & Siap Mengingatkan ✅'
+                          : permissionStatus === 'denied'
+                          ? 'Izin Diblokir Browser ❌'
+                          : 'Izin Belum Diaktifkan ⚠️'
+                      }
+                    </h4>
+                  </div>
+                </div>
+
+                <p className="text-[11px] leading-relaxed">
+                  {permissionStatus === 'granted'
+                    ? 'Browser lokal Anda akan memunculkan notifikasi pop-up dan suara pengingat murojaah otomatis pada jam yang dijadwalkan di bawah ini.'
+                    : permissionStatus === 'denied'
+                    ? 'Izin notifikasi diblokir pada pengaturan browser. Silakan klik ikon gembok di bilah alamat browser untuk mengizinkan notifikasi aplikasi ini.'
+                    : 'Aktifkan izin notifikasi sekali klik agar anak tidak melewatkan jadwal murojaah harian meskipun sedang membuka tab lain.'}
+                </p>
+
+                {permissionStatus !== 'granted' && (
+                  <button
+                    type="button"
+                    onClick={handleRequestPermission}
+                    className="py-2 px-4 rounded-xl bg-[#164C68] hover:bg-[#08B9EF] text-white font-black text-xs cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Bell size={14} />
+                    <span>Aktifkan Izin Notifikasi Browser Sekarang</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Action Buttons: Test Notification */}
+              <div className="flex items-center justify-between gap-3 p-3.5 bg-[#EEF8FF] border border-[#C9E1ED] rounded-2xl flex-wrap">
+                <div>
+                  <span className="text-xs font-black text-[#164C68] block">
+                    Uji Coba Notifikasi & Suara Chime
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Cek langsung tampilan pop-up dan suara bel di perangkat Anda
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestNotification}
+                  disabled={testNotificationSent}
+                  className="py-2 px-4 rounded-xl bg-gradient-to-r from-[#08B9EF] to-teal-500 hover:opacity-90 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1.5 shrink-0"
+                >
+                  <Zap size={14} />
+                  <span>{testNotificationSent ? 'Notifikasi Terkirim! ✨' : 'Kirim Uji Coba Sekarang'}</span>
+                </button>
+              </div>
+
+              {/* Reminder Schedules List */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-[#164C68]">
+                  <span>Jadwal Pengingat Murojaah Harian:</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomTime(!showAddCustomTime)}
+                    className="text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                  >
+                    <Plus size={13} />
+                    <span>Tambah Jam Pengingat</span>
+                  </button>
+                </div>
+
+                {/* Form Add Custom Time */}
+                {showAddCustomTime && (
+                  <form
+                    onSubmit={handleAddCustomTime}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 animate-in fade-in"
+                  >
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          Nama Pengingat:
+                        </label>
+                        <input
+                          type="text"
+                          value={customNameInput}
+                          onChange={(e) => setCustomNameInput(e.target.value)}
+                          placeholder="Misal: Sebelum Tidur"
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:border-[#08B9EF] outline-hidden font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                          Jam (24 Jam):
+                        </label>
+                        <input
+                          type="time"
+                          value={customTimeInput}
+                          onChange={(e) => setCustomTimeInput(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs bg-white focus:border-[#08B9EF] outline-hidden font-bold font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustomTime(false)}
+                        className="px-3 py-1 text-xs text-slate-500 font-bold hover:text-slate-800"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-3.5 py-1 rounded-xl bg-[#164C68] text-white text-xs font-bold hover:bg-[#08B9EF]"
+                      >
+                        Simpan Jadwal
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Reminders Cards */}
+                <div className="space-y-2">
+                  {reminders.map((r) => (
+                    <div
+                      key={r.id}
+                      className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                        r.enabled
+                          ? 'bg-white border-slate-200 hover:border-cyan-300 shadow-2xs'
+                          : 'bg-slate-50/70 border-slate-200 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-cyan-50 border border-cyan-200 text-[#08B9EF] flex items-center justify-center font-mono font-black text-sm shrink-0">
+                          {r.time}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-black text-[#164C68]">
+                              {r.name}
+                            </h4>
+                            {r.id === 'subuh' && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                                Golden Hour
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                            {r.body}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={r.enabled}
+                            onChange={(e) => handleToggleReminder(r.id, e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+
+                        {r.id.startsWith('custom-') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = NotificationService.deleteReminder(r.id);
+                              setReminders(updated);
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Hapus Jadwal"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: KOLEKSI DOA SANTRI */}
+          {/* TAB 4: KOLEKSI DOA SANTRI */}
           {activeTab === 'doa' && (
             <div className="space-y-3">
               {/* Category Pills */}
@@ -434,7 +900,7 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
             </div>
           )}
 
-          {/* TAB 3: TASBIH DIGITAL SANTRI */}
+          {/* TAB 5: TASBIH DIGITAL SANTRI */}
           {activeTab === 'tasbih' && (
             <div className="space-y-4 text-center">
               {/* Preset Selector */}
@@ -517,6 +983,26 @@ export const PusatIbadahDoaModal: React.FC<PusatIbadahDoaModalProps> = ({ isOpen
             </div>
           )}
         </div>
+      </div>
+    );
+
+  if (isFullPage) {
+    return (
+      <div className="max-w-3xl mx-auto pb-20 font-sans text-left animate-in fade-in duration-200">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 15 }}
+        className="max-w-2xl w-full my-4 relative font-sans text-left"
+      >
+        {innerContent}
       </motion.div>
     </div>
   );

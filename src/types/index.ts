@@ -1,4 +1,4 @@
-export type NavigationTab = 'beranda' | 'tahfiz' | 'alquran' | 'game' | 'akun';
+export type NavigationTab = 'beranda' | 'tahfiz' | 'alquran' | 'ibadah' | 'game' | 'akun';
 
 export type LearningLevel = 'pemula' | 'menengah' | 'mahir';
 
@@ -255,7 +255,8 @@ export type PointsEventType =
   | 'IQRA_LESSON'
   | 'TAJWID_LESSON'
   | 'VOCABULARY'
-  | 'GAME';
+  | 'GAME'
+  | 'ADAB_TASK';
 
 export interface PointsLedgerEntry {
   id: string;
