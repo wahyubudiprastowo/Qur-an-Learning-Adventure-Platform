@@ -668,6 +668,16 @@ export class StorageService {
     AudioDatabaseService.deleteAudio(recordingId).catch(() => {});
   }
 
+  static deleteRecordingByAyah(childId: string, surahNumber: number, ayahNumber: number): void {
+    let list = this.getRecordings(childId);
+    const toDelete = list.filter((r) => r.surahNumber === surahNumber && r.ayahNumber === ayahNumber);
+    list = list.filter((r) => !(r.surahNumber === surahNumber && r.ayahNumber === ayahNumber));
+    localStorage.setItem(STORAGE_KEYS.RECORDINGS_PREFIX + childId, JSON.stringify(list));
+    for (const rec of toDelete) {
+      AudioDatabaseService.deleteAudio(rec.id).catch(() => {});
+    }
+  }
+
   // --- Audio Storage Settings & Retention Policy ---
   static getAudioStorageSettings(): AudioStorageSettings {
     const raw = localStorage.getItem(STORAGE_KEYS.AUDIO_STORAGE_SETTINGS);

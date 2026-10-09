@@ -27,6 +27,7 @@ import {
   BookOpen,
   Download,
   Trash2,
+  Activity,
 } from 'lucide-react';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
@@ -40,6 +41,7 @@ import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
 import { RiwayatEvaluasiModal } from './RiwayatEvaluasiModal';
+import { D3AudioAccuracyEvaluation } from './D3AudioAccuracyEvaluation';
 import { GlobalAudioManager } from '../../services/audioService';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
@@ -109,6 +111,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   const [isSavedToDb, setIsSavedToDb] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [showD3Visualizer, setShowD3Visualizer] = useState<boolean>(false);
+  const [deleteConfirmRec, setDeleteConfirmRec] = useState<AyahRecording | null>(null);
   const [isPlayingSavedAudio, setIsPlayingSavedAudio] = useState<boolean>(false);
   const savedAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -207,17 +211,41 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     };
   }, []);
 
-  // Load Surah Ayahs
+  // Load Surah Ayahs & Sync existing recordings
   useEffect(() => {
     let isMounted = true;
     getSurahAyahs(selectedSurahNumber).then((data) => {
       if (!isMounted) return;
       setAyahs(data);
       setCurrentAyahIndex(0);
-      setRecordedAyahs(new Map());
       setAssistanceUsedMap(new Map());
       setPreviewBlobUrl(null);
       setLatestAiCorrection(null);
+
+      // Populate recordedAyahs map from existing StorageService records
+      const existingRecords = StorageService.getRecordings(childId).filter(
+        (r) => r.surahNumber === selectedSurahNumber
+      );
+      const recMap = new Map<number, RecordedAyahItem>();
+      for (const r of existingRecords) {
+        recMap.set(r.ayahNumber, {
+          ayahNumber: r.ayahNumber,
+          audioBlobUrl: r.audioBlobUrl,
+          durationSeconds: r.durationSeconds,
+          scoreResult: {
+            overallScore: r.score,
+            timingScore: r.timingScore,
+            wordCoverageScore: r.wordCoverageScore,
+            fluencyScore: r.fluencyScore,
+            referenceDurationSeconds: r.referenceDurationSeconds,
+            missingWords: r.missingWords || [],
+            extraWords: r.extraWords || [],
+            needsReview: r.needsReview,
+            feedback: '',
+          },
+        });
+      }
+      setRecordedAyahs(recMap);
     });
 
     // Update last session so user's choice is saved
@@ -234,6 +262,33 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       isMounted = false;
     };
   }, [selectedSurahNumber, childId, surahMeta.nameLatin, surahMeta.ayahCount]);
+
+  // Keep recordedAyahs map in sync with StorageService whenever refreshVersion triggers
+  useEffect(() => {
+    const existingRecords = StorageService.getRecordings(childId).filter(
+      (r) => r.surahNumber === selectedSurahNumber
+    );
+    const recMap = new Map<number, RecordedAyahItem>();
+    for (const r of existingRecords) {
+      recMap.set(r.ayahNumber, {
+        ayahNumber: r.ayahNumber,
+        audioBlobUrl: r.audioBlobUrl,
+        durationSeconds: r.durationSeconds,
+        scoreResult: {
+          overallScore: r.score,
+          timingScore: r.timingScore,
+          wordCoverageScore: r.wordCoverageScore,
+          fluencyScore: r.fluencyScore,
+          referenceDurationSeconds: r.referenceDurationSeconds,
+          missingWords: r.missingWords || [],
+          extraWords: r.extraWords || [],
+          needsReview: r.needsReview,
+          feedback: '',
+        },
+      });
+    }
+    setRecordedAyahs(recMap);
+  }, [refreshVersion, selectedSurahNumber, childId]);
 
   // Record assistance used
   const addAssistance = (type: string) => {
@@ -254,7 +309,9 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     blob: Blob,
     durationSecs: number,
     ayahItem: AyahData,
-    recId: string
+    recId: string,
+    audioLevel?: { peak?: number; avg?: number },
+    spokenTranscript?: string
   ): Promise<AiCorrectionResult | null> => {
     setIsAiAnalyzing(true);
     try {
@@ -273,6 +330,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         mimeType: blob.type || 'audio/webm',
         durationSeconds: durationSecs,
         assistanceUsed: assistanceUsedMap.get(ayahItem.ayahNumber) || [],
+        audioLevel: audioLevel || { peak: 50, avg: 35 },
+        spokenTranscript: spokenTranscript || '',
       };
 
       const response = await fetch('/api/ai-correction', {
@@ -413,8 +472,18 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       setSaveToast(`Alhamdulillah! Rekaman Suara Ayat ${currentAyah.ayahNumber} berhasil disimpan ke Database!`);
       setRefreshVersion((prev) => prev + 1);
 
-      // 3. Trigger Automatic AI Correction in real-time!
-      evaluateRecitationWithAi(res.blob, res.durationSeconds, currentAyah, recId);
+      // 3. Trigger Automatic AI Correction in real-time with real audio level & transcript
+      evaluateRecitationWithAi(
+        res.blob,
+        res.durationSeconds,
+        currentAyah,
+        recId,
+        {
+          peak: res.peakVolume,
+          avg: res.avgVolume,
+        },
+        res.spokenTranscript
+      );
 
       // Record activity in Companion service
       CompanionService.recordActivity(childId, 'hafalan', 35, 5);
@@ -426,14 +495,38 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   };
 
   const handleDeleteExistingRecording = (rec: AyahRecording) => {
-    if (window.confirm(`Hapus rekaman suara Ayat ${rec.ayahNumber} dari memori perangkat?`)) {
-      if (savedAudioRef.current) savedAudioRef.current.pause();
-      setIsPlayingSavedAudio(false);
-      StorageService.deleteRecording(childId, rec.id);
-      setRefreshVersion((prev) => prev + 1);
-      setSaveToast('Rekaman berhasil dihapus.');
-      setTimeout(() => setSaveToast(null), 3000);
+    setDeleteConfirmRec(rec);
+  };
+
+  const executeDeleteRecording = () => {
+    if (!deleteConfirmRec) return;
+    if (savedAudioRef.current) {
+      savedAudioRef.current.pause();
+      savedAudioRef.current = null;
     }
+    setIsPlayingSavedAudio(false);
+
+    // 1. Delete from StorageService & IndexedDB
+    StorageService.deleteRecording(childId, deleteConfirmRec.id);
+    StorageService.deleteRecordingByAyah(childId, selectedSurahNumber, deleteConfirmRec.ayahNumber);
+    AudioDatabaseService.deleteAudio(deleteConfirmRec.id).catch(() => {});
+
+    // 2. Remove immediately from local state
+    setRecordedAyahs((prev) => {
+      const next = new Map(prev);
+      next.delete(deleteConfirmRec.ayahNumber);
+      return next;
+    });
+    setPreviewBlobUrl(null);
+    setLatestAiCorrection(null);
+    setShowD3Visualizer(false);
+    setIsSavedToDb(false);
+
+    // 3. Bump refresh version
+    setRefreshVersion((prev) => prev + 1);
+    setSaveToast(`Rekaman Ayat ${deleteConfirmRec.ayahNumber} berhasil dihapus.`);
+    setDeleteConfirmRec(null);
+    setTimeout(() => setSaveToast(null), 3000);
   };
 
   const handleCancelRecording = () => {
@@ -690,7 +783,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
                 onClick={() => {
                   if (recordingState === 'RECORDING') return;
                   setCurrentAyahIndex(idx);
-                  setPreviewBlobUrl(recordedAyahs.get(a.ayahNumber)?.audioBlobUrl || null);
+                  setPreviewBlobUrl(null);
+                  setShowD3Visualizer(false);
                 }}
                 className={`h-11 rounded-2xl font-black text-sm transition-all duration-150 flex items-center justify-center cursor-pointer ${
                   isCurrent
@@ -996,6 +1090,48 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               <span>Evaluasi</span>
             </button>
           </div>
+
+          {/* D3.js Tartil Accuracy Visualization Button */}
+          <button
+            onClick={() => setShowD3Visualizer((prev) => !prev)}
+            className={`w-full py-2.5 px-3.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer border shadow-2xs ${
+              showD3Visualizer
+                ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white border-purple-900 shadow-md'
+                : 'bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 text-purple-950 border-purple-200 hover:border-purple-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${showD3Visualizer ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-800'}`}>
+                <Activity size={14} />
+              </div>
+              <div className="text-left">
+                <span className="block font-black text-xs">
+                  {showD3Visualizer ? 'Tutup Visualisasi D3 Tartil' : 'Visualisasi Akurasi D3.js vs Mualim'}
+                </span>
+                <span className={`text-[10px] block ${showD3Visualizer ? 'text-purple-200' : 'text-purple-700'}`}>
+                  Perbandingan gelombang, radar 5 dimensi & skor bintang
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 font-black text-xs">
+              <span>⭐ Skor Bintang</span>
+              <ChevronDown size={14} className={`transition-transform duration-200 ${showD3Visualizer ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
+
+          {/* D3 Visualization Interactive Module */}
+          {showD3Visualizer && existingSavedRecording && (
+            <div className="pt-1 animate-in fade-in duration-200">
+              <D3AudioAccuracyEvaluation
+                recording={existingSavedRecording}
+                surahNumber={selectedSurahNumber}
+                surahName={surahMeta.nameLatin}
+                ayahNumber={currentAyah.ayahNumber}
+                childName="Santri"
+                onClose={() => setShowD3Visualizer(false)}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -1083,6 +1219,55 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
                   </ul>
                 </div>
               )}
+
+              {/* D3 Accuracy & Star Rating Trigger from AI Card */}
+              <button
+                type="button"
+                onClick={() => setShowD3Visualizer((prev) => !prev)}
+                className={`w-full py-2.5 px-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
+                  showD3Visualizer
+                    ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white border-purple-900 shadow-md'
+                    : 'bg-white border-[#08B9EF]/50 hover:bg-sky-50 text-[#164C68]'
+                }`}
+              >
+                <Activity size={14} className={showD3Visualizer ? 'text-white' : 'text-[#08B9EF]'} />
+                <span>{showD3Visualizer ? 'Tutup Visualisasi D3 Tartil' : 'Lihat Visualisasi Akurasi D3.js & Skor Bintang vs Mualim ⭐'}</span>
+              </button>
+
+              {/* D3 Visualization Interactive Module Inside AI Card */}
+              {showD3Visualizer && (
+                <div className="pt-2 animate-in fade-in duration-200">
+                  <D3AudioAccuracyEvaluation
+                    recording={
+                      existingSavedRecording || {
+                        id: `rec-preview-${currentAyah?.ayahNumber || 1}`,
+                        childId,
+                        surahNumber: selectedSurahNumber,
+                        surahName: surahMeta.nameLatin,
+                        ayahNumber: currentAyah?.ayahNumber || 1,
+                        audioBlobUrl: previewBlobUrl || '',
+                        durationSeconds: recordingDuration || 4,
+                        referenceDurationSeconds: 5,
+                        score: latestAiCorrection.overallScore,
+                        timingScore: 85,
+                        wordCoverageScore: latestAiCorrection.accuracyScore,
+                        fluencyScore: latestAiCorrection.fluencyScore,
+                        missingWords: [],
+                        extraWords: [],
+                        assistanceUsed: [],
+                        createdAt: new Date().toISOString(),
+                        needsReview: false,
+                        aiCorrection: latestAiCorrection,
+                      }
+                    }
+                    surahNumber={selectedSurahNumber}
+                    surahName={surahMeta.nameLatin}
+                    ayahNumber={currentAyah?.ayahNumber || 1}
+                    childName="Santri"
+                    onClose={() => setShowD3Visualizer(false)}
+                  />
+                </div>
+              )}
             </div>
           ) : null}
         </div>
@@ -1168,7 +1353,26 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               </div>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const rec = StorageService.getRecordingByAyah(childId, selectedSurahNumber, currentAyah.ayahNumber);
+                  if (rec) {
+                    setDeleteConfirmRec(rec);
+                  } else {
+                    setPreviewBlobUrl(null);
+                    setLatestAiCorrection(null);
+                    setShowD3Visualizer(false);
+                  }
+                }}
+                className="px-3.5 py-2.5 rounded-2xl bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors shrink-0"
+                title="Hapus rekaman ayat ini"
+              >
+                <Trash2 size={16} />
+                <span className="hidden sm:inline">Hapus</span>
+              </button>
+
               <Button
                 variant="outline"
                 size="md"
@@ -1399,6 +1603,48 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         surahName={surahMeta.nameLatin}
         onRefreshParent={() => setRefreshVersion((prev) => prev + 1)}
       />
+
+      {/* Delete Confirmation In-App Modal (Safe in Iframes) */}
+      {deleteConfirmRec && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl border border-rose-200 max-w-sm w-full p-5 space-y-4 shadow-2xl text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h4 className="font-heading font-black text-sm text-[#164C68]">
+                  Hapus Rekaman Ayat {deleteConfirmRec.ayahNumber}?
+                </h4>
+                <p className="text-xs text-[#8C9BA7]">
+                  File rekaman suara akan dihapus dari memori perangkat ini.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-950">
+              Apakah Anda yakin ingin menghapus rekaman suara untuk Surah {surahMeta.nameLatin} Ayat {deleteConfirmRec.ayahNumber} ({deleteConfirmRec.durationSeconds} Detik)?
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmRec(null)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteRecording}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer shadow-sm"
+              >
+                Ya, Hapus Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Subtle Companion Reaction in corner */}
       <SubtleCompanionReaction

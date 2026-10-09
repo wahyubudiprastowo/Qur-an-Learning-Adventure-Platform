@@ -21,11 +21,14 @@ import {
   Layers,
   Settings2,
   Info,
+  Activity,
+  Star,
 } from 'lucide-react';
 import { AyahRecording, TeacherEvaluation, EvaluationGrade, AudioRetentionDays } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { AudioDatabaseService } from '../../services/audioDatabaseService';
 import { getAyahAudioUrl } from '../../data/recitersData';
+import { D3AudioAccuracyEvaluation } from './D3AudioAccuracyEvaluation';
 
 interface RiwayatEvaluasiModalProps {
   isOpen: boolean;
@@ -74,6 +77,13 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
   const [evaluatorName, setEvaluatorName] = useState<string>('Ustadz Pembimbing');
   const [evalNotes, setEvalNotes] = useState<string>('');
   const [saveSuccessId, setSaveSuccessId] = useState<string | null>(null);
+  const [d3VisualizingRecId, setD3VisualizingRecId] = useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<
+    | { type: 'single'; rec: AyahRecording }
+    | { type: 'surah'; surahNum: number; surahName: string; count: number }
+    | { type: 'all'; count: number }
+    | null
+  >(null);
 
   // Re-load recordings whenever modal opens or props change
   const loadRecordings = () => {
@@ -185,30 +195,52 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
   };
 
   const handleDeleteSingle = (rec: AyahRecording) => {
-    if (window.confirm(`Hapus rekaman suara Surah ${rec.surahName || rec.surahNumber} Ayat ${rec.ayahNumber} dari memori perangkat?`)) {
-      if (audioRef.current) audioRef.current.pause();
-      StorageService.deleteRecording(childId, rec.id);
-      loadRecordings();
-      onRefreshParent?.();
-    }
+    setDeleteConfirmation({ type: 'single', rec });
   };
 
   const handleDeleteAllInSurah = () => {
-    if (window.confirm(`Hapus semua ${countForThisSurah} rekaman suara untuk Surah ${surahName} di perangkat ini?`)) {
-      if (audioRef.current) audioRef.current.pause();
-      StorageService.deleteAllRecordings(childId, surahNumber);
-      loadRecordings();
-      onRefreshParent?.();
-    }
+    setDeleteConfirmation({
+      type: 'surah',
+      surahNum: surahNumber,
+      surahName,
+      count: countForThisSurah,
+    });
   };
 
   const handleDeleteAllRecordings = () => {
-    if (window.confirm(`PERINGATAN: Hapus SEMUA (${countAllSurahs}) rekaman suara ananda ${childName} di perangkat ini? Tindakan ini tidak dapat dibatalkan.`)) {
-      if (audioRef.current) audioRef.current.pause();
-      StorageService.deleteAllRecordings(childId);
-      loadRecordings();
-      onRefreshParent?.();
+    setDeleteConfirmation({
+      type: 'all',
+      count: countAllSurahs,
+    });
+  };
+
+  const executeConfirmedDelete = () => {
+    if (!deleteConfirmation) return;
+
+    if (audioRef.current) {
+      audioRef.current.pause();
     }
+    setPlayingRecId(null);
+    setPlayingQariAyah(null);
+
+    if (deleteConfirmation.type === 'single') {
+      const rec = deleteConfirmation.rec;
+      StorageService.deleteRecording(childId, rec.id);
+      AudioDatabaseService.deleteAudio(rec.id).catch(() => {});
+      setCleanupNotice(`Alhamdulillah, rekaman Ayat ${rec.ayahNumber} berhasil dihapus dari memori.`);
+    } else if (deleteConfirmation.type === 'surah') {
+      StorageService.deleteAllRecordings(childId, deleteConfirmation.surahNum);
+      setCleanupNotice(`Semua rekaman Surah ${deleteConfirmation.surahName} berhasil dihapus.`);
+    } else if (deleteConfirmation.type === 'all') {
+      StorageService.deleteAllRecordings(childId);
+      AudioDatabaseService.clearAllAudio().catch(() => {});
+      setCleanupNotice(`Semua rekaman santri berhasil dihapus.`);
+    }
+
+    setDeleteConfirmation(null);
+    loadRecordings();
+    onRefreshParent?.();
+    setTimeout(() => setCleanupNotice(null), 3500);
   };
 
   const handleUpdateRetention = (days: AudioRetentionDays) => {
@@ -635,6 +667,49 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
                     </button>
                   </div>
 
+                  {/* D3.js Tartil Accuracy Visualization Button */}
+                  <button
+                    type="button"
+                    onClick={() => setD3VisualizingRecId(d3VisualizingRecId === rec.id ? null : rec.id)}
+                    className={`w-full py-2.5 px-3.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-between shadow-2xs ${
+                      d3VisualizingRecId === rec.id
+                        ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white border-purple-900 shadow-md'
+                        : 'bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 text-purple-950 border-purple-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${d3VisualizingRecId === rec.id ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-800'}`}>
+                        <Activity size={14} />
+                      </div>
+                      <div className="text-left">
+                        <span className="block font-black text-xs">
+                          {d3VisualizingRecId === rec.id ? 'Tutup Visualisasi D3 Tartil' : 'Visualisasi Akurasi D3.js vs Mualim'}
+                        </span>
+                        <span className={`text-[10px] block ${d3VisualizingRecId === rec.id ? 'text-purple-200' : 'text-purple-700'}`}>
+                          Akurasi per detik, radar 5 dimensi & skor bintang
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 font-black text-xs">
+                      <span>⭐ Skor Bintang</span>
+                      <ChevronDown size={14} className={`transition-transform duration-200 ${d3VisualizingRecId === rec.id ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+
+                  {/* D3 Visualization Interactive Module */}
+                  {d3VisualizingRecId === rec.id && (
+                    <div className="pt-1 animate-in fade-in duration-200">
+                      <D3AudioAccuracyEvaluation
+                        recording={rec}
+                        surahNumber={rec.surahNumber}
+                        surahName={rec.surahName}
+                        ayahNumber={rec.ayahNumber}
+                        childName={childName}
+                        onClose={() => setD3VisualizingRecId(null)}
+                      />
+                    </div>
+                  )}
+
                   {/* AI Correction Result Display if available */}
                   {rec.aiCorrection && (
                     <div className="p-3 bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-2xl space-y-1.5 text-xs text-left">
@@ -887,6 +962,62 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
                   <ExternalLink size={15} />
                   <span>Buka Google Drive di Tab Baru</span>
                 </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom In-App Delete Confirmation Dialog (Safe in Iframes) */}
+        {deleteConfirmation && (
+          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-3xl border border-rose-200 max-w-sm w-full p-5 space-y-4 shadow-2xl text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h4 className="font-heading font-black text-sm text-[#164C68]">
+                    Konfirmasi Hapus Rekaman
+                  </h4>
+                  <p className="text-xs text-[#8C9BA7]">
+                    Tindakan ini akan menghapus file audio dari memori perangkat.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-950">
+                {deleteConfirmation.type === 'single' && (
+                  <p>
+                    Hapus rekaman suara <strong>{deleteConfirmation.rec.surahName || `Surah ${deleteConfirmation.rec.surahNumber}`} Ayat {deleteConfirmation.rec.ayahNumber}</strong> ({deleteConfirmation.rec.durationSeconds} Detik)?
+                  </p>
+                )}
+                {deleteConfirmation.type === 'surah' && (
+                  <p>
+                    Hapus semua <strong>{deleteConfirmation.count} rekaman</strong> untuk Surah {deleteConfirmation.surahName}?
+                  </p>
+                )}
+                {deleteConfirmation.type === 'all' && (
+                  <p>
+                    PERINGATAN: Hapus <strong>SEMUA ({deleteConfirmation.count}) rekaman</strong> suara ananda {childName} di perangkat ini?
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmation(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={executeConfirmedDelete}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer shadow-sm"
+                >
+                  Ya, Hapus Sekarang
+                </button>
               </div>
             </div>
           </div>

@@ -26,6 +26,7 @@ import {
   ChevronUp,
   HardDrive,
   ExternalLink,
+  Activity,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, AyahRecording, ChildAyahProgress, TeacherEvaluation, EvaluationGrade, AudioRetentionDays } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -35,6 +36,7 @@ import { getStageForXp } from '../../data/companionData';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { WeeklyReportService } from '../../services/weeklyReportService';
 import { WeeklyProgressCharts } from '../progress/WeeklyProgressCharts';
+import { D3AudioAccuracyEvaluation } from '../tahfiz/D3AudioAccuracyEvaluation';
 import { Button } from '../common/Button';
 
 interface ParentDashboardModalProps {
@@ -81,6 +83,7 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   const [evalNotes, setEvalNotes] = useState<string>('');
   const [recordingsFilter, setRecordingsFilter] = useState<'all' | 'pending' | 'evaluated'>('all');
   const [saveToastRecId, setSaveToastRecId] = useState<string | null>(null);
+  const [d3VisualizingRecId, setD3VisualizingRecId] = useState<string | null>(null);
 
   const [ayahProgress, setAyahProgress] = useState<ChildAyahProgress[]>(() =>
     StorageService.getAyahProgress(activeChild.id)
@@ -197,7 +200,9 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
 
   const handleDeleteRecording = (recId: string) => {
     StorageService.deleteRecording(activeChild.id, recId);
+    AudioDatabaseService.deleteAudio(recId).catch(() => {});
     setRecordings(StorageService.getRecordings(activeChild.id));
+    setStorageStats(StorageService.getAudioStorageStats(activeChild.id));
   };
 
   const handleExportData = () => {
@@ -819,6 +824,44 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                               <span>Qari ({rec.referenceDurationSeconds}s)</span>
                             </button>
                           </div>
+
+                          {/* D3 Tartil Accuracy Visualization Button */}
+                          <button
+                            type="button"
+                            onClick={() => setD3VisualizingRecId(d3VisualizingRecId === rec.id ? null : rec.id)}
+                            className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-between shadow-2xs ${
+                              d3VisualizingRecId === rec.id
+                                ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white border-purple-900 shadow-md'
+                                : 'bg-gradient-to-r from-purple-50 via-indigo-50 to-sky-50 text-purple-950 border-purple-200 hover:border-purple-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${d3VisualizingRecId === rec.id ? 'bg-white/20 text-white' : 'bg-purple-200 text-purple-800'}`}>
+                                <Activity size={13} />
+                              </div>
+                              <span className="font-bold text-xs">
+                                {d3VisualizingRecId === rec.id ? 'Tutup Visualisasi D3 Tartil' : 'Visualisasi Akurasi D3.js vs Mualim'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 font-black text-[11px]">
+                              <span>⭐ Skor Bintang</span>
+                              <ChevronDown size={13} className={`transition-transform duration-200 ${d3VisualizingRecId === rec.id ? 'rotate-180' : ''}`} />
+                            </div>
+                          </button>
+
+                          {/* D3 Visualization Interactive Module */}
+                          {d3VisualizingRecId === rec.id && (
+                            <div className="pt-1 animate-in fade-in duration-200">
+                              <D3AudioAccuracyEvaluation
+                                recording={rec}
+                                surahNumber={rec.surahNumber}
+                                surahName={rec.surahName}
+                                ayahNumber={rec.ayahNumber}
+                                childName={activeChild.name}
+                                onClose={() => setD3VisualizingRecId(null)}
+                              />
+                            </div>
+                          )}
 
                           {/* AI Correction Summary */}
                           {rec.aiCorrection && (
