@@ -26,6 +26,7 @@ import {
   Info,
 } from 'lucide-react';
 import { WeeklyReportData, DailyProgressPoint } from '../../types/weeklyReport';
+import { DailyDurationBarChart } from './DailyDurationBarChart';
 
 interface WeeklyProgressChartsProps {
   report: WeeklyReportData;
@@ -309,71 +310,14 @@ export const WeeklyProgressCharts: React.FC<WeeklyProgressChartsProps> = ({ repo
           </div>
         )}
 
-        {/* CHART 3: DURATION AREA CHART */}
+        {/* CHART 3: DURATION BAR CHART */}
         {activeChart === 'time' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-black text-[#164C68] uppercase tracking-wider">
-                  Durasi Belajar Harian (Menit)
-                </h4>
-                <p className="text-[11px] text-[#8C9BA7]">
-                  Waktu anak berinteraksi dengan audio ayat, ziadah, & evaluasi
-                </p>
-              </div>
-              <span className="text-xs font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                Total: {report.totalMenitBelajar} Menit
-              </span>
-            </div>
-
-            <div className="h-60 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={report.dailyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="timeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis
-                    dataKey="dayName"
-                    tick={{ fill: '#64748B', fontSize: 11, fontWeight: 600 }}
-                    axisLine={{ stroke: '#CBD5E1' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: '#94A3B8', fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    unit="m"
-                  />
-                  <Tooltip content={<TimeTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="menitBelajar"
-                    stroke="#F59E0B"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#timeGradient)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 flex items-center justify-between">
-                <span className="text-amber-800 font-semibold">Rata-rata Harian:</span>
-                <strong className="text-amber-900 font-bold">
-                  {Math.round(report.totalMenitBelajar / (report.hariAktif || 1))} Menit/Hari
-                </strong>
-              </div>
-              <div className="p-2.5 bg-cyan-50/60 rounded-xl border border-cyan-200/60 flex items-center justify-between">
-                <span className="text-cyan-800 font-semibold">Hari Aktif:</span>
-                <strong className="text-cyan-900 font-bold">{report.hariAktif} dari 7 Hari</strong>
-              </div>
-            </div>
-          </div>
+          <DailyDurationBarChart
+            report={report}
+            title="Grafik Batang Durasi Belajar (Menit)"
+            subtitle="Tren waktu harian anak berinteraksi dengan audio ayat, ziadah, & evaluasi"
+            showSummaryCards={true}
+          />
         )}
 
         {/* CHART 4: STATUS DISTRIBUTION DONUT */}

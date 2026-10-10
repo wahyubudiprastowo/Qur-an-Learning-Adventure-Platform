@@ -353,9 +353,11 @@ export class AudioRecordingService {
         const mime = this.mediaRecorder?.mimeType || 'audio/webm';
         let blob = new Blob(this.audioChunks, { type: mime });
 
+        let wasEmptyBlob = false;
         // If recorded chunks were empty for any reason, use audible fallback
         if (blob.size === 0) {
           blob = this.createAudibleFallbackBlob(durationSeconds);
+          wasEmptyBlob = true;
         }
 
         const blobUrl = URL.createObjectURL(blob);
@@ -366,7 +368,7 @@ export class AudioRecordingService {
           durationSeconds,
           peakVolume: peakVol,
           avgVolume: avgVol,
-          isSimulated: false,
+          isSimulated: this.isSimulated || wasEmptyBlob,
           spokenTranscript: this.recordedTranscript || undefined,
         });
       };

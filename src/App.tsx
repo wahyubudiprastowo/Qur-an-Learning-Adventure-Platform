@@ -31,6 +31,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { ProVsFreeModal } from './components/subscription/ProVsFreeModal';
 import { PaymentCheckoutModal } from './components/subscription/PaymentCheckoutModal';
 import { AiTokenTopupModal } from './components/subscription/AiTokenTopupModal';
+import { StarShopModal } from './components/subscription/StarShopModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
@@ -80,6 +81,7 @@ export default function App() {
   // Child Switcher & Creation Modals
   const [showQuickChildSwitcher, setShowQuickChildSwitcher] = useState<boolean>(false);
   const [showAddChildModal, setShowAddChildModal] = useState<boolean>(false);
+  const [showStarShopModal, setShowStarShopModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'switch'>('register');
   const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
@@ -212,6 +214,18 @@ export default function App() {
     setChildrenList(StorageService.getChildren());
     refreshChildData(childId);
   };
+
+  const handleDeleteChild = (childId: string) => {
+    GlobalAudioManager.stopAll();
+    StorageService.deleteChild(childId);
+    const updated = StorageService.getChildren();
+    setChildrenList(updated);
+    const active = StorageService.getActiveChild();
+    setActiveChild(active);
+    refreshChildData(active.id);
+  };
+
+  const isPro = userAccount.planTier === 'pro' || userAccount.entitlement === 'active' || userAccount.entitlement === 'trial';
 
   const handleNavigateToModule = (actionType: string) => {
     GlobalAudioManager.stopAll();
@@ -391,6 +405,7 @@ export default function App() {
           onTabChange={navigateToTab}
           murojaahDueCount={weakAyahsCount}
           onOpenIbadahModal={handleOpenIbadah}
+          onOpenStarShop={() => setShowStarShopModal(true)}
         />
 
         {/* In-App Browser Reminder Banner */}
@@ -470,6 +485,7 @@ export default function App() {
               }}
               onOpenPlanModal={() => setShowPlanModal(true)}
               onOpenIbadahModal={handleOpenIbadah}
+              onOpenStarShop={() => setShowStarShopModal(true)}
             />
           )}
 
@@ -536,6 +552,7 @@ export default function App() {
 
               {tahfizSubView === 'murojaah' && (
                 <MurojaahModule
+                  key={activeChild.id}
                   childId={activeChild.id}
                   initialSurahNumber={lastSession.surahNumber}
                   initialBlockNumber={lastSession.blockNumber}
@@ -549,6 +566,7 @@ export default function App() {
 
               {tahfizSubView === 'hafalan' && (
                 <HafalanModule
+                  key={activeChild.id}
                   childId={activeChild.id}
                   initialSurahNumber={lastSession.surahNumber}
                   onFinishHafalan={() => {
@@ -614,6 +632,7 @@ export default function App() {
               initialTab={gameSubTab}
               userAccount={userAccount}
               onOpenUpgradeModal={() => setShowPlanModal(true)}
+              onOpenStarShop={() => setShowStarShopModal(true)}
               onNavigateToLand={(tab, subView) => {
                 GlobalAudioManager.stopAll();
                 setActiveTab(tab);
@@ -663,9 +682,17 @@ export default function App() {
           onClose={() => setShowQuickChildSwitcher(false)}
           childrenList={childrenList}
           activeChildId={activeChild.id}
+          isPro={isPro}
           onSwitchChild={(id) => {
             handleSwitchChild(id);
             setShowQuickChildSwitcher(false);
+          }}
+          onDeleteChild={(id) => {
+            handleDeleteChild(id);
+          }}
+          onOpenUpgradeModal={() => {
+            setShowQuickChildSwitcher(false);
+            setShowPlanModal(true);
           }}
           onOpenCreateChild={() => {
             setShowQuickChildSwitcher(false);
@@ -677,9 +704,27 @@ export default function App() {
         <ChildProfileModal
           isOpen={showAddChildModal}
           onClose={() => setShowAddChildModal(false)}
+          isPro={isPro}
+          existingChildrenCount={childrenList.length}
+          onOpenUpgradeModal={() => {
+            setShowAddChildModal(false);
+            setShowPlanModal(true);
+          }}
           onChildCreated={(newChild) => {
             handleSwitchChild(newChild.id);
             setShowAddChildModal(false);
+          }}
+        />
+
+        {/* Star Shop (Beli Bintang, Makan Pet & Dekorasi) Modal */}
+        <StarShopModal
+          isOpen={showStarShopModal}
+          onClose={() => setShowStarShopModal(false)}
+          child={activeChild}
+          companion={companion}
+          onStarsUpdated={() => {
+            refreshChildData(activeChild.id);
+            setChildrenList(StorageService.getChildren());
           }}
         />
 

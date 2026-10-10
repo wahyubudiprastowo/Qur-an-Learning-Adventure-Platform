@@ -44,6 +44,7 @@ interface GameHubProps {
   onNavigateToLand?: (tab: 'tahfiz' | 'alquran', subView?: string) => void;
   userAccount?: UserAccount;
   onOpenUpgradeModal?: () => void;
+  onOpenStarShop?: () => void;
 }
 
 export function removeHarakat(text: string): string {
@@ -56,6 +57,7 @@ export const GameHub: React.FC<GameHubProps> = ({
   onNavigateToLand,
   userAccount,
   onOpenUpgradeModal,
+  onOpenStarShop,
 }) => {
   const currentUserAccount = userAccount || StorageService.getUserAccount();
   const isPro = currentUserAccount.planTier === 'pro' || currentUserAccount.entitlement === 'active' || currentUserAccount.entitlement === 'trial';
@@ -2090,6 +2092,7 @@ export const GameHub: React.FC<GameHubProps> = ({
       initialTab={initialTab}
       userAccount={currentUserAccount}
       onOpenUpgradeModal={onOpenUpgradeModal}
+      onOpenStarShop={onOpenStarShop}
       onNavigateToLand={(tab, subView) => {
         onNavigateToLand?.(tab, subView);
       }}

@@ -330,6 +330,15 @@ export class QuranAudioPlayer {
     }
   }
 
+  public selectAyah(ayahNumber: number, singleOnly: boolean = false): void {
+    this.currentAyah = ayahNumber;
+    this.currentAyahRepeat = 1;
+    if (singleOnly) {
+      this.singleAyahMode = true;
+    }
+    this.loadCurrentAyah();
+  }
+
   public jumpToAyah(ayahNumber: number, singleOnly: boolean = false): void {
     this.currentAyah = ayahNumber;
     this.currentAyahRepeat = 1;

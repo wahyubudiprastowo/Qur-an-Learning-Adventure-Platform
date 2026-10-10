@@ -7,11 +7,16 @@ export interface ChildProfile {
   name: string;
   avatar: string;
   birthYear?: number;
+  age?: number;
   learningLevel: LearningLevel;
   totalStars: number;
   totalXp: number;
   level: number;
   streakDays: number;
+  targetSurahNumber?: number;
+  targetSurahName?: string;
+  lastPracticedAyah?: number;
+  dailyTargetAyahs?: number;
   lastActiveDate: string;
   createdAt: string;
   updatedAt: string;
@@ -187,6 +192,49 @@ export interface TeacherEvaluation {
   evaluatedAt: string;
 }
 
+export interface BaselineComparison {
+  baselineTajwid: number;
+  baselineMakhraj: number;
+  deltaTajwid: number;
+  deltaMakhraj: number;
+  tajwidConsistency: number; // 0-100%
+  makhrajConsistency: number; // 0-100%
+  overallConsistency: number; // 0-100%
+  trend: 'improving' | 'stable' | 'needs_practice';
+}
+
+export interface HistoricalEvaluationRecord {
+  id: string;
+  childId: string;
+  surahNumber: number;
+  surahName: string;
+  ayahNumber: number;
+  overallScore: number;
+  accuracyScore: number;
+  tajwidScore: number;
+  makhrajScore: number;
+  fluencyScore: number;
+  consistencyScore: number;
+  grade: EvaluationGrade;
+  isPassed: boolean;
+  timestamp: string;
+  feedbackPreview: string;
+}
+
+export interface ProfileEvaluationBaseline {
+  childId: string;
+  totalEvaluations: number;
+  baselineTajwid: number;
+  baselineMakhraj: number;
+  baselineAccuracy: number;
+  baselineFluency: number;
+  baselineOverall: number;
+  rollingConsistencyScore: number;
+  historyCount: number;
+  lastUpdatedAt: string;
+  recentRecords: HistoricalEvaluationRecord[];
+}
+
 export interface AiCorrectionResult {
   overallScore: number;
   grade: EvaluationGrade;
@@ -195,10 +243,17 @@ export interface AiCorrectionResult {
   fluencyScore: number;
   feedback: string;
   tajwidNotes: string[];
+  makhrajTips?: string[];
+  encouragementEmoji?: string;
   correctedLafal?: string;
   isPassed: boolean;
   evaluatedAt: string;
   modelUsed?: string;
+  makhrajScore?: number;
+  consistencyScore?: number;
+  tajwidConsistency?: number;
+  makhrajConsistency?: number;
+  baselineComparison?: BaselineComparison;
 }
 
 export interface AyahRecording {

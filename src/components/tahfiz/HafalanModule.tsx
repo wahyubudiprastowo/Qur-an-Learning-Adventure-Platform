@@ -46,9 +46,12 @@ import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
 import { RiwayatEvaluasiModal } from './RiwayatEvaluasiModal';
 import { D3AudioAccuracyEvaluation } from './D3AudioAccuracyEvaluation';
+import { InstantAiFeedbackCard } from './InstantAiFeedbackCard';
 import { GlobalAudioManager } from '../../services/audioService';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
+import { evaluateOfflineUstadzRubric } from '../../services/ustadzAiEvaluationEngine';
+import { EvaluationEngine } from '../../services/evaluationEngine';
 
 interface HafalanModuleProps {
   childId: string;
@@ -72,15 +75,28 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   onBack,
   onOpenPlanModal,
 }) => {
-  // Surah selection state - initialized with provided surah or defaults safely
+  // Active child profile - dynamically reactive to childId
+  const activeChild = useMemo(() => {
+    return StorageService.getChildren().find((c) => c.id === childId) || StorageService.getActiveChild();
+  }, [childId]);
+
+  // Surah selection state - initialized with active child's target or last session
   const [selectedSurahNumber, setSelectedSurahNumber] = useState<number>(() => {
-    // If initial is provided and valid, use it; otherwise check last session or default to 1 (Al-Fatihah)
+    const childSession = StorageService.getLastSession(childId);
+    const child = StorageService.getChildren().find((c) => c.id === childId);
     if (initialSurahNumber && initialSurahNumber >= 1 && initialSurahNumber <= 114) {
       return initialSurahNumber;
     }
-    const last = StorageService.getLastSession(childId);
-    return last?.surahNumber || 1;
+    return childSession?.surahNumber || child?.targetSurahNumber || 1;
   });
+
+  // Automatically update selected surah when child switches
+  useEffect(() => {
+    const childSession = StorageService.getLastSession(childId);
+    const child = StorageService.getChildren().find((c) => c.id === childId);
+    const targetSurah = childSession?.surahNumber || child?.targetSurahNumber || initialSurahNumber || 1;
+    setSelectedSurahNumber(targetSurah);
+  }, [childId]);
 
   // Surah Picker modal state
   const [isSurahPickerOpen, setIsSurahPickerOpen] = useState<boolean>(false);
@@ -230,7 +246,20 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     getSurahAyahs(selectedSurahNumber).then((data) => {
       if (!isMounted) return;
       setAyahs(data);
-      setCurrentAyahIndex(0);
+
+      // Determine initial ayah index: prioritize child's last session or last practiced ayah
+      const childSession = StorageService.getLastSession(childId);
+      const child = StorageService.getChildren().find((c) => c.id === childId);
+      let targetAyah = 1;
+
+      if (childSession && childSession.surahNumber === selectedSurahNumber && childSession.startAyah) {
+        targetAyah = childSession.startAyah;
+      } else if (child && child.targetSurahNumber === selectedSurahNumber && child.lastPracticedAyah) {
+        targetAyah = child.lastPracticedAyah;
+      }
+
+      const foundIdx = data.findIndex((a) => a.ayahNumber === targetAyah);
+      setCurrentAyahIndex(foundIdx !== -1 ? foundIdx : 0);
       setAssistanceUsedMap(new Map());
       setPreviewBlobUrl(null);
       setLatestAiCorrection(null);
@@ -262,20 +291,29 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       setRecordedAyahs(recMap);
     });
 
-    // Update last session so user's choice is saved
-    StorageService.setLastSession(childId, {
-      surahNumber: selectedSurahNumber,
-      surahName: surahMeta.nameLatin,
-      blockNumber: 1,
-      startAyah: 1,
-      endAyah: Math.min(7, surahMeta.ayahCount),
-      mode: 'hafalan',
-    });
-
     return () => {
       isMounted = false;
     };
   }, [selectedSurahNumber, childId, surahMeta.nameLatin, surahMeta.ayahCount]);
+
+  // Synchronize active ayah to child profile & last session in real-time
+  useEffect(() => {
+    if (!currentAyah) return;
+    StorageService.setLastSession(childId, {
+      surahNumber: selectedSurahNumber,
+      surahName: surahMeta.nameLatin,
+      blockNumber: 1,
+      startAyah: currentAyah.ayahNumber,
+      endAyah: currentAyah.ayahNumber,
+      mode: 'hafalan',
+      timestamp: new Date().toISOString(),
+    });
+    StorageService.updateChild(childId, {
+      targetSurahNumber: selectedSurahNumber,
+      targetSurahName: surahMeta.nameLatin,
+      lastPracticedAyah: currentAyah.ayahNumber,
+    });
+  }, [currentAyahIndex, selectedSurahNumber, childId, currentAyah?.ayahNumber, surahMeta.nameLatin]);
 
   // Keep recordedAyahs map in sync with StorageService whenever refreshVersion triggers
   useEffect(() => {
@@ -319,83 +357,75 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
     });
   };
 
-  // --- Automatic AI Recitation Correction API Call ---
+  // --- Automatic AI Recitation Correction via Dedicated EvaluationEngine ---
   const evaluateRecitationWithAi = async (
     blob: Blob,
     durationSecs: number,
     ayahItem: AyahData,
     recId: string,
     audioLevel?: { peak?: number; avg?: number },
-    spokenTranscript?: string
+    spokenTranscript?: string,
+    isSimulated?: boolean
   ): Promise<AiCorrectionResult | null> => {
-    // 1. Check AI access & daily quota limit
-    const access = StorageService.checkAiEvaluationAccess(childId);
-    if (!access.allowed) {
-      setAiQuotaExhausted(true);
-      return null;
-    }
-    setAiQuotaExhausted(false);
     setIsAiAnalyzing(true);
+    setAiQuotaExhausted(false);
 
     try {
-      let audioBase64: string | undefined = undefined;
-      try {
-        audioBase64 = await AudioDatabaseService.blobToDataUrl(blob);
-      } catch (e) {}
-
-      const payload = {
+      const aiResult = await EvaluationEngine.processHafalanEvaluation({
+        childId,
+        blob,
+        durationSeconds: durationSecs,
+        ayah: ayahItem,
         surahNumber: selectedSurahNumber,
         surahName: surahMeta.nameLatin,
-        ayahNumber: ayahItem.ayahNumber,
-        targetArabicText: ayahItem.arabicText,
-        targetTranslation: ayahItem.translationId,
-        audioBase64,
-        mimeType: blob.type || 'audio/webm',
-        durationSeconds: durationSecs,
         assistanceUsed: assistanceUsedMap.get(ayahItem.ayahNumber) || [],
         audioLevel: audioLevel || { peak: 50, avg: 35 },
         spokenTranscript: spokenTranscript || '',
+        isSimulated: !!isSimulated,
+        recordingId: recId,
         customApiKey: userAccount.customGeminiApiKey,
-      };
-
-      const response = await fetch('/api/ai-correction', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(userAccount.customGeminiApiKey ? { 'x-gemini-api-key': userAccount.customGeminiApiKey } : {}),
-        },
-        body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-
-      const aiResult: AiCorrectionResult = await response.json();
       setLatestAiCorrection(aiResult);
 
-      // Consume quota from daily allowance or purchased token balance
-      StorageService.consumeAiEvaluation(childId);
+      const isPassed = !!aiResult.isPassed && aiResult.overallScore >= 70;
 
-      // Update the stored recording in StorageService with the AI result
-      const storedRec = StorageService.getRecordingByAyah(childId, selectedSurahNumber, ayahItem.ayahNumber);
-      if (storedRec) {
-        storedRec.aiCorrection = aiResult;
-        if (aiResult.overallScore !== undefined) {
-          storedRec.score = aiResult.overallScore;
+      // Play soft celebratory or encouragement audio chime via Web Audio API
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const now = ctx.currentTime;
+          if (isPassed) {
+            // Cheerful ascending chime (C5 -> E5 -> G5)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.12);
+            osc.frequency.setValueAtTime(783.99, now + 0.24);
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.52);
+          } else {
+            // Gentle encouragement chime (G4 -> C5)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(392.0, now);
+            osc.frequency.setValueAtTime(523.25, now + 0.15);
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.46);
+          }
         }
-        storedRec.needsReview = !aiResult.isPassed;
-        StorageService.saveRecording(storedRec);
-      }
-
-      // Persist the real AI score to child's ayah memorization database
-      StorageService.saveAyahScore(
-        childId,
-        selectedSurahNumber,
-        ayahItem.ayahNumber,
-        aiResult.overallScore,
-        aiResult.isPassed
-      );
+      } catch (e) {}
 
       // Update state so UI reflects the true AI score immediately
       setRecordedAyahs((prev) => {
@@ -410,13 +440,13 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               timingScore: aiResult.fluencyScore,
               wordCoverageScore: aiResult.accuracyScore,
               fluencyScore: aiResult.fluencyScore,
-              needsReview: !aiResult.isPassed,
+              needsReview: !isPassed,
               scoreLabel:
                 aiResult.grade === 'mumtaz'
                   ? '🌟 Mumtaz (Lulus Sempurna)'
                   : aiResult.grade === 'jayyid'
                   ? '👍 Jayyid (Lulus Baik)'
-                  : '⚠️ Perlu Diulang Lagi',
+                  : '⚠️ Perlu Diulang Lagi (Belum Lulus)',
             },
           });
         }
@@ -424,10 +454,13 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       });
 
       setRefreshVersion((prev) => prev + 1);
-
       return aiResult;
-    } catch (err) {
-      console.warn('AI evaluation error, fallback local evaluation remains active:', err);
+    } catch (err: any) {
+      if (err?.message === 'AI_QUOTA_EXHAUSTED') {
+        setAiQuotaExhausted(true);
+        return null;
+      }
+      console.warn('EvaluationEngine process error in HafalanModule:', err);
       return null;
     } finally {
       setIsAiAnalyzing(false);
@@ -474,9 +507,14 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
       const res = await recorderRef.current.stopRecording();
       setPreviewBlobUrl(res.blobUrl);
 
-      // 1. Local child scoring heuristic
+      // 1. Local child scoring heuristic with real acoustic & transcript validation
       const assistance = assistanceUsedMap.get(currentAyah.ayahNumber) || [];
-      const score = analyzeAyahRecitation(res.durationSeconds, currentAyah, assistance);
+      const score = analyzeAyahRecitation(res.durationSeconds, currentAyah, assistance, {
+        peakVolume: res.peakVolume,
+        avgVolume: res.avgVolume,
+        spokenTranscript: res.spokenTranscript,
+        isSimulated: res.isSimulated,
+      });
 
       const recId = `rec-${Date.now()}-${currentAyah.ayahNumber}`;
 
@@ -527,19 +565,20 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         },
       });
 
+      // Never award passing status before AI or teacher verification
       StorageService.saveAyahScore(
         childId,
         selectedSurahNumber,
         currentAyah.ayahNumber,
         score.overallScore,
-        !score.needsReview
+        !score.needsReview && score.overallScore >= 70
       );
 
       setIsSavedToDb(true);
       setSaveToast(`Alhamdulillah! Rekaman Suara Ayat ${currentAyah.ayahNumber} berhasil disimpan ke Database!`);
       setRefreshVersion((prev) => prev + 1);
 
-      // 3. Trigger Automatic AI Correction in real-time with real audio level & transcript
+      // 3. Trigger Automatic AI Correction in real-time with real audio level, transcript, and simulation status
       evaluateRecitationWithAi(
         res.blob,
         res.durationSeconds,
@@ -549,12 +588,12 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           peak: res.peakVolume,
           avg: res.avgVolume,
         },
-        res.spokenTranscript
+        res.spokenTranscript,
+        res.isSimulated
       );
 
       // Record activity in Companion service
       CompanionService.recordActivity(childId, 'hafalan', 35, 5);
-      CompanionService.onSurahCompleted(childId, surahMeta.nameLatin);
       setCompanionPulseTrigger((prev) => prev + 1);
     } catch (err) {
       console.error('Error stopping recording:', err);
@@ -1363,65 +1402,58 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
           </div>
 
           {isAiAnalyzing ? (
-            <div className="py-4 flex flex-col items-center justify-center gap-2 text-center">
-              <div className="w-7 h-7 border-3 border-[#08B9EF] border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-bold text-[#164C68]">
-                Ustadz AI sedang mendengarkan & menganalisis rekaman hafalanmu...
-              </p>
+            <div className="py-6 px-4 flex flex-col items-center justify-center gap-3 text-center bg-white/95 rounded-3xl border-2 border-[#08B9EF]/40 shadow-sm animate-pulse">
+              <div className="relative">
+                <div className="w-12 h-12 border-4 border-[#08B9EF] border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center text-lg">
+                  🤖
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-black text-[#164C68]">
+                  Ustadz AI sedang mendengarkan & menganalisis rekaman hafalanmu...
+                </p>
+                <p className="text-xs text-slate-500 font-semibold">
+                  Mencocokkan makharijul huruf, ketukan tajwid, dan tempo membaca tartil
+                </p>
+              </div>
             </div>
           ) : latestAiCorrection ? (
             <div className="space-y-3">
-              {/* Score Bar Breakdown */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white/90 p-2.5 rounded-2xl border border-[#C9E1ED] text-center">
-                  <span className="text-[10px] font-bold text-[#8C9BA7] uppercase block">Skor Total</span>
-                  <span className="text-lg font-black text-[#08B9EF]">{latestAiCorrection.overallScore}%</span>
-                </div>
-                <div className="bg-white/90 p-2.5 rounded-2xl border border-[#C9E1ED] text-center">
-                  <span className="text-[10px] font-bold text-[#8C9BA7] uppercase block">Akurasi Lafal</span>
-                  <span className="text-lg font-black text-emerald-600">{latestAiCorrection.accuracyScore}%</span>
-                </div>
-                <div className="bg-white/90 p-2.5 rounded-2xl border border-[#C9E1ED] text-center">
-                  <span className="text-[10px] font-bold text-[#8C9BA7] uppercase block">Nilai Tajwid</span>
-                  <span className="text-lg font-black text-purple-600">{latestAiCorrection.tajwidScore}%</span>
-                </div>
-              </div>
-
-              {/* Feedback Text */}
-              <div className="bg-white/95 rounded-2xl p-3 border border-[#C9E1ED]/80 space-y-1">
-                <span className="text-[11px] font-bold text-[#164C68] flex items-center gap-1">
-                  <span>Ulasan Guru AI:</span>
-                </span>
-                <p className="text-xs text-[#164C68] leading-relaxed">
-                  "{latestAiCorrection.feedback}"
-                </p>
-              </div>
-
-              {/* Tajwid Notes */}
-              {latestAiCorrection.tajwidNotes && latestAiCorrection.tajwidNotes.length > 0 && (
-                <div className="bg-white/95 rounded-2xl p-3 border border-[#C9E1ED]/80 space-y-1">
-                  <span className="text-[11px] font-bold text-[#164C68]">Catatan Tajwid Otomatis:</span>
-                  <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
-                    {latestAiCorrection.tajwidNotes.map((note, nIdx) => (
-                      <li key={nIdx}>{note}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* D3 Accuracy & Star Rating Trigger from AI Card */}
-              <button
-                type="button"
-                onClick={() => setShowD3Visualizer((prev) => !prev)}
-                className={`w-full py-2.5 px-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-all ${
-                  showD3Visualizer
-                    ? 'bg-gradient-to-r from-purple-700 to-indigo-800 text-white border-purple-900 shadow-md'
-                    : 'bg-white border-[#08B9EF]/50 hover:bg-sky-50 text-[#164C68]'
-                }`}
-              >
-                <Activity size={14} className={showD3Visualizer ? 'text-white' : 'text-[#08B9EF]'} />
-                <span>{showD3Visualizer ? 'Tutup Visualisasi D3 Tartil' : 'Lihat Visualisasi Akurasi D3.js & Skor Bintang vs Mualim ⭐'}</span>
-              </button>
+              <InstantAiFeedbackCard
+                correction={latestAiCorrection}
+                ayahNumber={currentAyah?.ayahNumber || 1}
+                surahName={surahMeta.nameLatin}
+                targetArabicText={currentAyah?.arabicText || ''}
+                onPlayQari={handlePlayAyah}
+                onPlayChildAudio={
+                  existingSavedRecording
+                    ? () => handlePlaySavedAudio(existingSavedRecording)
+                    : previewBlobUrl
+                    ? () => {
+                        if (savedAudioRef.current) {
+                          savedAudioRef.current.pause();
+                        }
+                        const aud = new Audio(previewBlobUrl);
+                        savedAudioRef.current = aud;
+                        setIsPlayingSavedAudio(true);
+                        aud.play().catch(() => {});
+                        aud.onended = () => setIsPlayingSavedAudio(false);
+                        aud.onerror = () => setIsPlayingSavedAudio(false);
+                      }
+                    : undefined
+                }
+                isPlayingChildAudio={isPlayingSavedAudio}
+                onRetryRecording={() => {
+                  setPreviewBlobUrl(null);
+                  setLatestAiCorrection(null);
+                  handleStartRecording(false);
+                }}
+                onNextAyah={handleNextAyah}
+                isLastAyah={currentAyahIndex === ayahs.length - 1}
+                onToggleD3={() => setShowD3Visualizer((prev) => !prev)}
+                isD3Open={showD3Visualizer}
+              />
 
               {/* D3 Visualization Interactive Module Inside AI Card */}
               {showD3Visualizer && (

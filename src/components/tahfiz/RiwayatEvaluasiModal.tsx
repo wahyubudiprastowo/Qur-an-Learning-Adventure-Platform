@@ -29,6 +29,7 @@ import { StorageService } from '../../services/storageService';
 import { AudioDatabaseService } from '../../services/audioDatabaseService';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { D3AudioAccuracyEvaluation } from './D3AudioAccuracyEvaluation';
+import { EvaluationEngine } from '../../services/evaluationEngine';
 
 interface RiwayatEvaluasiModalProps {
   isOpen: boolean;
@@ -446,6 +447,40 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Baseline Consistency Summary Card from EvaluationEngine */}
+        {(() => {
+          const evalPerf = EvaluationEngine.getHistoricalPerformance(childId);
+          return (
+            <div className="px-4 py-2.5 bg-gradient-to-r from-teal-50/90 via-cyan-50/90 to-blue-50/90 border-b border-teal-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎯</span>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-[#164C68] text-xs">
+                      Evaluasi Konsistensi AI: {evalPerf.overallConsistencyScore}%
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                      {evalPerf.consistencyTrend === 'improving'
+                        ? '📈 Meningkat'
+                        : evalPerf.consistencyTrend === 'needs_practice'
+                        ? '🎯 Butuh Latihan'
+                        : '⚖️ Stabil'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    Baseline Tajwid: {evalPerf.baseline.baselineTajwid}% (Rata: {evalPerf.averageTajwid}%) · Makhraj: {evalPerf.baseline.baselineMakhraj}% (Rata: {evalPerf.averageMakhraj}%)
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-black text-slate-600 bg-white/80 px-2 py-1 rounded-lg border border-teal-200">
+                  {evalPerf.totalEvaluatedAyahs} Ayat Dievaluasi
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* FILTER BAR: SCOPE (SURAH vs ALL) & STATUS (ALL vs PENDING vs EVALUATED) */}
         <div className="p-3 bg-white border-b border-[#C9E1ED] flex flex-wrap items-center justify-between gap-2 text-xs">

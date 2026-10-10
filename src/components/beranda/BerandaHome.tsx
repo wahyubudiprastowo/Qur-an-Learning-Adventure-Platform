@@ -21,6 +21,7 @@ import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { LivingCompanionCard } from '../companion/LivingCompanionCard';
 import { DailyQuestsCard } from '../companion/DailyQuestsCard';
 import { WeeklyProgressModal } from '../progress/WeeklyProgressModal';
+import { DailyDurationBarChart } from '../progress/DailyDurationBarChart';
 import { WeeklyReportService } from '../../services/weeklyReportService';
 import { StorageService } from '../../services/storageService';
 import { AdabService } from '../../services/adabService';
@@ -49,6 +50,7 @@ interface BerandaHomeProps {
   onOpenAuth?: (mode: 'login' | 'register') => void;
   onOpenPlanModal?: () => void;
   onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
+  onOpenStarShop?: () => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
@@ -68,6 +70,7 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   onOpenAuth,
   onOpenPlanModal,
   onOpenIbadahModal,
+  onOpenStarShop,
 }) => {
   const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
@@ -78,6 +81,7 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
 
   const adabTasks = AdabService.getDailyTasks(child.id);
   const completedAdabCount = AdabService.getCompletedCount(adabTasks);
+  const isPro = userAccount?.planTier === 'pro' || userAccount?.entitlement === 'active' || userAccount?.entitlement === 'trial';
 
   return (
     <div className="pb-24 animate-in fade-in duration-200">
@@ -93,6 +97,9 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
             onOpenRoom={onOpenRoom}
             onOpenWorldMap={onOpenWorldMap}
             onRefreshCompanion={onRefreshCompanion}
+            isPro={isPro}
+            onOpenStarShop={onOpenStarShop}
+            onOpenUpgradeModal={onOpenPlanModal}
           />
 
           {/* 2. Current Memorization Multi-Metric Grid & Weekly Report Preview */}
@@ -151,32 +158,14 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               </button>
             </div>
 
-            {/* Weekly Report Interactive Teaser Card */}
-            <div
-              onClick={() => setShowWeeklyModal(true)}
-              className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-cyan-50 border border-emerald-200/90 rounded-2xl flex items-center justify-between cursor-pointer hover:border-emerald-300 transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white text-emerald-600 border border-emerald-200 flex items-center justify-center text-lg shrink-0 shadow-xs group-hover:scale-105 transition-transform">
-                  📊
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h5 className="text-xs font-black text-[#164C68]">
-                      Grafik Sepekan: +{weeklyReport.totalAyatDisentuh} Ayat ({weeklyReport.hariAktif}/7 Hari Aktif)
-                    </h5>
-                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
-                      Mutqin {weeklyReport.rataRataSkor}%
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[#8C9BA7] font-semibold mt-0.5">
-                    Buka grafik visual Recharts Ziadah, Murojaah, dan waktu belajar
-                  </p>
-                </div>
-              </div>
-
-              <ChevronRight size={18} className="text-emerald-700 group-hover:translate-x-1 transition-transform shrink-0" />
-            </div>
+            {/* 3. Recharts Daily Memorization Duration Bar Chart */}
+            <DailyDurationBarChart
+              report={weeklyReport}
+              onOpenReport={() => setShowWeeklyModal(true)}
+              title="Tren Durasi Hafalan Sepekan"
+              subtitle="Waktu latihan & murojaah Al-Qur'an anak sepekan terakhir"
+              showSummaryCards={true}
+            />
           </div>
 
           {/* 3. Pusat Ibadah, Adab & Doa Santri (Fitur Utama Baru) */}

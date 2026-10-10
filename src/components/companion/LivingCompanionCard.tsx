@@ -21,6 +21,9 @@ import {
   Moon,
   Sun,
   Trophy,
+  Crown,
+  Lock,
+  Star,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ChildProfile, ChildAyahProgress, ChildBlockProgress } from '../../types';
@@ -46,6 +49,9 @@ interface LivingCompanionCardProps {
   onOpenRoom: () => void;
   onOpenWorldMap: () => void;
   onRefreshCompanion: () => void;
+  isPro?: boolean;
+  onOpenStarShop?: () => void;
+  onOpenUpgradeModal?: () => void;
 }
 
 // Gentle pleasant synthesizer sounds for offline Tamagotchi care
@@ -145,6 +151,9 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   onOpenRoom,
   onOpenWorldMap,
   onRefreshCompanion,
+  isPro = false,
+  onOpenStarShop,
+  onOpenUpgradeModal,
 }) => {
   const [actionFeedback, setActionFeedback] = useState<{
     icon: string;
@@ -154,6 +163,7 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
     companion.dialogueMessage || 'Assalamu\'alaikum! Senang sekali belajar Al-Qur\'an bersamamu!'
   );
   const [showPetPicker, setShowPetPicker] = useState<boolean>(false);
+  const [lockedPetNotice, setLockedPetNotice] = useState<string | null>(null);
   const [showGardenModal, setShowGardenModal] = useState<boolean>(false);
   const [selectedGardenDay, setSelectedGardenDay] = useState<number | null>(null);
   const [isJoyfulFeeding, setIsJoyfulFeeding] = useState<boolean>(false);
@@ -317,9 +327,17 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
   };
 
   const handleSelectSpecies = (newSpecies: CompanionSpecies) => {
+    if (!isPro && newSpecies !== 'lumi') {
+      const pet = COMPANION_SPECIES_LIST.find((p) => p.id === newSpecies);
+      setLockedPetNotice(
+        `👑 Sahabat ${pet?.name || newSpecies} adalah karakter eksklusif Cahaya Tahfiz PRO. Buka kunci semua sahabat dengan berlangganan PRO!`
+      );
+      return;
+    }
     const config = getCompanionSpeciesConfig(newSpecies);
     CompanionService.setCompanionSpecies(child.id, newSpecies, config.defaultName);
     setShowPetPicker(false);
+    setLockedPetNotice(null);
     onRefreshCompanion();
   };
 
@@ -373,8 +391,18 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
           </div>
         </div>
 
-        {/* Level & Switch Pet Button */}
+        {/* Level & Switch Pet Button & Buy Stars Button */}
         <div className="flex items-center gap-1.5">
+          {onOpenStarShop && (
+            <button
+              onClick={onOpenStarShop}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-amber-950 text-[11px] font-black shadow-xs cursor-pointer active:scale-95 transition-all"
+              title="Beli Bintang & Camilan Pet"
+            >
+              <Star size={12} className="fill-amber-950 text-amber-950" />
+              <span>+ Bintang</span>
+            </button>
+          )}
           <button
             onClick={() => setShowPetPicker(true)}
             className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white border border-[#C9E1ED] text-[11px] font-extrabold text-[#164C68] hover:border-[#08B9EF] shadow-xs cursor-pointer active:scale-95 transition-all"
@@ -1095,27 +1123,67 @@ export const LivingCompanionCard: React.FC<LivingCompanionCardProps> = ({
                 </button>
               </div>
 
+              {lockedPetNotice && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl text-left space-y-2 animate-in fade-in">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-amber-900">
+                    <Crown size={14} className="text-amber-500" />
+                    <span>Fitur Eksklusif PRO</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-snug">
+                    {lockedPetNotice}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPetPicker(false);
+                      onOpenUpgradeModal?.();
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-amber-950 font-black text-xs cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Crown size={14} />
+                    <span>Buka Semua Sahabat dengan PRO 👑</span>
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                 {COMPANION_SPECIES_LIST.map((pet) => {
                   const isCurrent = (companion.species || 'lumi') === pet.id;
+                  const isLocked = !isPro && pet.id !== 'lumi';
+
                   return (
                     <div
                       key={pet.id}
                       onClick={() => handleSelectSpecies(pet.id)}
-                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-3.5 ${
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center gap-3.5 relative ${
                         isCurrent
                           ? 'border-[#08B9EF] bg-cyan-50/70 shadow-xs'
+                          : isLocked
+                          ? 'border-slate-200 bg-slate-50/80 hover:border-amber-300'
                           : 'border-slate-200 hover:border-cyan-300 bg-white'
                       }`}
                     >
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-white to-cyan-50 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 overflow-hidden">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-white to-cyan-50 border border-slate-200 shadow-xs flex items-center justify-center shrink-0 overflow-hidden relative">
                         <CompanionSprite species={pet.id} stage="hatchling" size={48} />
+                        {isLocked && (
+                          <div className="absolute inset-0 bg-slate-900/30 flex items-center justify-center">
+                            <Lock size={16} className="text-white drop-shadow-md" />
+                          </div>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-black text-[#164C68] font-heading">
-                            {pet.name}
-                          </h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-black text-[#164C68] font-heading">
+                              {pet.name}
+                            </h4>
+                            {isLocked && (
+                              <span className="text-[8px] font-black bg-amber-400 text-amber-950 px-1.5 py-0.2 rounded-full uppercase flex items-center gap-0.5">
+                                <Crown size={9} />
+                                <span>PRO</span>
+                              </span>
+                            )}
+                          </div>
                           {isCurrent && (
                             <span className="text-[9px] font-bold bg-[#08B9EF] text-white px-2 py-0.5 rounded-full">
                               Dipilih

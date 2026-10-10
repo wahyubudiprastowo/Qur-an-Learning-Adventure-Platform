@@ -67,6 +67,7 @@ interface WorldMapViewProps {
   onLaunchMiniGame: (gameId: string) => void;
   userAccount?: UserAccount;
   onOpenUpgradeModal?: () => void;
+  onOpenStarShop?: () => void;
 }
 
 export const WorldMapView: React.FC<WorldMapViewProps> = ({
@@ -78,6 +79,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
   onLaunchMiniGame,
   userAccount,
   onOpenUpgradeModal,
+  onOpenStarShop,
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<'map' | 'games' | 'room' | 'collection' | 'leaderboard'>(initialTab);
   const [selectedLand, setSelectedLand] = useState<WorldLand | null>(null);
@@ -806,9 +808,19 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                   Buka perabot dengan bintang hasil belajar (Tanpa gacha / kotak acak)
                 </p>
               </div>
-              <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1 rounded-full text-xs font-black">
-                <Star size={14} className="fill-amber-400 text-amber-500" />
-                <span>{child.totalStars} ⭐</span>
+              <div className="flex items-center gap-2">
+                {onOpenStarShop && (
+                  <button
+                    onClick={onOpenStarShop}
+                    className="flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-500 hover:to-yellow-500 text-amber-950 px-2.5 py-1 rounded-full text-xs font-black shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    <span>+ Beli Bintang</span>
+                  </button>
+                )}
+                <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1 rounded-full text-xs font-black">
+                  <Star size={14} className="fill-amber-400 text-amber-500" />
+                  <span>{child.totalStars} ⭐</span>
+                </div>
               </div>
             </div>
 

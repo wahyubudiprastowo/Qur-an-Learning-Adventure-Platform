@@ -33,6 +33,7 @@ interface HeaderProps {
   onTabChange?: (tab: NavigationTab) => void;
   murojaahDueCount?: number;
   onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
+  onOpenStarShop?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -52,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onTabChange,
   murojaahDueCount = 0,
+  onOpenStarShop,
 }) => {
   const [showSystemMenu, setShowSystemMenu] = useState<boolean>(false);
 
@@ -159,10 +161,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="font-mono">{activeChild.streakDays}</span>
               </div>
 
-              <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 border border-yellow-200/80 text-amber-700 text-xs font-bold shadow-2xs">
+              <button
+                type="button"
+                onClick={onOpenStarShop}
+                className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 hover:bg-yellow-100 border border-yellow-200/80 text-amber-700 text-xs font-bold shadow-2xs cursor-pointer active:scale-95 transition-all"
+                title="Beli Bintang & Camilan Pet"
+              >
                 <Star size={13} className="fill-yellow-400 text-yellow-500 shrink-0" />
                 <span className="font-mono">{activeChild.totalStars}</span>
-              </div>
+                <span className="text-[10px] font-black text-amber-600 ml-0.5">+</span>
+              </button>
 
               {/* SINGLE UNIFIED BUTTON: Profil & Sistem */}
               <button

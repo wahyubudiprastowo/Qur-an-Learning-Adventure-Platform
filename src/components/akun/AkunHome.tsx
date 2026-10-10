@@ -137,11 +137,22 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
             <span className="uppercase tracking-wider">BERALIH KE PROFIL ANAK LAIN</span>
             <button
-              onClick={() => setShowAddChildModal(true)}
-              className="text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer"
+              onClick={() => {
+                const isPro = userAccount.planTier === 'pro' || userAccount.entitlement === 'active' || userAccount.entitlement === 'trial';
+                if (!isPro && childrenList.length >= 1) {
+                  setShowPlanModal(true);
+                  return;
+                }
+                setShowAddChildModal(true);
+              }}
+              className="text-[#08B9EF] hover:underline flex items-center gap-1 cursor-pointer font-bold"
             >
               <PlusCircle size={14} />
-              <span>Tambah Anak</span>
+              <span>
+                {userAccount.planTier === 'pro' || childrenList.length < 1
+                  ? 'Tambah Anak'
+                  : 'Tambah Anak (PRO 👑)'}
+              </span>
             </button>
           </div>
 
@@ -487,12 +498,19 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           onSwitchChild(id);
           setShowParentModal(false);
         }}
+        onDeleteChild={(id) => {
+          StorageService.deleteChild(id);
+          onRefreshData();
+        }}
       />
 
       {/* Add Child Modal */}
       <ChildProfileModal
         isOpen={showAddChildModal}
         onClose={() => setShowAddChildModal(false)}
+        isPro={userAccount.planTier === 'pro' || userAccount.entitlement === 'active' || userAccount.entitlement === 'trial'}
+        existingChildrenCount={childrenList.length}
+        onOpenUpgradeModal={() => setShowPlanModal(true)}
         onChildCreated={(newChild) => {
           onSwitchChild(newChild.id);
           onRefreshData();

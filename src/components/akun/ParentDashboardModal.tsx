@@ -40,8 +40,10 @@ import { getStageForXp } from '../../data/companionData';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { WeeklyReportService } from '../../services/weeklyReportService';
 import { WeeklyProgressCharts } from '../progress/WeeklyProgressCharts';
+import { DailyDurationBarChart } from '../progress/DailyDurationBarChart';
 import { D3AudioAccuracyEvaluation } from '../tahfiz/D3AudioAccuracyEvaluation';
 import { Button } from '../common/Button';
+import { EvaluationEngine } from '../../services/evaluationEngine';
 
 interface ParentDashboardModalProps {
   isOpen: boolean;
@@ -50,6 +52,7 @@ interface ParentDashboardModalProps {
   activeChild: ChildProfile;
   childrenList: ChildProfile[];
   onSwitchChild: (childId: string) => void;
+  onDeleteChild?: (childId: string) => void;
 }
 
 export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
@@ -59,6 +62,7 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   activeChild,
   childrenList,
   onSwitchChild,
+  onDeleteChild,
 }) => {
   // Security Gate State (Parental Lock Challenge)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -92,6 +96,7 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
   const [ayahProgress, setAyahProgress] = useState<ChildAyahProgress[]>(() =>
     StorageService.getAyahProgress(activeChild.id)
   );
+  const [childToDeleteConfirm, setChildToDeleteConfirm] = useState<ChildProfile | null>(null);
 
   const [storageSettings, setStorageSettings] = useState(() =>
     StorageService.getAudioStorageSettings()
@@ -303,17 +308,29 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
 
               {/* Child Switcher dropdown for parents with >1 child */}
               {childrenList.length > 1 && (
-                <select
-                  value={activeChild.id}
-                  onChange={(e) => onSwitchChild(e.target.value)}
-                  className="bg-[#EEF8FF] text-xs font-bold text-[#164C68] rounded-xl px-2 py-1 border border-[#C9E1ED]"
-                >
-                  {childrenList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.avatar} {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={activeChild.id}
+                    onChange={(e) => onSwitchChild(e.target.value)}
+                    className="bg-[#EEF8FF] text-xs font-bold text-[#164C68] rounded-xl px-2 py-1 border border-[#C9E1ED]"
+                  >
+                    {childrenList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.avatar} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {onDeleteChild && (
+                    <button
+                      type="button"
+                      onClick={() => setChildToDeleteConfirm(activeChild)}
+                      title={`Hapus profil ${activeChild.name}`}
+                      className="w-7 h-7 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center cursor-pointer transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
@@ -372,46 +389,81 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
             </div>
 
             {/* TAB 1: SUMMARY */}
-            {activeTab === 'summary' && (
-              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
-                {/* Weekly Report CTA Banner */}
-                <div
-                  onClick={() => setActiveTab('weekly_report')}
-                  className="p-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white rounded-2xl flex items-center justify-between cursor-pointer hover:opacity-95 shadow-xs transition-transform active:scale-[0.99]"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white backdrop-blur-xs">
-                      <BarChart3 size={20} />
-                    </div>
-                    <div>
-                      <span className="text-xs font-black block">Laporan & Grafik Mingguan Lengkap</span>
-                      <span className="text-[10px] text-teal-50 font-medium">Visualisasi tren hafalan, akurasi, dan durasi</span>
-                    </div>
-                  </div>
-                  <ChevronRight size={18} />
-                </div>
+            {activeTab === 'summary' && (() => {
+              const summaryReport = WeeklyReportService.getWeeklyReport(activeChild.id, 0);
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-cyan-50 rounded-2xl border border-cyan-200">
-                    <span className="text-[11px] font-bold text-cyan-800 uppercase block">Total Menit Belajar</span>
-                    <span className="text-2xl font-black text-[#08B9EF] font-heading mt-1 block">
-                      184 Menit
-                    </span>
-                    <span className="text-[10px] text-cyan-700 font-semibold mt-0.5 block">
-                      5 hari aktif minggu ini
-                    </span>
+              return (
+                <div className="space-y-3.5 max-h-[460px] overflow-y-auto pr-1">
+                  {/* Daily Memorization Duration Bar Chart */}
+                  <DailyDurationBarChart
+                    report={summaryReport}
+                    onOpenReport={() => setActiveTab('weekly_report')}
+                    title="Tren Durasi Belajar Sepekan"
+                    subtitle="Waktu hafalan & murojaah harian santri (Senin – Minggu)"
+                    compact={true}
+                    showSummaryCards={false}
+                  />
+
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 bg-cyan-50 rounded-2xl border border-cyan-200">
+                      <span className="text-[11px] font-bold text-cyan-800 uppercase block">Total Menit Belajar</span>
+                      <span className="text-2xl font-black text-[#08B9EF] font-heading mt-1 block">
+                        {summaryReport.totalMenitBelajar} Menit
+                      </span>
+                      <span className="text-[10px] text-cyan-700 font-semibold mt-0.5 block">
+                        {summaryReport.hariAktif} dari 7 hari aktif minggu ini
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200">
+                      <span className="text-[11px] font-bold text-amber-800 uppercase block">Total Bintang</span>
+                      <span className="text-2xl font-black text-amber-600 font-heading mt-1 block">
+                        {activeChild.totalStars} ⭐
+                      </span>
+                      <span className="text-[10px] text-amber-700 font-semibold mt-0.5 block">
+                        Streak: {activeChild.streakDays} hari berturut
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200">
-                    <span className="text-[11px] font-bold text-amber-800 uppercase block">Total Bintang</span>
-                    <span className="text-2xl font-black text-amber-600 font-heading mt-1 block">
-                      {activeChild.totalStars} ⭐
-                    </span>
-                    <span className="text-[10px] text-amber-700 font-semibold mt-0.5 block">
-                      Streak: {activeChild.streakDays} hari berturut
-                    </span>
-                  </div>
-                </div>
+                {/* Baseline & Tajwid/Makhraj Consistency Card (EvaluationEngine) */}
+                {(() => {
+                  const evalPerf = EvaluationEngine.getHistoricalPerformance(activeChild.id);
+                  return (
+                    <div className="p-4 bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 border border-teal-200 rounded-2xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-base">🎯</span>
+                          <h4 className="text-xs font-black text-[#164C68] uppercase tracking-wider font-heading">
+                            Konsistensi Tajwid & Makhraj vs Baseline
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
+                          {evalPerf.consistencyTrend === 'improving' ? '📈 Tren Meningkat' : '⚖️ Stabil'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="bg-white/90 p-2 rounded-xl border border-teal-100">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase block">Baseline Tajwid</span>
+                          <span className="text-sm font-black text-purple-700">{evalPerf.baseline.baselineTajwid}%</span>
+                          <span className="text-[9px] text-slate-400 block">Rata-rata: {evalPerf.averageTajwid}%</span>
+                        </div>
+                        <div className="bg-white/90 p-2 rounded-xl border border-teal-100">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase block">Baseline Makhraj</span>
+                          <span className="text-sm font-black text-amber-700">{evalPerf.baseline.baselineMakhraj}%</span>
+                          <span className="text-[9px] text-slate-400 block">Rata-rata: {evalPerf.averageMakhraj}%</span>
+                        </div>
+                        <div className="bg-white/90 p-2 rounded-xl border border-teal-100">
+                          <span className="text-[9px] font-bold text-slate-500 uppercase block">Skor Konsistensi</span>
+                          <span className="text-sm font-black text-teal-700">{evalPerf.overallConsistencyScore}%</span>
+                          <span className="text-[9px] text-slate-400 block">{evalPerf.totalEvaluatedAyahs} Ayat Dievaluasi</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="p-4 bg-white border border-[#C9E1ED] rounded-2xl space-y-2">
                   <h4 className="text-xs font-black text-[#164C68] uppercase tracking-wider">
@@ -475,7 +527,8 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
                   );
                 })()}
               </div>
-            )}
+            );
+          })()}
 
             {/* TAB: WEEKLY REPORT WITH RECHARTS */}
             {activeTab === 'weekly_report' && (() => {
@@ -1377,6 +1430,43 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
               // Refresh
             }}
           />
+        )}
+
+        {/* Child Deletion Confirmation Modal */}
+        {childToDeleteConfirm && (
+          <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in">
+            <div className="bg-white rounded-3xl p-5 max-w-xs w-full text-center space-y-3 shadow-2xl border-2 border-rose-300 animate-in zoom-in-95">
+              <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 size={22} />
+              </div>
+              <h4 className="font-heading font-black text-slate-800 text-sm">
+                Hapus Profil {childToDeleteConfirm.name}?
+              </h4>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Riwayat hafalan, rekaman suara, dan bintang santri ini akan dihapus permanen dari perangkat.
+              </p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setChildToDeleteConfirm(null)}
+                  className="py-2.5 px-3 rounded-xl border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const idToDelete = childToDeleteConfirm.id;
+                    setChildToDeleteConfirm(null);
+                    onDeleteChild?.(idToDelete);
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-xs"
+                >
+                  Ya, Hapus
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

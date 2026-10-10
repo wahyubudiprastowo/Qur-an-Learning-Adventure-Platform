@@ -53,8 +53,8 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
   const [currentAyahIndex, setCurrentAyahIndex] = useState<number>(0);
   const [ayahs, setAyahs] = useState<AyahData[]>([]);
 
-  // Progressive Recall Mode: 100%, 90%, 80%, 70%, 50%, 30%, 0%
-  const [recallMode, setRecallMode] = useState<RecallMode>('100%');
+  // Progressive Recall Mode: 100%, 90%, 80%, 70%, 50%, 30%, 0% (Default: 30% as requested)
+  const [recallMode, setRecallMode] = useState<RecallMode>('30%');
 
   // Temporary hint reveals
   const [revealedWordIndices, setRevealedWordIndices] = useState<Set<number>>(new Set());
@@ -111,11 +111,16 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
       const list = ayahsRef.current;
       const idx = list.findIndex((a) => a.ayahNumber === num);
       if (idx !== -1) {
-        setCurrentAyahIndex(idx);
-        setRevealedWordIndices(new Set());
-        setVoiceHarakatRevealed(false);
-        setVoiceSuccess(null);
-        setVoiceShowCorrection(false);
+        setCurrentAyahIndex((prevIdx) => {
+          if (prevIdx !== idx) {
+            setRevealedWordIndices(new Set());
+            setVoiceHarakatRevealed(false);
+            setVoiceSuccess(null);
+            setVoiceShowCorrection(false);
+            setVoiceIsRecording(false);
+          }
+          return idx;
+        });
       }
     };
 
@@ -205,20 +210,40 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
 
   const handleNext = () => {
     if (currentAyahIndex < ayahs.length - 1) {
-      setCurrentAyahIndex((prev) => prev + 1);
+      const nextIdx = currentAyahIndex + 1;
+      setCurrentAyahIndex(nextIdx);
       setRevealedWordIndices(new Set());
-      if (playerRef.current && ayahs[currentAyahIndex + 1]) {
-        playerRef.current.jumpToAyah(ayahs[currentAyahIndex + 1].ayahNumber);
+      setVoiceIsRecording(false);
+      setVoiceTimer(0);
+      setVoiceSuccess(null);
+      setVoiceShowCorrection(false);
+      setVoiceHarakatRevealed(false);
+      if (playerRef.current && ayahs[nextIdx]) {
+        if (playbackState === 'PLAYING') {
+          playerRef.current.jumpToAyah(ayahs[nextIdx].ayahNumber, true);
+        } else {
+          playerRef.current.selectAyah(ayahs[nextIdx].ayahNumber, true);
+        }
       }
     }
   };
 
   const handlePrev = () => {
     if (currentAyahIndex > 0) {
-      setCurrentAyahIndex((prev) => prev - 1);
+      const prevIdx = currentAyahIndex - 1;
+      setCurrentAyahIndex(prevIdx);
       setRevealedWordIndices(new Set());
-      if (playerRef.current && ayahs[currentAyahIndex - 1]) {
-        playerRef.current.jumpToAyah(ayahs[currentAyahIndex - 1].ayahNumber);
+      setVoiceIsRecording(false);
+      setVoiceTimer(0);
+      setVoiceSuccess(null);
+      setVoiceShowCorrection(false);
+      setVoiceHarakatRevealed(false);
+      if (playerRef.current && ayahs[prevIdx]) {
+        if (playbackState === 'PLAYING') {
+          playerRef.current.jumpToAyah(ayahs[prevIdx].ayahNumber, true);
+        } else {
+          playerRef.current.selectAyah(ayahs[prevIdx].ayahNumber, true);
+        }
       }
     }
   };
@@ -298,10 +323,20 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
               <button
                 key={a.ayahNumber}
                 onClick={() => {
+                  if (idx === currentAyahIndex) return;
                   setCurrentAyahIndex(idx);
                   setRevealedWordIndices(new Set());
+                  setVoiceIsRecording(false);
+                  setVoiceTimer(0);
+                  setVoiceSuccess(null);
+                  setVoiceShowCorrection(false);
+                  setVoiceHarakatRevealed(false);
                   if (playerRef.current) {
-                    playerRef.current.jumpToAyah(a.ayahNumber);
+                    if (playbackState === 'PLAYING') {
+                      playerRef.current.jumpToAyah(a.ayahNumber, true);
+                    } else {
+                      playerRef.current.selectAyah(a.ayahNumber, true);
+                    }
                   }
                 }}
                 className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
@@ -448,14 +483,20 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
           </div>
 
           {/* Ayah Card: Gundul vs Harakat Revealed */}
-          <div className="py-6 bg-[#EEF8FF] border-2 border-[#08B9EF]/40 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all duration-300">
+          <div
+            className={`py-6 px-4 rounded-3xl p-6 shadow-xs relative overflow-hidden transition-all duration-300 ${
+              voiceHarakatRevealed
+                ? 'bg-gradient-to-b from-emerald-50 to-[#EEF8FF] border-2 border-emerald-400 ring-4 ring-emerald-100 shadow-md'
+                : 'bg-[#EEF8FF] border-2 border-[#08B9EF]/40'
+            }`}
+          >
             {currentAyah ? (
               <p
                 dir="rtl"
-                className={`font-quran text-3xl sm:text-4xl text-[#164C68] font-bold leading-relaxed transition-all duration-300 ${
+                className={`font-quran text-3xl sm:text-4xl leading-loose transition-all duration-300 ${
                   voiceHarakatRevealed
-                    ? 'text-emerald-700 scale-105 filter drop-shadow-xs animate-in zoom-in-95'
-                    : 'text-slate-800'
+                    ? 'text-emerald-800 font-black scale-102 drop-shadow-xs animate-in zoom-in-95'
+                    : 'text-slate-800 font-medium'
                 }`}
               >
                 {voiceHarakatRevealed
@@ -467,9 +508,9 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
             )}
 
             {voiceHarakatRevealed && (
-              <div className="mt-3 text-xs text-emerald-800 font-bold flex items-center justify-center gap-1.5 animate-in fade-in">
+              <div className="mt-4 pt-3 border-t border-emerald-200/80 text-xs text-emerald-800 font-black flex items-center justify-center gap-2 animate-in fade-in">
                 <Sparkles size={16} className="text-emerald-500 animate-spin" />
-                <span>Harakat Terbuka Sempurna!</span>
+                <span>Masya Allah! Harakat Lengkap Terbuka Sempurna ✨</span>
               </div>
             )}
           </div>
@@ -492,15 +533,11 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
                   setVoiceIsRecording(false);
                   if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
 
-                  // Recitation completed: trigger pop animation!
+                  // Recitation completed: trigger pop animation and reveal full Harakat!
                   setVoiceHarakatRevealed(true);
                   setVoiceSuccess(true);
                   triggerPopConfetti();
-
-                  // Play reference audio
-                  if (playerRef.current && currentAyah) {
-                    playerRef.current.jumpToAyah(currentAyah.ayahNumber, true);
-                  }
+                  // Audio reference can be listened via "Dengar Suara Qari" button below without interrupting Harakat reveal
                 }
               }}
               className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl shadow-xl transition-all cursor-pointer ${

@@ -202,12 +202,13 @@ export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
 
               <div className="space-y-2.5 text-xs text-slate-700">
                 {[
+                  'Multi-profil santri tanpa batas (2 anak atau lebih dalam 1 akun keluarga; Free maks. 1 anak)',
+                  'Bebas ganti seluruh karakter sahabat petualang (Lumi, Qamar, Buraq, Rayyan, Najm)',
                   'Akses tak terbatas ke 8 arena game & seluruh fitur Al-Qur\'an',
-                  '20x evaluasi tajwid AI / hari (Fair Usage Policy) + opsi top-up token',
+                  '20x evaluasi tajwid AI / hari (Fair Usage Policy) + opsi top-up token & bintang',
                   'Pantau progres belajar & analitik tajwid anak di Dasbor Wali',
                   'Buka semua level mini game & mode PVP cerdas',
                   'Buka fitur voice record setoran tanpa batas di memori lokal',
-                  'Kapasitas lebih besar untuk buku hafalan dan catatan',
                   'Mahkota khusus & dekorasi eksklusif Sahabat Lumi',
                   'Dukungan prioritas & bebas iklan komersial',
                 ].map((item, idx) => (

@@ -23,6 +23,7 @@ import {
   INITIAL_LEADERBOARD_PLAYERS,
 } from '../data/leaderboardAndActivityData';
 import { AudioDatabaseService } from './audioDatabaseService';
+import { SURAHS_METADATA } from '../data/surahsMetadata';
 
 const STORAGE_KEYS = {
   USER_ACCOUNT: 'cahaya_tahfiz_user_account',
@@ -75,7 +76,12 @@ const DEFAULT_CHILDREN: ChildProfile[] = [
     name: 'Aisyah',
     avatar: '👧',
     birthYear: 2018,
+    age: 8,
     learningLevel: 'pemula',
+    targetSurahNumber: 114,
+    targetSurahName: 'An-Nas',
+    lastPracticedAyah: 1,
+    dailyTargetAyahs: 3,
     totalStars: 245,
     totalXp: 420,
     level: 2,
@@ -89,7 +95,12 @@ const DEFAULT_CHILDREN: ChildProfile[] = [
     name: 'Ahmad',
     avatar: '👦',
     birthYear: 2016,
+    age: 10,
     learningLevel: 'menengah',
+    targetSurahNumber: 18,
+    targetSurahName: 'Al-Kahf',
+    lastPracticedAyah: 25,
+    dailyTargetAyahs: 5,
     totalStars: 580,
     totalXp: 950,
     level: 3,
@@ -660,9 +671,38 @@ export class StorageService {
     if (!data) {
       localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(DEFAULT_CHILDREN));
       this.seedInitialChildProgress('child-aisyah');
+      this.seedInitialChildProgress('child-ahmad');
       return DEFAULT_CHILDREN;
     }
-    return JSON.parse(data);
+    try {
+      const parsed: ChildProfile[] = JSON.parse(data);
+      let updated = false;
+      const currentYear = new Date().getFullYear();
+      const enriched = parsed.map((c) => {
+        const calcAge = c.age || (c.birthYear ? currentYear - c.birthYear : 8);
+        const targetSurah = c.targetSurahNumber || (c.id === 'child-ahmad' ? 18 : 114);
+        const targetName = c.targetSurahName || (c.id === 'child-ahmad' ? 'Al-Kahf' : 'An-Nas');
+        const lastAyah = c.lastPracticedAyah || (c.id === 'child-ahmad' ? 25 : 1);
+
+        if (!c.age || !c.targetSurahNumber || !c.lastPracticedAyah) {
+          updated = true;
+          return {
+            ...c,
+            age: calcAge,
+            targetSurahNumber: targetSurah,
+            targetSurahName: targetName,
+            lastPracticedAyah: lastAyah,
+          };
+        }
+        return c;
+      });
+      if (updated) {
+        localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(enriched));
+      }
+      return enriched;
+    } catch {
+      return DEFAULT_CHILDREN;
+    }
   }
 
   static getActiveChildId(): string {
@@ -682,14 +722,28 @@ export class StorageService {
     return found || children[0] || DEFAULT_CHILDREN[0];
   }
 
-  static createChild(name: string, avatar: string, learningLevel: ChildProfile['learningLevel'], birthYear?: number): ChildProfile {
+  static createChild(
+    name: string,
+    avatar: string,
+    learningLevel: ChildProfile['learningLevel'],
+    birthYear?: number,
+    targetSurahNumber: number = 114,
+    targetSurahName: string = 'An-Nas'
+  ): ChildProfile {
     const children = this.getChildren();
+    const currentYear = new Date().getFullYear();
+    const age = birthYear ? currentYear - birthYear : 8;
     const newChild: ChildProfile = {
       id: `child-${Date.now()}`,
       name,
       avatar,
       birthYear,
+      age,
       learningLevel,
+      targetSurahNumber,
+      targetSurahName,
+      lastPracticedAyah: 1,
+      dailyTargetAyahs: 3,
       totalStars: 20,
       totalXp: 30,
       level: 1,
@@ -701,6 +755,7 @@ export class StorageService {
     children.push(newChild);
     localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(children));
     this.setActiveChildId(newChild.id);
+    this.seedInitialChildProgress(newChild.id);
     return newChild;
   }
 
@@ -708,7 +763,20 @@ export class StorageService {
     const children = this.getChildren();
     const idx = children.findIndex((c) => c.id === childId);
     if (idx !== -1) {
-      children[idx] = { ...children[idx], ...updates, updatedAt: new Date().toISOString() };
+      const currentYear = new Date().getFullYear();
+      const updatedBirthYear = updates.birthYear !== undefined ? updates.birthYear : children[idx].birthYear;
+      const updatedAge = updates.age !== undefined
+        ? updates.age
+        : updatedBirthYear
+        ? currentYear - updatedBirthYear
+        : children[idx].age || 8;
+
+      children[idx] = {
+        ...children[idx],
+        ...updates,
+        age: updatedAge,
+        updatedAt: new Date().toISOString(),
+      };
       localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(children));
       return children[idx];
     }
@@ -759,14 +827,15 @@ export class StorageService {
     ];
     localStorage.setItem(STORAGE_KEYS.AYAHS_PREFIX + childId, JSON.stringify(ayahs));
 
-    // Seed recent practice session
+    // Seed recent practice session specific to child profile
+    const isAhmad = childId === 'child-ahmad';
     const lastSession = {
-      surahNumber: 18,
-      surahName: 'Al-Kahf',
-      blockNumber: 12,
-      startAyah: 25,
-      endAyah: 26,
-      mode: 'ziadah',
+      surahNumber: isAhmad ? 18 : 114,
+      surahName: isAhmad ? 'Al-Kahf' : 'An-Nas',
+      blockNumber: isAhmad ? 12 : 1,
+      startAyah: isAhmad ? 25 : 1,
+      endAyah: isAhmad ? 26 : 3,
+      mode: isAhmad ? 'ziadah' : 'hafalan',
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.LAST_SESSION + childId, JSON.stringify(lastSession));
@@ -776,17 +845,37 @@ export class StorageService {
   static getLastSession(childId: string) {
     const data = localStorage.getItem(STORAGE_KEYS.LAST_SESSION + childId);
     if (!data) {
+      const children = this.getChildren();
+      const child = children.find((c) => c.id === childId);
+      const isAhmad = childId === 'child-ahmad' || child?.name?.toLowerCase().includes('ahmad');
+      const targetSurah = child?.targetSurahNumber || (isAhmad ? 18 : 114);
+      const targetAyah = child?.lastPracticedAyah || (isAhmad ? 25 : 1);
+      const meta = SURAHS_METADATA.find((s) => s.number === targetSurah) || SURAHS_METADATA[0];
+      const initialSession = {
+        surahNumber: targetSurah,
+        surahName: meta.nameLatin,
+        blockNumber: isAhmad ? 12 : 1,
+        startAyah: targetAyah,
+        endAyah: Math.min(targetAyah + 2, meta.ayahCount),
+        mode: isAhmad ? 'ziadah' : 'hafalan',
+        timestamp: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEYS.LAST_SESSION + childId, JSON.stringify(initialSession));
+      return initialSession;
+    }
+    try {
+      return JSON.parse(data);
+    } catch {
       return {
-        surahNumber: 18,
-        surahName: 'Al-Kahf',
-        blockNumber: 12,
-        startAyah: 25,
-        endAyah: 26,
-        mode: 'ziadah' as const,
+        surahNumber: 114,
+        surahName: 'An-Nas',
+        blockNumber: 1,
+        startAyah: 1,
+        endAyah: 3,
+        mode: 'hafalan' as const,
         timestamp: new Date().toISOString(),
       };
     }
-    return JSON.parse(data);
   }
 
   static setLastSession(childId: string, sessionData: any) {

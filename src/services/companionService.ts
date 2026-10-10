@@ -346,6 +346,62 @@ export class CompanionService {
   }
 
   /**
+   * Top-up stars for active child profile (Simulated purchases & parent gifting)
+   */
+  static topupStars(childId: string, starsAmount: number, packageName: string): { success: boolean; newTotalStars: number; message: string } {
+    StorageService.recordPoints(
+      childId,
+      'PRACTICE_AYAH',
+      0,
+      starsAmount,
+      `Beli Bintang: ${packageName}`
+    );
+    const updated = StorageService.getActiveChild();
+    return {
+      success: true,
+      newTotalStars: updated.totalStars,
+      message: `Alhamdulillah! Berhasil menambahkan +${starsAmount} ⭐ Bintang untuk ${updated.name}!`,
+    };
+  }
+
+  /**
+   * Buy food treats (Kurma & Madu) using stars to feed companion anytime
+   */
+  static buyFoodTreatsWithStars(
+    childId: string,
+    treatsCount: number = 5,
+    costStars: number = 15
+  ): { success: boolean; message: string; treatsAvailable: number } {
+    const child = StorageService.getActiveChild();
+    if (child.totalStars < costStars) {
+      return {
+        success: false,
+        message: `Bintang tidak cukup! Butuh ${costStars} ⭐, kamu memiliki ${child.totalStars} ⭐.`,
+        treatsAvailable: this.getCompanionData(childId).foodTreatsAvailable ?? 0,
+      };
+    }
+
+    // Deduct stars
+    StorageService.recordPoints(
+      childId,
+      'PRACTICE_AYAH',
+      0,
+      -costStars,
+      `Beli ${treatsCount}x Camilan Kurma Madu Pet`
+    );
+
+    const companion = this.getCompanionData(childId);
+    companion.foodTreatsAvailable = (companion.foodTreatsAvailable ?? 0) + treatsCount;
+    this.saveCompanionData(companion);
+
+    return {
+      success: true,
+      message: `Alhamdulillah! Berhasil membeli ${treatsCount}x Hidangan Berkah untuk ${companion.name}! Siap disuapkan sekarang.`,
+      treatsAvailable: companion.foodTreatsAvailable,
+    };
+  }
+
+  /**
    * Unlocks a room decoration using stars (Zero lootbox, transparent reward)
    */
   static buyRoomDecoration(childId: string, decorationId: string): { success: boolean; message: string } {
