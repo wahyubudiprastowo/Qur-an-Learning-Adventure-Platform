@@ -14,6 +14,7 @@ import {
   TrendingUp,
   BarChart3,
   Trophy,
+  Crown,
 } from 'lucide-react';
 import { ChildProfile, ChildBlockProgress, ChildAyahProgress, UserAccount } from '../../types';
 import { CompanionData } from '../../types/companion';
@@ -278,6 +279,75 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
 
         {/* === COLUMN 2 (RIGHT / ACTIONS & CURRICULUM SHORTCUTS) === */}
         <div className="lg:col-span-5 space-y-4">
+          {/* PRO Upgrade Card (Ditampilkan HANYA saat akun berstatus Free) */}
+          {!isPro && (
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#164C68] via-[#0F354A] to-[#1E293B] text-white rounded-3xl p-5 shadow-xl border-2 border-amber-300/80 space-y-3.5 animate-in fade-in duration-300">
+              {/* Background Glow Accents */}
+              <div className="absolute -right-8 -top-8 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -bottom-8 w-28 h-28 bg-[#08B9EF]/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="flex items-start justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 text-xl shadow-xs shrink-0">
+                    👑
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 inline-block mb-0.5">
+                      AKUN FREE AKTIF
+                    </span>
+                    <h3 className="text-sm sm:text-base font-black font-heading tracking-tight text-white leading-snug">
+                      Upgrade ke Cahaya Tahfiz PRO
+                    </h3>
+                  </div>
+                </div>
+                <span className="text-xs font-black text-amber-400 bg-amber-400/15 px-2.5 py-1 rounded-xl border border-amber-400/30 shrink-0 font-mono">
+                  Mulai Rp15rb/bln
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-200 font-medium leading-relaxed relative z-10">
+                Buka seluruh potensi belajar Qur'an ananda tanpa batasan:
+              </p>
+
+              {/* 4 Key PRO Feature Highlights */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] relative z-10">
+                <div className="flex items-center gap-1.5 bg-white/10 p-2 rounded-xl border border-white/10">
+                  <span className="text-amber-400 font-bold shrink-0">✓</span>
+                  <span className="font-semibold text-slate-100">Multi-Anak (2+ santri)</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/10 p-2 rounded-xl border border-white/10">
+                  <span className="text-amber-400 font-bold shrink-0">✓</span>
+                  <span className="font-semibold text-slate-100">Bebas Pilih Semua Pet</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/10 p-2 rounded-xl border border-white/10">
+                  <span className="text-amber-400 font-bold shrink-0">✓</span>
+                  <span className="font-semibold text-slate-100">20x Ustadz AI/Hari (FUP)</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/10 p-2 rounded-xl border border-white/10">
+                  <span className="text-amber-400 font-bold shrink-0">✓</span>
+                  <span className="font-semibold text-slate-100">Semua 8 Game & 114 Surah</span>
+                </div>
+              </div>
+
+              <div className="pt-1 relative z-10">
+                <button
+                  type="button"
+                  onClick={onOpenPlanModal}
+                  className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-amber-950 font-black text-xs shadow-md shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 group"
+                >
+                  <Crown size={15} className="fill-amber-950 text-amber-950" />
+                  <span>Upgrade ke PRO Sekarang 👑</span>
+                  <ChevronRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+                </button>
+                <div className="flex items-center justify-center gap-3 text-[10px] text-slate-300 font-semibold pt-1.5">
+                  <span>🔒 Pembayaran Resmi QRIS & Transfer</span>
+                  <span>•</span>
+                  <span>⚡ Akses Langsung Aktif</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 3. Continue Learning Last Session Card */}
           <div
             onClick={onResumeLastSession}

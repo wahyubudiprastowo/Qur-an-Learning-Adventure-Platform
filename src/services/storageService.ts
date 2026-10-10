@@ -90,25 +90,6 @@ const DEFAULT_CHILDREN: ChildProfile[] = [
     createdAt: '2026-01-15T00:00:00.000Z',
     updatedAt: new Date().toISOString(),
   },
-  {
-    id: 'child-ahmad',
-    name: 'Ahmad',
-    avatar: '👦',
-    birthYear: 2016,
-    age: 10,
-    learningLevel: 'menengah',
-    targetSurahNumber: 18,
-    targetSurahName: 'Al-Kahf',
-    lastPracticedAyah: 25,
-    dailyTargetAyahs: 5,
-    totalStars: 580,
-    totalXp: 950,
-    level: 3,
-    streakDays: 8,
-    lastActiveDate: new Date().toISOString().split('T')[0],
-    createdAt: '2026-01-15T00:00:00.000Z',
-    updatedAt: new Date().toISOString(),
-  },
 ];
 
 export class StorageService {
@@ -699,6 +680,17 @@ export class StorageService {
       if (updated) {
         localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(enriched));
       }
+
+      // Enforce 1 child limit for Free tier accounts
+      const user = this.getUserAccount();
+      const isPro = user.planTier === 'pro' || user.entitlement === 'active' || user.entitlement === 'trial';
+      if (!isPro && enriched.length > 1) {
+        // If secondary profile is default Ahmad or user is on Free tier, keep 1 primary child
+        const trimmed = enriched.slice(0, 1);
+        localStorage.setItem(STORAGE_KEYS.CHILDREN_PROFILES, JSON.stringify(trimmed));
+        return trimmed;
+      }
+
       return enriched;
     } catch {
       return DEFAULT_CHILDREN;
@@ -731,6 +723,11 @@ export class StorageService {
     targetSurahName: string = 'An-Nas'
   ): ChildProfile {
     const children = this.getChildren();
+    const user = this.getUserAccount();
+    const isPro = user.planTier === 'pro' || user.entitlement === 'active' || user.entitlement === 'trial';
+    if (!isPro && children.length >= 1) {
+      throw new Error('PRO_REQUIRED_FOR_MULTI_CHILD: Akun Free dibatasi maksimal 1 anak. Upgrade ke PRO untuk mengaktifkan fitur multi-anak.');
+    }
     const currentYear = new Date().getFullYear();
     const age = birthYear ? currentYear - birthYear : 8;
     const newChild: ChildProfile = {

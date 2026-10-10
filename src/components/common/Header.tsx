@@ -54,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTabChange,
   murojaahDueCount = 0,
   onOpenStarShop,
+  onOpenChildSwitcher,
 }) => {
   const [showSystemMenu, setShowSystemMenu] = useState<boolean>(false);
 
@@ -149,14 +150,14 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Zone 3: Right Unified Stats & Single Profile/System Trigger */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Zone 3: Right Unified Stats & Clearly Separated Child vs Parent Triggers */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {rightAction ? (
             rightAction
           ) : activeChild ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               {/* Gamification Counters: Streak & Stars */}
-              <div className="hidden xs:flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-600 text-xs font-bold shadow-2xs">
+              <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 border border-orange-200/80 text-orange-600 text-xs font-bold shadow-2xs">
                 <Flame size={13} className="fill-orange-500 text-orange-500 shrink-0" />
                 <span className="font-mono">{activeChild.streakDays}</span>
               </div>
@@ -164,7 +165,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenStarShop}
-                className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 hover:bg-yellow-100 border border-yellow-200/80 text-amber-700 text-xs font-bold shadow-2xs cursor-pointer active:scale-95 transition-all"
+                className="hidden xs:flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-50 hover:bg-yellow-100 border border-yellow-200/80 text-amber-700 text-xs font-bold shadow-2xs cursor-pointer active:scale-95 transition-all"
                 title="Beli Bintang & Camilan Pet"
               >
                 <Star size={13} className="fill-yellow-400 text-yellow-500 shrink-0" />
@@ -172,32 +173,56 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-[10px] font-black text-amber-600 ml-0.5">+</span>
               </button>
 
-              {/* SINGLE UNIFIED BUTTON: Profil & Sistem */}
+              {/* 1. TOMBOL SANTRI (Ganti Anak / Switch Child) */}
               <button
-                onClick={() => setShowSystemMenu(true)}
-                aria-label="Menu Profil & Sistem"
-                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-2xl bg-white border border-[#C9E1ED] hover:border-[#08B9EF] active:scale-95 transition-all shadow-xs cursor-pointer group"
-                title={`Profil: ${activeChild.name} (${userAccount?.planTier === 'pro' ? 'PRO' : 'FREE'}) - Klik untuk Menu Profil & Akun`}
+                type="button"
+                onClick={() => {
+                  if (onOpenChildSwitcher) {
+                    onOpenChildSwitcher();
+                  } else {
+                    setShowSystemMenu(true);
+                  }
+                }}
+                aria-label={`Profil Santri: ${activeChild.name}`}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-2xl bg-white border border-[#C9E1ED] hover:border-[#08B9EF] active:scale-95 transition-all shadow-xs cursor-pointer group"
+                title={`Profil Santri: ${activeChild.name} (Klik untuk Ganti Santri)`}
               >
-                <span className="text-lg leading-none shrink-0" role="img" aria-label="Avatar">
+                <span className="text-base sm:text-lg leading-none shrink-0" role="img" aria-label="Avatar Santri">
                   {activeChild.avatar}
                 </span>
 
-                <span className="hidden sm:inline text-xs font-black text-[#164C68] max-w-[80px] truncate">
+                <span className="text-xs font-black text-[#164C68] max-w-[60px] sm:max-w-[85px] truncate">
                   {activeChild.name}
+                </span>
+
+                <ChevronDown size={12} className="text-[#8C9BA7] group-hover:text-[#164C68] transition-colors shrink-0" />
+              </button>
+
+              {/* 2. TOMBOL MENU ORANG TUA (Parent Dashboard & Controls) */}
+              <button
+                type="button"
+                onClick={() => setShowSystemMenu(true)}
+                aria-label="Menu Orang Tua & Dasbor Wali"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-2xl bg-gradient-to-r from-slate-50 to-cyan-50/80 border border-[#C9E1ED] hover:border-[#164C68] active:scale-95 transition-all shadow-xs cursor-pointer group"
+                title={`Menu Orang Tua (${userAccount?.planTier === 'pro' ? 'Paket PRO' : 'Paket FREE'}) - Laporan, PIN & Pengaturan`}
+              >
+                <span className="text-sm sm:text-base leading-none shrink-0" role="img" aria-label="Orang Tua">
+                  👨‍👧
+                </span>
+
+                <span className="hidden sm:inline text-xs font-black text-[#164C68]">
+                  Orang Tua
                 </span>
 
                 <span
                   className={`text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase shrink-0 ${
                     userAccount?.planTier === 'pro'
-                      ? 'bg-amber-400 text-amber-950 shadow-2xs'
-                      : 'bg-emerald-100 text-emerald-800'
+                      ? 'bg-amber-400 text-amber-950 font-bold shadow-2xs'
+                      : 'bg-slate-200 text-slate-700 font-bold'
                   }`}
                 >
                   {userAccount?.planTier === 'pro' ? 'PRO' : 'FREE'}
                 </span>
-
-                <ChevronDown size={13} className="text-[#8C9BA7] group-hover:text-[#164C68] transition-colors" />
               </button>
             </div>
           ) : (
