@@ -274,6 +274,59 @@ export class StorageService {
     return updated;
   }
 
+  // --- 3-Tier Account Management: Guest, Free Login, Pro Login ---
+  static getAccountTier(account?: UserAccount): 'guest' | 'free' | 'pro' {
+    const acc = account || this.getUserAccount();
+    if (acc.planTier === 'pro' || acc.entitlement === 'active' || acc.entitlement === 'lifetime') {
+      return 'pro';
+    }
+    if (acc.isRegistered) {
+      return 'free';
+    }
+    return 'guest';
+  }
+
+  static setAccountTier(tier: 'guest' | 'free' | 'pro'): UserAccount {
+    const current = this.getUserAccount();
+    let updated: UserAccount;
+    if (tier === 'guest') {
+      updated = {
+        ...current,
+        isRegistered: false,
+        planTier: 'free',
+        entitlement: 'free',
+        parentName: 'Tamu / Belum Masuk',
+        email: '',
+        whatsapp: '',
+      };
+    } else if (tier === 'free') {
+      updated = {
+        ...current,
+        isRegistered: true,
+        planTier: 'free',
+        entitlement: 'free',
+        parentName: current.parentName === 'Tamu / Belum Masuk' ? 'Wahyu (Orang Tua Hafiz)' : current.parentName,
+        email: current.email || 'wahyubudiprastowo@gmail.com',
+        authProvider: current.authProvider || 'google',
+      };
+    } else {
+      // 'pro'
+      updated = {
+        ...current,
+        isRegistered: true,
+        planTier: 'pro',
+        entitlement: 'active',
+        parentName: current.parentName === 'Tamu / Belum Masuk' ? 'Wahyu (Orang Tua Hafiz)' : current.parentName,
+        email: current.email || 'wahyubudiprastowo@gmail.com',
+        authProvider: current.authProvider || 'google',
+        entitlementExpiry: '2027-12-31',
+      };
+    }
+    localStorage.setItem(STORAGE_KEYS.USER_ACCOUNT, JSON.stringify(updated));
+    this.saveUserToRegistry(updated);
+    return updated;
+  }
+
   // --- AI Correction Access & Daily Quota ---
   static getDailyAiUsageCount(childId: string): number {
     const today = new Date().toISOString().split('T')[0];
@@ -323,10 +376,9 @@ export class StorageService {
       };
     }
 
-    // 2. Free vs Pro Daily Quota:
-    // Free: 1x kuota per hari (uji coba awal aman biaya server)
-    // Pro: 20x kuota per hari (Fair Usage Policy untuk melindungi kapasitas token server)
-    const dailyLimit = isPro ? (account.dailyAiQuota || 20) : (account.dailyAiQuota || 1);
+    // 2. Preview Mode: Both Free and Pro have 1x preview session per day
+    // (Tambahan sesi menggunakan Saldo Token AI atau Kunci Pribadi BYOK)
+    const dailyLimit = account.dailyAiQuota || 1;
     const remainingDaily = Math.max(0, dailyLimit - usedToday);
 
     if (remainingDaily > 0) {
@@ -343,7 +395,7 @@ export class StorageService {
       };
     }
 
-    // 3. If daily quota exhausted, check purchased Top-Up AI Token Balance
+    // 3. If daily preview quota exhausted, check purchased Top-Up AI Token Balance
     if (tokenBalance > 0) {
       return {
         allowed: true,
@@ -370,6 +422,79 @@ export class StorageService {
       source: 'none',
       reason: isPro ? 'pro_daily_exceeded_need_token' : 'need_upgrade_or_token',
     };
+  }
+
+  // --- Tier Feature Entitlements & Fair Access Policies ---
+  /**
+   * Iqra' Access Policy:
+   * - Guest: Iqra 1 pages 1..5 only
+   * - Free Login: Iqra 1 full (32 pages), Jilid 2-6 locked for PRO
+   * - Pro Login: All Jilid 1..6 & Hijaiyah A full
+   */
+  static getIqraAccess(tier?: 'guest' | 'free' | 'pro'): {
+    allowedJilids: string[];
+    maxPageInJilid1: number;
+    isJilidAllowed: (jilid: string) => boolean;
+  } {
+    const t = tier || this.getAccountTier();
+    if (t === 'pro') {
+      return {
+        allowedJilids: ['1', '2', '3', '4', '5', '6', 'A'],
+        maxPageInJilid1: 999,
+        isJilidAllowed: () => true,
+      };
+    }
+    if (t === 'free') {
+      return {
+        allowedJilids: ['1', 'A'],
+        maxPageInJilid1: 32,
+        isJilidAllowed: (jilid: string) => jilid === '1' || jilid === 'A',
+      };
+    }
+    // Guest
+    return {
+      allowedJilids: ['1', 'A'],
+      maxPageInJilid1: 5,
+      isJilidAllowed: (jilid: string) => jilid === '1' || jilid === 'A',
+    };
+  }
+
+  /**
+   * Tahfiz Surah Access Policy:
+   * - Guest: 3 short surahs (114 An-Nas, 113 Al-Falaq, 112 Al-Ikhlas) + Al-Fatihah (1)
+   * - Free Login: ~60% of Juz 30 (Surahs 93 Ad-Duha down to 114 An-Nas, 22 surahs) + Al-Fatihah (1)
+   * - Pro Login: Full 30 Juz (114 surahs)
+   * Note: Tilawah / Mushaf Al-Qur'an is full for all tiers as requested!
+   */
+  static isSurahUnlockedForTahfiz(surahNumber: number, tier?: 'guest' | 'free' | 'pro'): boolean {
+    const t = tier || this.getAccountTier();
+    if (t === 'pro') return true;
+    if (surahNumber === 1) return true; // Al-Fatihah always open
+    if (t === 'free') {
+      // 60% of Juz 30 (22 short surahs: 93 Ad-Duha to 114 An-Nas)
+      return surahNumber >= 93 && surahNumber <= 114;
+    }
+    // Guest: only An-Nas (114), Al-Falaq (113), Al-Ikhlas (112), Al-Fatihah (1)
+    return surahNumber >= 112 && surahNumber <= 114;
+  }
+
+  /**
+   * Game Hub Access Policy:
+   * - Guest: 1-2 trial games
+   * - Free Login: 3-4 educational games
+   * - Pro Login: All 8 games
+   */
+  static isGameUnlocked(gameId: string, tier?: 'guest' | 'free' | 'pro'): boolean {
+    const t = tier || this.getAccountTier();
+    if (t === 'pro') return true;
+    // Guest gets 1 trial game
+    const guestAllowed = ['hijaiyah_sound'];
+    // Free Login gets 3 educational games (gak full, cuma beberapa)
+    const freeAllowed = ['hijaiyah_sound', 'arrange_ayah', 'audio_to_ayah'];
+    if (t === 'free') {
+      return freeAllowed.includes(gameId);
+    }
+    return guestAllowed.includes(gameId);
   }
 
   static consumeAiEvaluation(childId: string): {

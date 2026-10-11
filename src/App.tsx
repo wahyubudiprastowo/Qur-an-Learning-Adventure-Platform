@@ -406,7 +406,31 @@ export default function App() {
           murojaahDueCount={weakAyahsCount}
           onOpenIbadahModal={handleOpenIbadah}
           onOpenStarShop={() => setShowStarShopModal(true)}
+          onAccountUpdated={(acc) => setUserAccount(acc)}
         />
+
+        {/* Mode Tamu (Guest) Info Banner with 1-Tap Registration */}
+        {StorageService.getAccountTier(userAccount) === 'guest' && (
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white px-3.5 sm:px-5 py-2 flex items-center justify-between text-xs font-bold shadow-xs border-b border-amber-600/30">
+            <div className="flex items-center gap-2 truncate">
+              <span className="text-sm shrink-0">✨</span>
+              <span className="truncate">
+                <strong className="underline decoration-amber-200">Mode Tamu:</strong> Coba langsung fitur dasar! Daftar gratis via Gmail / WhatsApp untuk simpan hafalan & buka seluruh 37 Surah Juz 30.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              <button
+                onClick={() => {
+                  setAuthModalMode('register');
+                  setShowAuthModal(true);
+                }}
+                className="px-3 py-1 rounded-xl bg-white text-orange-950 font-black text-[11px] hover:bg-orange-50 active:scale-95 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                Daftar Gratis (1-Klik)
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* In-App Browser Reminder Banner */}
         {activeInAppReminder && (
@@ -593,7 +617,16 @@ export default function App() {
                 />
               )}
               {alQuranSubView === 'iqra' && (
-                <IqraModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
+                <IqraModule
+                  childId={activeChild.id}
+                  onBack={() => navigateAlQuran(null)}
+                  userAccount={userAccount}
+                  onOpenUpgradeModal={() => setShowPlanModal(true)}
+                  onOpenRegisterModal={() => {
+                    setAuthModalMode('register');
+                    setShowAuthModal(true);
+                  }}
+                />
               )}
               {alQuranSubView === 'tajwid' && (
                 <TajwidModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />

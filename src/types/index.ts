@@ -24,6 +24,8 @@ export interface ChildProfile {
 
 export type PlanTier = 'free' | 'pro';
 
+export type AccountTier = 'guest' | 'free' | 'pro';
+
 export interface PaymentTransaction {
   id: string;
   userId: string;

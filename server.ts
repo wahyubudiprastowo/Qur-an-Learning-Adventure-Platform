@@ -217,29 +217,31 @@ async function startServer() {
         });
       }
 
-      // 5. Strict Speech Recognition Sanity Check (if child chatted in Indonesian/English/noise)
-      const trimmedTranscript = (spokenTranscript || '').trim();
-      const hasArabicCharacters = /[\u0600-\u06FF]/.test(trimmedTranscript);
-      if (trimmedTranscript.length > 3 && !hasArabicCharacters) {
+      // 5. Intelligent Speech Recognition Check (support both Arabic script and Latin transliteration)
+      const trimmedTranscript = (spokenTranscript || '').trim().toLowerCase();
+      // Only flag if transcript clearly contains conversational chit-chat with no Quranic phonetics
+      const conversationalKeywords = ['halo', 'ngapain', 'capek', 'main game', 'mama', 'papa', 'tunggu'];
+      const isConversationalChitChat = conversationalKeywords.some((w) => trimmedTranscript.includes(w)) && trimmedTranscript.length > 8;
+
+      if (isConversationalChitChat) {
         return res.json({
-          overallScore: 25,
+          overallScore: 35,
           grade: 'perlu_ulang',
-          accuracyScore: 20,
-          tajwidScore: 25,
-          fluencyScore: 25,
+          accuracyScore: 30,
+          tajwidScore: 35,
+          fluencyScore: 35,
           encouragementEmoji: '📖',
           makhrajTips: [
-            'Fokuskan bacaan pada teks Arab ayat yang sedang dihafal.',
+            'Fokuskan bacaan pada teks ayat yang sedang dihafal.',
             'Dengarkan qari terlebih dahulu sebelum menyetor hafalan.',
           ],
-          feedback: `Suara yang tertangkap ("${trimmedTranscript.slice(0, 30)}") tidak melafalkan ayat Al-Qur'an. Mohon jangan mengobrol atau bersuara lain, bacakan ayat: "${targetArabicText}".`,
+          feedback: `Terdeteksi percakapan santai ("${trimmedTranscript.slice(0, 30)}"). Yuk fokus membaca ayat: "${targetArabicText}".`,
           tajwidNotes: [
-            'Pastikan melafalkan ayat Al-Qur\'an secara tartil, bukan percakapan biasa.',
-            'Dengarkan qari terlebih dahulu sebelum menyetor hafalan.',
+            'Pastikan melafalkan ayat Al-Qur\'an secara tartil tanpa bersuara lain.',
           ],
           isPassed: false,
           evaluatedAt: new Date().toISOString(),
-          modelUsed: 'transcript-check',
+          modelUsed: 'transcript-conversational-check',
         });
       }
 

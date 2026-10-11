@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Crown,
   Gamepad2,
+  Lock,
 } from 'lucide-react';
 import { IQRA_CURRICULUM } from '../../data/iqraData';
 import { IQRA_1_PAGES, IqraBookPage, IqraPageItem } from '../../data/iqraBook1Data';
@@ -40,11 +41,15 @@ import { IQRA_6_PAGES } from '../../data/iqraBook6Data';
 import { IqraMilestoneGameModal } from './IqraMilestoneGameModal';
 import { StorageService } from '../../services/storageService';
 import { GlobalAudioManager } from '../../services/audioService';
-import { IqraItem } from '../../types';
+import { IqraItem, UserAccount } from '../../types';
+import { GuestRestrictionModal } from '../common/GuestRestrictionModal';
 
 interface IqraModuleProps {
   childId: string;
   onBack: () => void;
+  userAccount?: UserAccount;
+  onOpenUpgradeModal?: () => void;
+  onOpenRegisterModal?: () => void;
 }
 
 type JilidType = '1' | '2' | '3' | '4' | '5' | '6' | 'A';
@@ -214,7 +219,21 @@ function playSuccessFanfare() {
   } catch {}
 }
 
-export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
+export const IqraModule: React.FC<IqraModuleProps> = ({
+  childId,
+  onBack,
+  userAccount,
+  onOpenUpgradeModal,
+  onOpenRegisterModal,
+}) => {
+  // Account tier calculation (guest | free | pro)
+  const accountTier = useMemo(() => StorageService.getAccountTier(userAccount), [userAccount]);
+  const iqraAccess = useMemo(() => StorageService.getIqraAccess(accountTier), [accountTier]);
+
+  const [showGuestRestrictionModal, setShowGuestRestrictionModal] = useState<boolean>(false);
+  const [showProRestrictionModal, setShowProRestrictionModal] = useState<boolean>(false);
+  const [lockedModalData, setLockedModalData] = useState<{ title: string; desc: string } | null>(null);
+
   // Current active jilid tab (Default to Jilid 1)
   const [activeJilid, setActiveJilid] = useState<JilidType>('1');
 
@@ -916,6 +935,31 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
     }, 200);
   };
 
+  // Handling Jilid Navigation with Account Tier Check
+  const handleSelectJilid = (jilid: JilidType) => {
+    if (accountTier === 'guest') {
+      if (jilid !== '1' && jilid !== 'A') {
+        setLockedModalData({
+          title: `Buka Iqra Jilid ${jilid}`,
+          desc: `Iqra Jilid ${jilid} memerlukan akun terdaftar. Daftar Akun Gratis via Gmail atau WhatsApp dalam 5 detik untuk membuka fitur lebih banyak dan menyimpan capaian ananda!`,
+        });
+        setShowGuestRestrictionModal(true);
+        return;
+      }
+    } else if (accountTier === 'free') {
+      if (jilid !== '1' && jilid !== 'A') {
+        setLockedModalData({
+          title: `Iqra Jilid ${jilid} (Eksklusif Santri PRO)`,
+          desc: `Paket Free mencakup Iqra Jilid 1 Lengkap (32 Halaman). Untuk membuka Iqra Jilid 2 sampai 6 lengkap dengan materi huruf sambung, mad ashli, sukun, tanwin, dan hukum tajwid, tingkatkan ke Santri PRO!`,
+        });
+        setShowProRestrictionModal(true);
+        return;
+      }
+    }
+    setActiveJilid(jilid);
+    setCurrentPageNum(1);
+  };
+
   // Navigating Pages
   const handlePrevPage = () => {
     if (currentPageNum > 1) {
@@ -924,6 +968,14 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
   };
 
   const handleNextPage = () => {
+    if (accountTier === 'guest' && activeJilid === '1' && currentPageNum >= 5) {
+      setLockedModalData({
+        title: 'Buka Seluruh 32 Halaman Iqra 1',
+        desc: 'Mode Tamu dibatasi hingga Halaman 5 untuk mencoba. Daftar Akun Gratis via Gmail atau WhatsApp untuk membuka 32 halaman penuh Iqra 1 dan simpan nilai kemahiran anak selamanya!',
+      });
+      setShowGuestRestrictionModal(true);
+      return;
+    }
     if (currentPageNum < maxPages) {
       setCurrentPageNum((p) => p + 1);
     }
@@ -1037,35 +1089,45 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
       <div className="flex gap-1.5 p-1.5 bg-white border border-[#C9E1ED] rounded-2xl shadow-xs overflow-x-auto">
         {(['1', '2', '3', '4', '5', '6', 'A'] as const).map((jilid) => {
           const isActive = activeJilid === jilid;
+          const isJilidLocked = !iqraAccess.isJilidAllowed(jilid);
+
           return (
             <button
               key={jilid}
-              onClick={() => {
-                setActiveJilid(jilid);
-                setCurrentPageNum(1);
-              }}
-              className={`flex-1 min-w-[70px] py-2 px-2 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap ${
+              onClick={() => handleSelectJilid(jilid)}
+              className={`flex-1 min-w-[70px] py-2 px-2 rounded-xl text-xs font-black transition-all text-center flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap relative ${
                 isActive
                   ? 'bg-gradient-to-r from-[#08B9EF] to-[#0596c7] text-white shadow-md shadow-cyan-500/25 scale-[1.02]'
+                  : isJilidLocked
+                  ? 'text-slate-400 bg-slate-50/80 hover:bg-amber-50/60 border border-dashed border-amber-200/80'
                   : 'text-[#8C9BA7] hover:text-[#164C68] hover:bg-[#EEF8FF]/60'
               }`}
             >
-              <BookOpen size={12} />
+              {isJilidLocked ? (
+                <Lock size={11} className="text-amber-500 shrink-0" />
+              ) : (
+                <BookOpen size={12} />
+              )}
               <span>
                 {jilid === 'A'
                   ? 'Hijaiyah A'
                   : jilid === '1'
                   ? 'Iqra 1 (32 Hal)'
                   : jilid === '2'
-                  ? 'Iqra 2 (30 Hal)'
+                  ? 'Iqra 2'
                   : jilid === '3'
-                  ? 'Iqra 3 (30 Hal)'
+                  ? 'Iqra 3'
                   : jilid === '4'
-                  ? 'Iqra 4 (30 Hal)'
+                  ? 'Iqra 4'
                   : jilid === '5'
-                  ? 'Iqra 5 (30 Hal)'
-                  : 'Iqra 6 (30 Hal)'}
+                  ? 'Iqra 5'
+                  : 'Iqra 6'}
               </span>
+              {isJilidLocked && (
+                <span className="text-[8px] font-black px-1 rounded-sm bg-amber-400 text-amber-950 uppercase tracking-tighter">
+                  {accountTier === 'guest' ? 'Daftar' : 'PRO'}
+                </span>
+              )}
             </button>
           );
         })}
@@ -2400,6 +2462,88 @@ export const IqraModule: React.FC<IqraModuleProps> = ({ childId, onBack }) => {
           playSuccessFanfare();
         }}
       />
+
+      {/* GUEST RESTRICTION MODAL */}
+      <GuestRestrictionModal
+        isOpen={showGuestRestrictionModal}
+        onClose={() => setShowGuestRestrictionModal(false)}
+        title={lockedModalData?.title || 'Buka Seluruh Halaman Iqra 1'}
+        description={
+          lockedModalData?.desc ||
+          'Mode Tamu dibatasi untuk mencoba fitur awal. Daftar Akun Gratis via Gmail atau WhatsApp dalam 5 detik untuk membuka seluruh 32 halaman penuh Iqra 1 dan simpan kemajuan belajar anak!'
+        }
+        featureName="Akses Eksklusif Akun Terdaftar"
+        onOpenAuth={(mode) => {
+          setShowGuestRestrictionModal(false);
+          onOpenRegisterModal?.();
+        }}
+      />
+
+      {/* PRO JILID 2-6 RESTRICTION MODAL */}
+      {showProRestrictionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setShowProRestrictionModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl border-2 border-amber-300 shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-400 text-white flex items-center justify-center text-3xl mx-auto shadow-md">
+              👑
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                Fitur Santri PRO
+              </span>
+              <h3 className="text-lg font-black text-[#164C68] font-heading">
+                {lockedModalData?.title || 'Buka Iqra Jilid 2 sampai 6'}
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                {lockedModalData?.desc ||
+                  'Akun Free memiliki akses penuh Iqra 1 (32 Halaman). Tingkatkan ke Santri PRO untuk membuka seluruh Jilid 2 sampai 6 lengkap dengan materi huruf sambung, mad ashli, sukun, tanwin, dan tajwid!'}
+              </p>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 text-left space-y-2 text-xs text-amber-950 font-bold">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Buka Iqra Jilid 2, 3, 4, 5, dan 6 lengkap (180+ halaman)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Seluruh 30 Juz Al-Qur\'an untuk hafalan tahfiz mutqin</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Semua 8 Arena Game edukasi & kuis adab</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProRestrictionModal(false);
+                  onOpenUpgradeModal?.();
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+              >
+                <span>Lihat Pilihan Paket Santri PRO 👑</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowProRestrictionModal(false)}
+                className="w-full py-2 px-3 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                Kembali Belajar Iqra 1
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

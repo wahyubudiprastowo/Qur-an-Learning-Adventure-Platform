@@ -21,6 +21,7 @@ import {
   Share2,
   MessageCircle,
   Send,
+  Crown,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, PointsLedgerEntry } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -182,43 +183,147 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         </div>
       </div>
 
-      {/* 02. AKUN ORANG TUA & SINKRONISASI CLOUD */}
+      {/* 02. STATUS JENJANG AKUN: GUEST, FREE LOGIN, PRO LOGIN */}
       <div className="space-y-2.5">
         <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
-          02. AKUN ORANG TUA & SINKRONISASI CLOUD
+          02. STATUS JENJANG AKUN (GUEST, FREE LOGIN, PRO LOGIN)
         </span>
 
-        {/* Account / Registration Status Card */}
-        <div
-          onClick={() => setShowAuthModal(true)}
-          className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#22C55E] transition-all group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#22C55E] text-2xl shrink-0">
-              {userAccount.isRegistered ? '✅' : '📝'}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-[#164C68] font-heading">
-                  {userAccount.isRegistered ? `Akun Terdaftar: ${userAccount.parentName}` : 'Daftar / Masuk Akun Orang Tua'}
-                </h3>
-                <span className={`text-[9px] font-bold px-2 py-0.2 rounded-full ${
-                  userAccount.isRegistered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                }`}>
-                  {userAccount.isRegistered ? 'Cloud Aktif' : 'Tamu (Lokal)'}
-                </span>
+        <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-2xl shrink-0">
+                {StorageService.getAccountTier(userAccount) === 'pro'
+                  ? '👑'
+                  : StorageService.getAccountTier(userAccount) === 'free'
+                  ? '🟢'
+                  : '⚪'}
               </div>
-              <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
-                {userAccount.isRegistered
-                  ? userAccount.email
-                  : 'Simpan progres hafalan anak ke cloud & akses multi-perangkat'}
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-black text-[#164C68] font-heading">
+                    {StorageService.getAccountTier(userAccount) === 'pro'
+                      ? 'Paket PRO Hafiz (Aktif)'
+                      : StorageService.getAccountTier(userAccount) === 'free'
+                      ? `Akun Terdaftar: ${userAccount.parentName}`
+                      : 'Mode Tamu (Guest - Coba Langsung)'}
+                  </h3>
+                  <span
+                    className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${
+                      StorageService.getAccountTier(userAccount) === 'pro'
+                        ? 'bg-amber-400 text-amber-950'
+                        : StorageService.getAccountTier(userAccount) === 'free'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-amber-100 text-amber-900 border border-amber-300'
+                    }`}
+                  >
+                    {StorageService.getAccountTier(userAccount).toUpperCase()}
+                  </span>
+                </div>
+                <p className="text-xs text-[#8C9BA7] font-medium mt-0.5">
+                  {StorageService.getAccountTier(userAccount) === 'pro'
+                    ? 'Akses 30 Juz penuh, deteksi suara AI tanpa batas, & Rapor PDF'
+                    : StorageService.getAccountTier(userAccount) === 'free'
+                    ? (userAccount.email || 'Cloud Aktif • 37 Surah Juz 30 & Kuota AI Harian')
+                    : 'Fitur terbatas (3 surah & uji suara). Progres belum tersimpan di cloud.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick 3-Tier Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  StorageService.setAccountTier('guest');
+                  onRefreshData();
+                }}
+                className={`px-2.5 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  StorageService.getAccountTier(userAccount) === 'guest'
+                    ? 'bg-white text-[#164C68] shadow-xs font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Tamu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  StorageService.setAccountTier('free');
+                  onRefreshData();
+                }}
+                className={`px-2.5 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  StorageService.getAccountTier(userAccount) === 'free'
+                    ? 'bg-emerald-500 text-white shadow-xs font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Free Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  StorageService.setAccountTier('pro');
+                  onRefreshData();
+                }}
+                className={`px-2.5 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  StorageService.getAccountTier(userAccount) === 'pro'
+                    ? 'bg-amber-400 text-amber-950 shadow-xs font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Pro Login 👑
+              </button>
             </div>
           </div>
 
-          <span className="text-xs font-bold text-[#22C55E] group-hover:underline">
-            {userAccount.isRegistered ? 'Kelola →' : 'Daftar Sekarang →'}
-          </span>
+          {/* If Guest: Guidance & Direct Registration CTAs */}
+          {StorageService.getAccountTier(userAccount) === 'guest' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl shrink-0">💡</span>
+                <div className="text-xs text-amber-950 leading-relaxed">
+                  <p className="font-bold">Arahkan Akun: Daftar Gratis & Simpan Progres Santri</p>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    Mode Tamu hanya untuk mencoba beberapa fitur awal. Daftarkan akun keluarga gratis untuk membuka seluruh 37 surah Juz 30 dan menyimpan poin bintang santri.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer active:scale-98"
+                >
+                  <span className="font-bold text-red-500">G</span>
+                  <span>Daftar Cepat via Google (Gmail)</span>
+                </button>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer active:scale-98"
+                >
+                  <span>💬</span>
+                  <span>Daftar via WhatsApp (OTP)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* If Free: Upgrade CTA */}
+          {StorageService.getAccountTier(userAccount) === 'free' && (
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-slate-500 font-medium">
+                Ingin membuka 30 Juz penuh & AI Guru tanpa batas?
+              </span>
+              <button
+                onClick={() => setShowPlanModal(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-black shadow-xs hover:shadow-sm cursor-pointer transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <Crown size={14} className="text-amber-200" />
+                <span>Lihat Fitur PRO 👑</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

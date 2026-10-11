@@ -13,7 +13,9 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { ChildProfile, NavigationTab, UserAccount } from '../../types';
-import { UnifiedSystemMenu } from './UnifiedSystemMenu';
+import { StorageService } from '../../services/storageService';
+import { ChildMenuModal } from './ChildMenuModal';
+import { ParentMenuModal } from './ParentMenuModal';
 
 interface HeaderProps {
   title?: string;
@@ -35,6 +37,7 @@ interface HeaderProps {
   onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
   onOpenStarShop?: () => void;
   onOpenChildSwitcher?: () => void;
+  onAccountUpdated?: (account: UserAccount) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -56,8 +59,10 @@ export const Header: React.FC<HeaderProps> = ({
   murojaahDueCount = 0,
   onOpenStarShop,
   onOpenChildSwitcher,
+  onAccountUpdated,
 }) => {
-  const [showSystemMenu, setShowSystemMenu] = useState<boolean>(false);
+  const [showChildMenu, setShowChildMenu] = useState<boolean>(false);
+  const [showParentMenu, setShowParentMenu] = useState<boolean>(false);
 
   // 5 Clean Core Learning Navigation Tabs on Desktop (Anti-clutter)
   const desktopTabs = [
@@ -174,19 +179,13 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-[10px] font-black text-amber-600 ml-0.5">+</span>
               </button>
 
-              {/* 1. TOMBOL SANTRI (Ganti Anak / Switch Child) */}
+              {/* 1. TOMBOL SANTRI (Menu Khusus Anak & Ganti Santri) */}
               <button
                 type="button"
-                onClick={() => {
-                  if (onOpenChildSwitcher) {
-                    onOpenChildSwitcher();
-                  } else {
-                    setShowSystemMenu(true);
-                  }
-                }}
+                onClick={() => setShowChildMenu(true)}
                 aria-label={`Profil Santri: ${activeChild.name}`}
                 className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-2xl bg-white border border-[#C9E1ED] hover:border-[#08B9EF] active:scale-95 transition-all shadow-xs cursor-pointer group"
-                title={`Profil Santri: ${activeChild.name} (Klik untuk Ganti Santri)`}
+                title={`Profil Santri: ${activeChild.name} (Klik untuk Capaian, Bintang & Ganti Santri)`}
               >
                 <span className="text-base sm:text-lg leading-none shrink-0" role="img" aria-label="Avatar Santri">
                   {activeChild.avatar}
@@ -199,13 +198,13 @@ export const Header: React.FC<HeaderProps> = ({
                 <ChevronDown size={12} className="text-[#8C9BA7] group-hover:text-[#164C68] transition-colors shrink-0" />
               </button>
 
-              {/* 2. TOMBOL MENU ORANG TUA (Parent Dashboard & Controls) */}
+              {/* 2. TOMBOL MENU ORANG TUA (Parent Dashboard, Jenjang Akses & Akun) */}
               <button
                 type="button"
-                onClick={() => setShowSystemMenu(true)}
+                onClick={() => setShowParentMenu(true)}
                 aria-label="Menu Orang Tua & Dasbor Wali"
                 className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-2xl bg-gradient-to-r from-slate-50 to-cyan-50/80 border border-[#C9E1ED] hover:border-[#164C68] active:scale-95 transition-all shadow-xs cursor-pointer group"
-                title={`Menu Orang Tua (${userAccount?.planTier === 'pro' ? 'Paket PRO' : 'Paket FREE'}) - Laporan, PIN & Pengaturan`}
+                title={`Menu Orang Tua (${StorageService.getAccountTier(userAccount).toUpperCase()}) - Dasbor Wali, Jenjang & Pengaturan`}
               >
                 <span className="text-sm sm:text-base leading-none shrink-0" role="img" aria-label="Orang Tua">
                   👨‍👧
@@ -215,15 +214,22 @@ export const Header: React.FC<HeaderProps> = ({
                   Orang Tua
                 </span>
 
-                <span
-                  className={`text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase shrink-0 ${
-                    userAccount?.planTier === 'pro'
-                      ? 'bg-amber-400 text-amber-950 font-bold shadow-2xs'
-                      : 'bg-slate-200 text-slate-700 font-bold'
-                  }`}
-                >
-                  {userAccount?.planTier === 'pro' ? 'PRO' : 'FREE'}
-                </span>
+                {(() => {
+                  const tier = StorageService.getAccountTier(userAccount);
+                  return (
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.2 rounded-md uppercase shrink-0 ${
+                        tier === 'pro'
+                          ? 'bg-amber-400 text-amber-950 font-bold shadow-2xs'
+                          : tier === 'free'
+                          ? 'bg-emerald-100 text-emerald-800 font-bold border border-emerald-300'
+                          : 'bg-amber-100 text-amber-900 font-bold border border-amber-300'
+                      }`}
+                    >
+                      {tier === 'pro' ? 'PRO 👑' : tier === 'free' ? 'FREE' : 'TAMU'}
+                    </span>
+                  );
+                })()}
               </button>
             </div>
           ) : (
@@ -232,20 +238,35 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* Unified System & Profile Popover Menu */}
+      {/* 1. Modal Menu Santri (Khusus Anak: Bintang, Ganti Santri, Pet) */}
       {activeChild && userAccount && (
-        <UnifiedSystemMenu
-          isOpen={showSystemMenu}
-          onClose={() => setShowSystemMenu(false)}
+        <ChildMenuModal
+          isOpen={showChildMenu}
+          onClose={() => setShowChildMenu(false)}
           activeChild={activeChild}
           childrenList={childrenList.length > 0 ? childrenList : [activeChild]}
           userAccount={userAccount}
           onSwitchChild={(childId) => {
             if (onSwitchChild) onSwitchChild(childId);
           }}
-          onAddChild={() => {
+          onOpenAddChild={() => {
             if (onOpenAddChild) onOpenAddChild();
           }}
+          onOpenStarShop={onOpenStarShop}
+          onOpenCompanionRoom={() => {
+            if (onTabChange) onTabChange('game');
+          }}
+        />
+      )}
+
+      {/* 2. Modal Menu Orang Tua (Khusus Wali: Jenjang Akun Guest/Free/Pro, Dasbor Wali, Token AI, PIN) */}
+      {activeChild && userAccount && (
+        <ParentMenuModal
+          isOpen={showParentMenu}
+          onClose={() => setShowParentMenu(false)}
+          userAccount={userAccount}
+          activeChild={activeChild}
+          childrenList={childrenList.length > 0 ? childrenList : [activeChild]}
           onOpenAuth={(mode) => {
             if (onOpenAuth) onOpenAuth(mode);
           }}
@@ -260,8 +281,18 @@ export const Header: React.FC<HeaderProps> = ({
             }
           }}
           onOpenAiTokens={onOpenAiTokens}
+          onOpenChildManager={() => {
+            if (onOpenChildSwitcher) {
+              onOpenChildSwitcher();
+            } else {
+              setShowChildMenu(true);
+            }
+          }}
           onNavigateToAkunTab={() => {
             if (onTabChange) onTabChange('akun');
+          }}
+          onAccountUpdated={(updatedAcc) => {
+            if (onAccountUpdated) onAccountUpdated(updatedAcc);
           }}
         />
       )}
