@@ -14,6 +14,7 @@ import {
   AudioStorageStats,
   AudioRetentionDays,
   AffiliateReferralRecord,
+  MufrodatDailyTracker,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
 import {
@@ -49,6 +50,8 @@ const STORAGE_KEYS = {
   AUDIO_AUDIT_FLAGS: 'cahaya_tahfiz_audio_audit_flags',
   AUDIO_STORAGE_SETTINGS: 'cahaya_tahfiz_audio_storage_settings',
   AFFILIATE_REFERRALS: 'cahaya_tahfiz_affiliate_referrals',
+  MUFRODAT_TRACKER_PREFIX: 'cahaya_tahfiz_mufrodat_tracker_',
+  MUFRODAT_STAGES_PREFIX: 'cahaya_tahfiz_mufrodat_stages_',
 };
 
 // Initial default parent and child profiles
@@ -1277,6 +1280,99 @@ export class StorageService {
     }
     localStorage.setItem(STORAGE_KEYS.VOCAB_PREFIX + childId, JSON.stringify(list));
     return isMastered;
+  }
+
+  static getMufrodatTracker(childId: string): MufrodatDailyTracker {
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = localStorage.getItem(STORAGE_KEYS.MUFRODAT_TRACKER_PREFIX + childId);
+    let tracker: MufrodatDailyTracker = raw
+      ? JSON.parse(raw)
+      : {
+          dailyGoal: 5,
+          reminderTime: '06:00',
+          reminderEnabled: true,
+          streak: 2,
+          lastLearnedDate: today,
+          todayLearnedCount: 1,
+          todayWordIds: ['vocab-1'],
+        };
+
+    // If date changed, reset daily counters and update streak
+    if (tracker.lastLearnedDate !== today) {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const isConsecutive = tracker.lastLearnedDate === yesterday && tracker.todayLearnedCount > 0;
+      tracker = {
+        ...tracker,
+        streak: isConsecutive ? tracker.streak : (tracker.todayLearnedCount > 0 ? 1 : Math.max(1, tracker.streak)),
+        lastLearnedDate: today,
+        todayLearnedCount: 0,
+        todayWordIds: [],
+      };
+      this.saveMufrodatTracker(childId, tracker);
+    }
+    return tracker;
+  }
+
+  static saveMufrodatTracker(childId: string, updates: Partial<MufrodatDailyTracker>): MufrodatDailyTracker {
+    const raw = localStorage.getItem(STORAGE_KEYS.MUFRODAT_TRACKER_PREFIX + childId);
+    const base = raw ? JSON.parse(raw) : {
+      dailyGoal: 5,
+      reminderTime: '06:00',
+      reminderEnabled: true,
+      streak: 1,
+      lastLearnedDate: new Date().toISOString().slice(0, 10),
+      todayLearnedCount: 0,
+      todayWordIds: [],
+    };
+    const updated: MufrodatDailyTracker = { ...base, ...updates };
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUFRODAT_TRACKER_PREFIX + childId, JSON.stringify(updated));
+    } catch (e) {}
+    return updated;
+  }
+
+  static recordMufrodatLearned(childId: string, wordId: string): { isMastered: boolean; tracker: MufrodatDailyTracker } {
+    const isMastered = this.toggleVocabMastery(childId, wordId);
+    let tracker = this.getMufrodatTracker(childId);
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (isMastered) {
+      const updatedWordIds = Array.from(new Set([...tracker.todayWordIds, wordId]));
+      tracker = {
+        ...tracker,
+        lastLearnedDate: today,
+        todayLearnedCount: updatedWordIds.length,
+        todayWordIds: updatedWordIds,
+      };
+      this.saveMufrodatTracker(childId, tracker);
+    }
+    return { isMastered, tracker };
+  }
+
+  static getWordMasteryStages(childId: string): Record<string, 1 | 2 | 3> {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MUFRODAT_STAGES_PREFIX + childId);
+      return data ? JSON.parse(data) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  static setWordMasteryStage(childId: string, wordId: string, stage: 1 | 2 | 3): Record<string, 1 | 2 | 3> {
+    const current = this.getWordMasteryStages(childId);
+    current[wordId] = stage;
+    try {
+      localStorage.setItem(STORAGE_KEYS.MUFRODAT_STAGES_PREFIX + childId, JSON.stringify(current));
+    } catch (e) {}
+
+    // Also award points if moving to Level 2 (+5 XP) or Level 3 (+10 XP)
+    if (stage === 2) {
+      this.recordPoints(childId, 'VOCABULARY', 5, 1, 'Hafal makna kosakata Qur\'an', 'vocab', wordId);
+    } else if (stage === 3) {
+      this.recordPoints(childId, 'VOCABULARY', 10, 2, 'Kuasai kata dalam susunan kalimat', 'vocab', wordId);
+    }
+
+    return current;
   }
 
   static getCompletedStories(childId: string): string[] {

@@ -376,7 +376,9 @@ export class EvaluationEngine {
         targetArabicText: ayah.arabicText,
         targetTranslation: ayah.translationId,
         durationSeconds,
-        audioLevel,
+        audioLevel: audioLevel
+          ? { peak: audioLevel.peak ?? 0, avg: audioLevel.avg ?? 0 }
+          : undefined,
         spokenTranscript,
         assistanceUsed,
         isSimulated,

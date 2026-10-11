@@ -34,6 +34,7 @@ interface HeaderProps {
   murojaahDueCount?: number;
   onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
   onOpenStarShop?: () => void;
+  onOpenChildSwitcher?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({

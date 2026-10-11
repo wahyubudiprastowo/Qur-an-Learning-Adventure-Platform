@@ -399,6 +399,39 @@ export interface QuranVocabularyItem {
   };
 }
 
+export interface MufrodatWordDetail {
+  id: string;
+  arabic: string;
+  transliteration: string;
+  meaningId: string;
+  rootWord: string;
+  surahNumber: number;
+  ayahNumber: number;
+  wordIndex: number;
+}
+
+export interface MufrodatDailyTracker {
+  dailyGoal: number;
+  reminderTime: string;
+  reminderEnabled: boolean;
+  streak: number;
+  lastLearnedDate: string;
+  todayLearnedCount: number;
+  todayWordIds: string[];
+}
+
+export interface MufrodatLearningLevel {
+  id: string;
+  levelNumber: number;
+  title: string;
+  description: string;
+  badge: string;
+  surahNumbers: number[];
+  themeColor: string;
+}
+
+export type MufrodatMasteryStage = 1 | 2 | 3; // 1: Mulai Mengenal (Bantuan Penuh), 2: Uji Ingatan (Arti Disembunyikan), 3: Mahir (Susun Kalimat)
+
 export interface AudioAuditFlag {
   id: string; // Key, e.g. 'iqra-1-p1-r0-i0'
   jilid: string; // 'A' | '1' | '2' | '3' | '4' | '5' | '6'
