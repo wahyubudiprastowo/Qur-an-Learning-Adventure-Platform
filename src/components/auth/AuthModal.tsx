@@ -63,22 +63,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const targetEmail = customEmail || emailInput.trim() || 'wahyubudiprastowo@gmail.com';
     const targetName = customName || parentNameInput.trim() || 'Wahyu Budi Prastowo';
 
-    const account = StorageService.loginWithProvider(targetEmail, 'google', targetName);
-    
     try {
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.5 },
-        colors: ['#08B9EF', '#FFD83E', '#81E850', '#EA4335'],
-      });
-    } catch {}
+      const account = StorageService.loginWithProvider(targetEmail, 'google', targetName);
+      
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.5 },
+          colors: ['#08B9EF', '#FFD83E', '#81E850', '#EA4335'],
+        });
+      } catch {}
 
-    setSuccessNotice(`Berhasil masuk dengan Akun Google (${targetEmail})! Selamat datang, ${account.parentName}.`);
-    setTimeout(() => {
-      onAuthSuccess(account);
-      onClose();
-    }, 1000);
+      setSuccessNotice(`Berhasil masuk dengan Akun Google (${targetEmail})! Selamat datang, ${account.parentName}.`);
+      setTimeout(() => {
+        onAuthSuccess(account);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setErrorMessage(err.message?.replace('AKUN_SUSPENDED: ', '') || 'Gagal masuk akun.');
+    }
   };
 
   // WhatsApp OTP Login
@@ -98,25 +102,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
     const cleanWa = whatsappInput.trim();
-    const account = StorageService.loginWithProvider(
-      cleanWa,
-      'whatsapp',
-      parentNameInput.trim() || 'Keluarga WhatsApp'
-    );
-
     try {
-      confetti({
-        particleCount: 45,
-        spread: 60,
-        origin: { y: 0.5 },
-      });
-    } catch {}
+      const account = StorageService.loginWithProvider(
+        cleanWa,
+        'whatsapp',
+        parentNameInput.trim() || 'Keluarga WhatsApp'
+      );
 
-    setSuccessNotice(`Verifikasi WhatsApp Berhasil! Selamat datang, ${account.parentName}.`);
-    setTimeout(() => {
-      onAuthSuccess(account);
-      onClose();
-    }, 1000);
+      try {
+        confetti({
+          particleCount: 45,
+          spread: 60,
+          origin: { y: 0.5 },
+        });
+      } catch {}
+
+      setSuccessNotice(`Verifikasi WhatsApp Berhasil! Selamat datang, ${account.parentName}.`);
+      setTimeout(() => {
+        onAuthSuccess(account);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setErrorMessage(err.message?.replace('AKUN_SUSPENDED: ', '') || 'Gagal masuk akun.');
+    }
   };
 
   // Standard Email Login or Register
@@ -130,32 +138,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    const account = StorageService.loginWithProvider(
-      cleanEmail,
-      'email',
-      parentNameInput.trim() || undefined
-    );
-
-    if (childNameInput.trim()) {
-      const activeChild = StorageService.getActiveChild();
-      if (activeChild) {
-        StorageService.updateChild(activeChild.id, { name: childNameInput.trim() });
-      }
-    }
-
     try {
-      confetti({
-        particleCount: 40,
-        spread: 60,
-        origin: { y: 0.5 },
-      });
-    } catch {}
+      const account = StorageService.loginWithProvider(
+        cleanEmail,
+        'email',
+        parentNameInput.trim() || undefined
+      );
 
-    setSuccessNotice(`Berhasil masuk dengan email! Selamat datang, ${account.parentName}.`);
-    setTimeout(() => {
-      onAuthSuccess(account);
-      onClose();
-    }, 1000);
+      if (childNameInput.trim()) {
+        const activeChild = StorageService.getActiveChild();
+        if (activeChild) {
+          StorageService.updateChild(activeChild.id, { name: childNameInput.trim() });
+        }
+      }
+
+      try {
+        confetti({
+          particleCount: 40,
+          spread: 60,
+          origin: { y: 0.5 },
+        });
+      } catch {}
+
+      setSuccessNotice(`Berhasil masuk dengan email! Selamat datang, ${account.parentName}.`);
+      setTimeout(() => {
+        onAuthSuccess(account);
+        onClose();
+      }, 1000);
+    } catch (err: any) {
+      setErrorMessage(err.message?.replace('AKUN_SUSPENDED: ', '') || 'Gagal masuk akun.');
+    }
   };
 
   // Switch between existing registered users on device

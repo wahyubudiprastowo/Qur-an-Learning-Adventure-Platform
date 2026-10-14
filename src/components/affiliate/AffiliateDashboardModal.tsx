@@ -23,6 +23,9 @@ import {
   HelpCircle,
   ToggleLeft,
   ToggleRight,
+  Edit3,
+  Link2,
+  Globe,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserAccount, AffiliateReferralRecord } from '../../types';
@@ -53,12 +56,19 @@ export const AffiliateDashboardModal: React.FC<AffiliateDashboardModalProps> = (
   const [accountNumber, setAccountNumber] = useState<string>('7182938491');
   const [accountHolder, setAccountHolder] = useState<string>(userAccount.parentName || 'Nama Pemilik Rekening');
 
+  // Custom Link State
+  const [isEditingLink, setIsEditingLink] = useState<boolean>(false);
+  const [customSlug, setCustomSlug] = useState<string>(() => userAccount.affiliateCode || StorageService.generateAffiliateCode(userAccount));
+  const [customPrefix, setCustomPrefix] = useState<'reff' | 'aff' | 'ref'>(() => userAccount.affiliateLinkPrefix || 'reff');
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [customSuccess, setCustomSuccess] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const isEnabled = Boolean(userAccount.affiliateEnabled);
   const affiliateCode = userAccount.affiliateCode || StorageService.generateAffiliateCode(userAccount);
-  const shareUrl = `https://cahayatahfiz.id/daftar?ref=${affiliateCode}`;
-  const shareMessage = `Assalamu'alaikum! Yuk temani buah hati belajar & menghafal Al-Qur'an dengan aplikasi cerdas Cahaya Tahfiz. Belajar jadi seru dengan Guru AI, arena game edukatif, dan Iqra interaktif! Dapatkan akses khusus dengan kode referral saya: *${affiliateCode}* di link ini: ${shareUrl}`;
+  const shareUrl = StorageService.getAffiliateShareUrl(userAccount);
+  const shareMessage = `Assalamu'alaikum! Yuk temani buah hati belajar & menghafal Al-Qur'an dengan aplikasi cerdas Cahaya Tahfiz. Belajar jadi seru dengan Guru AI, arena game edukatif, dan Iqra interaktif! Dapatkan akses khusus dengan link rujukan saya: ${shareUrl}`;
 
   const referrals = StorageService.getAffiliateReferrals(userAccount.id);
   const totalEarnings = userAccount.affiliateTotalEarnings || 0;
@@ -67,6 +77,23 @@ export const AffiliateDashboardModal: React.FC<AffiliateDashboardModalProps> = (
   const handleToggleAffiliate = () => {
     const updated = StorageService.toggleAffiliateProgram(!isEnabled);
     onAccountUpdated(updated);
+  };
+
+  const handleSaveCustomLink = (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = StorageService.updateCustomAffiliateCode(userAccount.id, customSlug, customPrefix);
+    if (res.success && res.user) {
+      setCustomSuccess(res.message);
+      setCustomError(null);
+      onAccountUpdated(res.user);
+      setTimeout(() => {
+        setIsEditingLink(false);
+        setCustomSuccess(null);
+      }, 1500);
+    } else {
+      setCustomError(res.message);
+      setCustomSuccess(null);
+    }
   };
 
   const handleCopyCode = () => {
@@ -316,6 +343,93 @@ export const AffiliateDashboardModal: React.FC<AffiliateDashboardModalProps> = (
                   >
                     {copiedLink ? 'Link Tersalin!' : 'Salin Link'}
                   </button>
+                </div>
+
+                {/* Custom Natural Link Accordion / Toggle */}
+                <div className="pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingLink(!isEditingLink)}
+                    className="text-xs font-bold text-amber-300 hover:text-white flex items-center justify-between w-full cursor-pointer py-1"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Edit3 size={13} />
+                      <span>Kustomisasi Tautan Afiliasi Natural (/reff/ atau /aff/)</span>
+                    </span>
+                    <span className="text-[10px] underline">{isEditingLink ? 'Tutup' : 'Ubah Tautan'}</span>
+                  </button>
+
+                  {isEditingLink && (
+                    <form onSubmit={handleSaveCustomLink} className="mt-3 p-3 bg-white/10 rounded-2xl border border-white/20 space-y-3 text-xs">
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-300 font-bold block uppercase">
+                          Pilih Format URL:
+                        </span>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(['reff', 'aff', 'ref'] as const).map((prefix) => (
+                            <button
+                              key={prefix}
+                              type="button"
+                              onClick={() => setCustomPrefix(prefix)}
+                              className={`py-1.5 px-2 rounded-xl text-[11px] font-mono font-bold border transition-all cursor-pointer ${
+                                customPrefix === prefix
+                                  ? 'bg-amber-400 text-amber-950 border-amber-300'
+                                  : 'bg-black/20 text-slate-300 border-white/10 hover:bg-black/30'
+                              }`}
+                            >
+                              /{prefix}/
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-300 font-bold block uppercase">
+                          Slug / Nama Tautan Kustom:
+                        </span>
+                        <input
+                          type="text"
+                          value={customSlug}
+                          onChange={(e) => setCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
+                          placeholder="contoh: bunda-sarah"
+                          className="w-full py-2 px-3 rounded-xl bg-black/30 border border-white/20 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+
+                      <div className="p-2 rounded-xl bg-black/30 text-[10px] font-mono text-amber-200 break-all">
+                        Preview: https://cahayatahfiz.id/{customPrefix === 'ref' ? `?ref=${customSlug}` : `${customPrefix}/${customSlug}`}
+                      </div>
+
+                      {customError && (
+                        <p className="text-[11px] text-red-300 bg-red-900/40 p-2 rounded-xl border border-red-500/40 font-bold">
+                          {customError}
+                        </p>
+                      )}
+
+                      {customSuccess && (
+                        <p className="text-[11px] text-emerald-300 bg-emerald-900/40 p-2 rounded-xl border border-emerald-500/40 font-bold flex items-center gap-1">
+                          <Check size={12} />
+                          <span>{customSuccess}</span>
+                        </p>
+                      )}
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingLink(false)}
+                          className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-[11px] cursor-pointer"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-[11px] cursor-pointer shadow-xs"
+                        >
+                          Simpan Link
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               </div>
 

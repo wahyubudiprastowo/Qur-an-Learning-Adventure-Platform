@@ -92,8 +92,8 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
   const [lockedGamePrompt, setLockedGamePrompt] = useState<{ title: string; desc: string } | null>(null);
 
   const currentUserAccount = userAccount || StorageService.getUserAccount();
-  const isPro = currentUserAccount.planTier === 'pro' || currentUserAccount.entitlement === 'active' || currentUserAccount.entitlement === 'trial';
-  const PRO_GAME_IDS = ['continue_ayah', 'arabic_matching', 'tajwid_class', 'guess_surah'];
+  const accountTier = StorageService.getAccountTier(currentUserAccount);
+  const isPro = accountTier === 'pro';
 
   const handleShareCard = (payload: SharePayload, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -556,7 +556,7 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
                 illustration: '🎧 🌟',
               },
             ].map((game) => {
-              const isGameLocked = game.isProOnly && !isPro;
+              const isGameLocked = !StorageService.isGameUnlocked(game.id, accountTier);
 
               return (
                 <div
@@ -687,10 +687,12 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           <LeaderboardAndActivityView
             childId={child.id}
             onOpenGame={(gameId) => {
-              if (PRO_GAME_IDS.includes(gameId) && !isPro) {
+              if (!StorageService.isGameUnlocked(gameId, accountTier)) {
                 setLockedGamePrompt({
-                  title: 'Arena Game PRO',
-                  desc: 'Game ini memerlukan paket Cahaya Tahfiz PRO aktif.',
+                  title: 'Arena Game Terkunci',
+                  desc: accountTier === 'guest'
+                    ? 'Game ini membutuhkan akun terdaftar. Yuk daftar gratis via Gmail atau WhatsApp!'
+                    : 'Game ini memerlukan paket Cahaya Tahfiz PRO aktif.',
                 });
               } else {
                 onLaunchMiniGame(gameId);

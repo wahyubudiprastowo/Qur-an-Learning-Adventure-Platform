@@ -47,6 +47,7 @@ export const InstantAiFeedbackCard: React.FC<InstantAiFeedbackCardProps> = ({
   isD3Open = false,
 }) => {
   const [showDetailedTips, setShowDetailedTips] = useState<boolean>(true);
+  const [showRubricStandard, setShowRubricStandard] = useState<boolean>(false);
 
   const isPassed = !!correction.isPassed && correction.overallScore >= 70;
   const isMumtaz = correction.grade === 'mumtaz' || correction.overallScore >= 85;
@@ -323,6 +324,71 @@ export const InstantAiFeedbackCard: React.FC<InstantAiFeedbackCardProps> = ({
                 </ul>
               </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Standar Nilai Tartil & Rubrik Terbuka (Anti-Ngaco) */}
+      <div className="mt-2.5">
+        <button
+          type="button"
+          onClick={() => setShowRubricStandard((prev) => !prev)}
+          className="w-full flex items-center justify-between text-[11px] font-bold text-slate-600 bg-white/70 hover:bg-white px-3 py-2 rounded-xl border border-slate-200/80 cursor-pointer transition-colors"
+        >
+          <span className="flex items-center gap-1.5 text-[#164C68] font-black">
+            <span>📐</span>
+            <span>Standar Nilai Tartil & Rubrik Terbuka (Anti-Ngaco)</span>
+          </span>
+          <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+            <span>{showRubricStandard ? 'Tutup Rubrik' : 'Lihat Bobot 40:35:25'}</span>
+            {showRubricStandard ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </span>
+        </button>
+
+        {showRubricStandard && (
+          <div className="mt-2 p-3.5 bg-white/95 rounded-2xl border border-emerald-200/90 shadow-2xs space-y-2 text-xs text-slate-700 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+              <span className="font-black text-[#164C68] text-[11px] uppercase tracking-wider flex items-center gap-1">
+                <span>⚖️</span>
+                <span>Panduan Terstandar Dewan Penguji:</span>
+              </span>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Ambang Lulus: ≥ 70% Mutqin
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                <span className="font-black text-emerald-900 block text-[10px] uppercase">
+                  Akurasi Lafal (40%)
+                </span>
+                <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                  Memastikan seluruh huruf dan kata ayat target terbaca tuntas tanpa terlewat.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-purple-50/80 border border-purple-200">
+                <span className="font-black text-purple-900 block text-[10px] uppercase">
+                  Tajwid & Makhraj (35%)
+                </span>
+                <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                  Memvalidasi makhraj (Halq, Lisan, Syafatain), mad 2 harakat, dengung ghunnah, dan qolqolah.
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-sky-50/80 border border-sky-200">
+                <span className="font-black text-sky-900 block text-[10px] uppercase">
+                  Kelancaran & Ritme (25%)
+                </span>
+                <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                  Ritme membaca tartil teratur disesuaikan dengan usia anak (4–7 thn tempo perlahan, 8–11 thn sedang).
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-950 text-[10px] leading-relaxed">
+              <strong>Anti-Ngaco & Suara Hening:</strong> Skor kelulusan mutqin minimal 70% (Jayyid 70–84%, Mumtaz 85–100%). Rekaman tanpa suara ayat target (hening, noise, atau obrolan santai) otomatis diberi skor rendah (15–35) dan tidak dapat lulus.
+            </div>
           </div>
         )}
       </div>

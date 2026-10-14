@@ -39,6 +39,7 @@ import { FloatingSocialShareDock } from './components/common/FloatingSocialShare
 import { ShareModal, SharePayload } from './components/common/ShareModal';
 import { PusatIbadahDoaModal } from './components/ibadah/PusatIbadahDoaModal';
 import { NotificationService, ReminderSchedule } from './services/notificationService';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 import { X } from 'lucide-react';
 
 export default function App() {
@@ -92,6 +93,30 @@ export default function App() {
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [ibadahInitialTab, setIbadahInitialTab] = useState<'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi'>('jadwal');
   const [activeInAppReminder, setActiveInAppReminder] = useState<ReminderSchedule | null>(null);
+  const [showAdminPortal, setShowAdminPortal] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.toLowerCase();
+      const q = window.location.search.toLowerCase();
+      return h === '#/admin' || h === '#admin' || q.includes('portal=admin') || q.includes('admin=true');
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleUrlRoute = () => {
+      const h = window.location.hash.toLowerCase();
+      const q = window.location.search.toLowerCase();
+      if (h === '#/admin' || h === '#admin' || q.includes('portal=admin') || q.includes('admin=true')) {
+        setShowAdminPortal(true);
+      }
+    };
+    window.addEventListener('hashchange', handleUrlRoute);
+    window.addEventListener('popstate', handleUrlRoute);
+    return () => {
+      window.removeEventListener('hashchange', handleUrlRoute);
+      window.removeEventListener('popstate', handleUrlRoute);
+    };
+  }, []);
 
   const handleOpenIbadah = (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => {
     GlobalAudioManager.stopAll();
@@ -593,12 +618,17 @@ export default function App() {
                   key={activeChild.id}
                   childId={activeChild.id}
                   initialSurahNumber={lastSession.surahNumber}
+                  userAccount={userAccount}
                   onFinishHafalan={() => {
                     refreshChildData(activeChild.id);
                     navigateTahfiz('home');
                   }}
                   onBack={() => navigateTahfiz('home')}
                   onOpenPlanModal={() => setShowPlanModal(true)}
+                  onOpenRegisterModal={() => {
+                    setAuthModalMode('register');
+                    setShowAuthModal(true);
+                  }}
                 />
               )}
             </>
@@ -840,6 +870,18 @@ export default function App() {
           isOpen={showShareModal}
           onClose={() => setShowShareModal(false)}
           payload={sharePayload}
+        />
+
+        {/* Dedicated Master Admin Portal (Shortcut: Ctrl+Shift+A & Direct Route: #/admin & 2FA Protected) */}
+        <AdminDashboard
+          isOpen={showAdminPortal}
+          onClose={() => {
+            setShowAdminPortal(false);
+            if (window.location.hash.toLowerCase().includes('admin')) {
+              history.replaceState(null, '', window.location.pathname);
+            }
+          }}
+          currentUser={userAccount}
         />
       </div>
     </div>

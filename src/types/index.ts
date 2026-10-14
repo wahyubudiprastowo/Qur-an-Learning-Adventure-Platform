@@ -29,11 +29,14 @@ export type AccountTier = 'guest' | 'free' | 'pro';
 export interface PaymentTransaction {
   id: string;
   userId: string;
+  userName?: string;
+  userEmail?: string;
+  userWhatsapp?: string;
   planId: string;
   planName: string;
   amountUsd: number;
   amountIdr: number;
-  paymentMethod: 'card' | 'paypal' | 'qris' | 'bank_va' | 'ewallet';
+  paymentMethod: 'card' | 'paypal' | 'qris' | 'bank_va' | 'ewallet' | 'bank_transfer_manual' | 'admin_manual';
   paymentMethodDetails?: string;
   cardLast4?: string;
   cardBrand?: string;
@@ -42,22 +45,129 @@ export interface PaymentTransaction {
   createdAt: string;
   referralCode?: string;
   discountApplied?: number;
+  transferBankName?: string;
+  transferProofUrl?: string;
+  senderAccountName?: string;
+  senderBankName?: string;
+  senderAccountNumber?: string;
+  transferRrn?: string;
+  fraudAnalysis?: FraudAnalysisResult;
+  verifiedByAdminName?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+  adminNotes?: string;
+  assignedByAdmin?: boolean;
+}
+
+export interface FraudAnalysisResult {
+  authenticityScore: number; // 0-100%
+  status: 'verified_real' | 'suspicious' | 'confirmed_fake' | 'unverified';
+  indicators: string[];
+  mutationMatched: boolean;
+  bankRefNumber?: string;
+  senderAccountName?: string;
+  matchedMutationTime?: string;
+  notes?: string;
+}
+
+export interface BankMutationItem {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  timestamp: string;
+  type: 'CR' | 'DB';
+  amount: number;
+  description: string;
+  senderName: string;
+  referenceNumber: string;
+  isClaimed?: boolean;
+}
+
+export interface AdminManualAssignPayload {
+  userId: string;
+  planId: string;
+  planName: string;
+  durationMonths: number; // 1, 3, 6, 12, 999 for lifetime
+  amountIdr: number;
+  paymentSource: string;
+  transferRefNumber?: string;
+  adminNotes?: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  timestamp: string;
+  adminName: string;
+  adminId?: string;
+  action:
+    | 'assign_pro'
+    | 'toggle_tier'
+    | 'verify_payment'
+    | 'reject_payment'
+    | 'custom_affiliate_link'
+    | 'update_user'
+    | 'payout_commission'
+    | 'change_password'
+    | 'change_admin_pin'
+    | 'flag_fake_transfer'
+    | 'suspend_user'
+    | 'reactivate_user'
+    | 'admin_login_2fa';
+  targetUserId?: string;
+  targetUserName?: string;
+  targetUserEmail?: string;
+  description: string;
+  previousValue?: string;
+  newValue?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface UserLoginRecord {
+  id: string;
+  timestamp: string;
+  ipAddress: string;
+  device: string; // e.g. "Chrome 128 / Windows 11"
+  location: string; // e.g. "Jakarta, Indonesia"
+  status: 'success' | 'failed_wrong_pin' | 'suspicious_ip';
+  isSuspicious?: boolean;
 }
 
 export interface UserAccount {
   id: string;
   email: string;
   parentName: string;
+  studentName?: string;
+  studentAge?: number;
   whatsapp?: string;
   targetGoal?: string;
   activeChildId: string;
   pin: string;
+  password?: string;
+  lastPasswordChange?: string;
+  mustChangePasswordOnNextLogin?: boolean;
+  accountStatus?: 'active' | 'suspended' | 'banned';
+  suspendedReason?: string;
+  suspendedAt?: string;
+  twoFactorEnabled?: boolean;
+  twoFactorMethod?: 'totp' | 'email';
+  twoFactorSecret?: string;
+  twoFactorBackupCodes?: string[];
+  twoFactorActivatedAt?: string;
+  lastLogin?: {
+    timestamp: string;
+    ipAddress: string;
+    device: string;
+    location: string;
+  };
+  loginHistory?: UserLoginRecord[];
+  affiliateCustomSlug?: string;
   entitlement: 'trial' | 'active' | 'lifetime' | 'free' | 'pro';
   planTier: PlanTier;
   entitlementExpiry: string;
   createdAt: string;
   isRegistered?: boolean;
   authProvider?: 'email' | 'whatsapp' | 'google' | 'apple';
+  role?: 'admin' | 'user' | 'affiliate';
   aiTokensBalance?: number;
   dailyAiQuota?: number;
   customGeminiApiKey?: string;
@@ -71,6 +181,7 @@ export interface UserAccount {
     accountNumber: string;
     accountHolder: string;
   };
+  affiliateLinkPrefix?: 'reff' | 'aff' | 'ref';
   referredByCode?: string;
 }
 

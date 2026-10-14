@@ -68,7 +68,7 @@ export const GuestRestrictionModal: React.FC<GuestRestrictionModalProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-            <span>Buka seluruh 37 Surah Juz 30 & audio murottal lengkap</span>
+            <span>Buka 32 halaman penuh Iqra 1 & 22 Surah Juz 30 (Gratis Penuh)</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />

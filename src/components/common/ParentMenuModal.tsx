@@ -179,16 +179,16 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
                 <div className="flex items-start gap-2">
                   <span className="text-base shrink-0">⚠️</span>
                   <div className="text-xs text-amber-950 leading-relaxed">
-                    <p className="font-bold">Mode Tamu (Fitur Terbatas)</p>
+                    <p className="font-bold">Mode Tamu (Fitur Coba Terbatas)</p>
                     <p className="text-[11px] text-amber-800 mt-0.5">
-                      Bisa langsung mencoba 3 surah pendek, audio murottal, dan sampel kuis mufrodat. Progres hafalan belum tersimpan di cloud.
+                      Bisa mencoba Iqra 1 (Hal 1-5), 3 surah pendek (An-Nas, Al-Falaq, Al-Ikhlas), 1 game sampel, dan baca Al-Qur'an. Progres belum tersimpan di cloud.
                     </p>
                   </div>
                 </div>
 
                 <div className="pt-1 space-y-1.5">
                   <span className="text-[10px] font-black uppercase text-amber-900 tracking-wider block">
-                    Daftar Gratis untuk Buka Seluruh Juz 30:
+                    Daftar Gratis untuk Buka 32 Hal Iqra 1 & 22 Surah Juz 30:
                   </span>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
@@ -223,7 +223,7 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
                         Akun Terdaftar: {userAccount.email || 'Cloud Aktif'}
                       </span>
                       <span className="text-[10px] text-emerald-800 font-medium">
-                        Wali: {userAccount.parentName} • 37 Surah Juz 30 Terbuka
+                        Iqra 1 Full • 60% Juz 30 (22 Surah) • Al-Qur'an 30 Juz • 3 Game
                       </span>
                     </div>
                   </div>
@@ -237,7 +237,7 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
                   className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer transition-all active:scale-95"
                 >
                   <Crown size={14} className="text-amber-200" />
-                  <span>Upgrade ke PRO (Buka 30 Juz & AI Unlimited)</span>
+                  <span>Upgrade ke PRO (Buka Iqra 2-6, 30 Juz & Semua Game)</span>
                 </button>
               </div>
             )}

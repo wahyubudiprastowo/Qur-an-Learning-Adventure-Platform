@@ -8,6 +8,7 @@ import {
   EyeOff,
   RotateCcw,
   CheckCircle,
+  CheckCircle2,
   HelpCircle,
   Volume2,
   Sparkles,
@@ -31,6 +32,7 @@ import {
   Crown,
   Coins,
   Key,
+  Lock,
 } from 'lucide-react';
 import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
@@ -40,7 +42,7 @@ import { AudioRecordingService, RecordingState } from '../../services/recordingS
 import { analyzeAyahRecitation, ScoreAnalysisResult } from '../../services/scoringEngine';
 import { StorageService } from '../../services/storageService';
 import { AudioDatabaseService } from '../../services/audioDatabaseService';
-import { AyahData, SurahMetadata, AyahRecording, AiCorrectionResult } from '../../types';
+import { AyahData, SurahMetadata, AyahRecording, AiCorrectionResult, UserAccount } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { SetoranResultModal, RecordedAyahItem } from './SetoranResultModal';
@@ -52,6 +54,7 @@ import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 import { evaluateOfflineUstadzRubric } from '../../services/ustadzAiEvaluationEngine';
 import { EvaluationEngine } from '../../services/evaluationEngine';
+import { GuestRestrictionModal } from '../common/GuestRestrictionModal';
 
 interface HafalanModuleProps {
   childId: string;
@@ -59,6 +62,8 @@ interface HafalanModuleProps {
   onFinishHafalan: () => void;
   onBack: () => void;
   onOpenPlanModal?: () => void;
+  userAccount?: UserAccount;
+  onOpenRegisterModal?: () => void;
 }
 
 export type AyahDisplayMode = 'awalan' | 'sebagian' | 'tertutup' | 'lengkap';
@@ -74,6 +79,8 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
   onFinishHafalan,
   onBack,
   onOpenPlanModal,
+  userAccount: propUserAccount,
+  onOpenRegisterModal,
 }) => {
   // Active child profile - dynamically reactive to childId
   const activeChild = useMemo(() => {
@@ -154,10 +161,16 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
 
   const [refreshVersion, setRefreshVersion] = useState(0);
 
-  // Pro & AI Quota Access
-  const userAccount = useMemo(() => StorageService.getUserAccount(), [refreshVersion]);
-  const isPro = userAccount.planTier === 'pro' || userAccount.entitlement === 'active';
+  // Account Tier & AI Quota Access
+  const userAccount = useMemo(() => propUserAccount || StorageService.getUserAccount(), [propUserAccount, refreshVersion]);
+  const accountTier = useMemo(() => StorageService.getAccountTier(userAccount), [userAccount]);
+  const isPro = accountTier === 'pro';
   const aiAccess = useMemo(() => StorageService.checkAiEvaluationAccess(childId), [childId, refreshVersion]);
+
+  const [showGuestSurahModal, setShowGuestSurahModal] = useState<boolean>(false);
+  const [showProSurahModal, setShowProSurahModal] = useState<boolean>(false);
+  const [lockedSurahTitle, setLockedSurahTitle] = useState<string>('');
+  const [showRubricDetails, setShowRubricDetails] = useState<boolean>(false);
 
   // Existing saved recording from database for active ayah (reactive with refreshVersion)
   const existingSavedRecording = useMemo(() => {
@@ -1241,69 +1254,121 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         </div>
       )}
 
-      {/* AI QUOTA EXHAUSTED PRO CONVERSION / TOP-UP CARD */}
+      {/* AI QUOTA EXHAUSTED PRO CONVERSION / TOP-UP CARD & STANDARD RUBRIC NOTICE */}
       {aiQuotaExhausted && !latestAiCorrection && !isAiAnalyzing && (
-        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-3.5 text-left shadow-sm animate-in fade-in duration-200">
+        <div className="bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-3xl p-5 space-y-4 text-left shadow-sm animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs text-xl">
-                {isPro ? '⚡' : '👑'}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xs text-2xl shrink-0">
+                💡
               </div>
               <div>
-                <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                  <span>{isPro ? 'Batas Kuota Harian Pro Selesai' : 'Uji Coba Koreksi AI Selesai'}</span>
-                  <Sparkles size={14} className="text-amber-500 fill-amber-500" />
-                </h4>
-                <p className="text-[11px] text-amber-800 font-semibold">
-                  {isPro
-                    ? `Kuota harian (${aiAccess.dailyLimit}/${aiAccess.dailyLimit}) telah digunakan untuk menjaga stabilitas server.`
-                    : `Kuota gratis (${aiAccess.dailyLimit}/${aiAccess.dailyLimit}) hari ini telah selesai.`}
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-black text-amber-950 uppercase tracking-wider">
+                    Notice: Sesi Preview Ustadz AI Selesai Hari Ini
+                  </h4>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                    Preview 1x Sesi
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/90 font-semibold mt-0.5">
+                  Fitur Ustadz AI saat ini dalam tahap <strong>Preview (1x sesi/hari)</strong> baik untuk akun Free maupun PRO. Kuota harian ananda telah digunakan ({aiAccess.usedToday}/{aiAccess.dailyLimit} sesi).
                 </p>
               </div>
             </div>
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-              {isPro ? 'Paket Pro' : 'Paket Free'}
-            </span>
           </div>
 
-          <div className="text-xs text-slate-700 leading-relaxed bg-white/90 p-3.5 rounded-2xl border border-amber-200 space-y-1.5">
-            <p className="font-bold text-[#164C68]">
-              ✅ Rekaman hafalan ananda tetap tersimpan aman di aplikasi!
+          <div className="text-xs text-slate-700 leading-relaxed bg-white/95 p-4 rounded-2xl border border-amber-200/80 space-y-2">
+            <p className="font-bold text-[#164C68] flex items-center gap-1.5">
+              <span>✅</span>
+              <span>Rekaman suara hafalan ananda tetap 100% tersimpan aman di perangkat!</span>
             </p>
             <p className="text-slate-600 text-[11px]">
-              Orang tua/ustadz tetap dapat mendengarkan rekaman dan memberi nilai di Dasbor Wali. Untuk melanjutkan analisis makhraj dan tajwid otomatis Guru AI:
+              Orang tua atau ustadz tetap dapat memutar rekaman suara anak dan memberi penilaian tahfiz mandiri secara langsung melalui <strong>Dasbor Wali</strong>.
             </p>
+            <div className="pt-1 flex flex-wrap gap-2 text-[11px] text-slate-600">
+              <span className="px-2.5 py-1 rounded-xl bg-slate-100 font-semibold">
+                🔄 Kuota preview reset otomatis: Esok pukul 00:00 WIB
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-slate-100 font-semibold">
+                🎯 Penilaian berstandar tajwid & makhraj resmi
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {/* STANDAR NILAI & RUBRIK USTADZ AI (GAK NGACO) ACCORDION */}
+          <div className="bg-white/80 rounded-2xl border border-amber-200/90 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setShowRubricDetails(!showRubricDetails)}
+              className="w-full px-4 py-2.5 flex items-center justify-between font-black text-[#164C68] hover:bg-amber-50/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span>📐</span>
+                <span>Standar & Rubrik Penilaian Ustadz AI (Objektif & Akurat)</span>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`transition-transform duration-200 ${showRubricDetails ? 'rotate-180 text-amber-600' : 'text-slate-400'}`}
+              />
+            </button>
+
+            {showRubricDetails && (
+              <div className="px-4 pb-4 pt-1 space-y-2.5 text-[11px] text-slate-700 border-t border-amber-100 animate-in fade-in">
+                <p className="text-slate-600 leading-relaxed">
+                  Penilaian Ustadz AI tidak asal-asalan ("tidak ngaco"), melainkan mengikuti pedoman sanad qira'at dengan kalibrasi usia santri:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <span className="font-black text-emerald-800 block text-[10px] uppercase">
+                      1. Akurasi Lafal (40%)
+                    </span>
+                    <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                      Kelengkapan seluruh huruf dan harakat ayat target tanpa kata tertinggal.
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200">
+                    <span className="font-black text-purple-800 block text-[10px] uppercase">
+                      2. Tajwid & Makhraj (35%)
+                    </span>
+                    <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                      Kesesuaian makhraj (bibir, lidah, tenggorokan), panjang mad 2 harakat, dan ghunnah.
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200">
+                    <span className="font-black text-sky-800 block text-[10px] uppercase">
+                      3. Kelancaran & Nafas (25%)
+                    </span>
+                    <span className="text-slate-600 text-[10px] leading-tight block mt-0.5">
+                      Ritme membaca tartil teratur yang disesuaikan dengan kemampuan usia ananda.
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-950 font-medium">
+                  <strong>Ambang Kelulusan Mutqin:</strong> Minimal skor 70% ("Jayyid" 70-84%, "Mumtaz" 85-100%). Rekaman tanpa suara ayat target (hening atau obrolan santai) otomatis diberi skor rendah dan tidak dapat lulus.
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             <button
               type="button"
               onClick={() => setIsAiTokenModalOpen(true)}
               className="py-3 px-4 rounded-2xl bg-gradient-to-r from-[#08B9EF] to-[#164C68] hover:from-sky-500 hover:to-[#113a50] text-white font-black text-xs shadow-md shadow-sky-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
             >
               <Coins size={15} />
-              <span>Beli Token AI (Mulai Rp 15rb) 🪙</span>
+              <span>Gunakan Token Tambahan AI (Mulai Rp 15rb) 🪙</span>
             </button>
 
-            {!isPro ? (
-              <button
-                type="button"
-                onClick={() => onOpenPlanModal?.()}
-                className="py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-              >
-                <Crown size={15} />
-                <span>Upgrade PRO (20x/hari) 👑</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAiTokenModalOpen(true)}
-                className="py-3 px-4 rounded-2xl border border-amber-300 bg-amber-100/70 hover:bg-amber-200 text-amber-900 font-black text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
-              >
-                <Key size={14} />
-                <span>Pakai API Key Sendiri (Gratis)</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsAiTokenModalOpen(true)}
+              className="py-3 px-4 rounded-2xl border border-amber-300 bg-white hover:bg-amber-100/70 text-amber-900 font-black text-xs flex items-center justify-center gap-2 cursor-pointer transition-all shadow-2xs"
+            >
+              <Key size={14} />
+              <span>Pakai Google API Key Pribadi (BYOK Bebas Kuota)</span>
+            </button>
           </div>
         </div>
       )}
@@ -1728,20 +1793,34 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
               ) : (
                 filteredSurahs.map((surah) => {
                   const isSelected = surah.number === selectedSurahNumber;
+                  const isUnlocked = StorageService.isSurahUnlockedForTahfiz(surah.number, accountTier);
                   const recordingsCount = StorageService.getRecordings(childId).filter(
                     (r) => r.surahNumber === surah.number
                   ).length;
 
+                  const handleClickSurah = () => {
+                    if (!isUnlocked) {
+                      setLockedSurahTitle(`Surah ${surah.nameLatin}`);
+                      if (accountTier === 'guest') {
+                        setShowGuestSurahModal(true);
+                      } else {
+                        setShowProSurahModal(true);
+                      }
+                      return;
+                    }
+                    setSelectedSurahNumber(surah.number);
+                    setIsSurahPickerOpen(false);
+                  };
+
                   return (
                     <button
                       key={surah.number}
-                      onClick={() => {
-                        setSelectedSurahNumber(surah.number);
-                        setIsSurahPickerOpen(false);
-                      }}
+                      onClick={handleClickSurah}
                       className={`w-full p-3 rounded-2xl border transition-all text-left flex items-center justify-between cursor-pointer ${
                         isSelected
                           ? 'border-[#08B9EF] bg-cyan-50/70 shadow-xs ring-2 ring-[#08B9EF]/20'
+                          : !isUnlocked
+                          ? 'border-dashed border-amber-200 bg-amber-50/30 hover:bg-amber-50/70 opacity-90'
                           : 'border-[#C9E1ED] bg-white hover:bg-[#EEF8FF]'
                       }`}
                     >
@@ -1750,10 +1829,12 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
                           className={`w-9 h-9 rounded-xl font-black text-xs flex items-center justify-center shrink-0 ${
                             isSelected
                               ? 'bg-[#08B9EF] text-white'
+                              : !isUnlocked
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
                               : 'bg-[#EEF8FF] text-[#164C68]'
                           }`}
                         >
-                          {surah.number}
+                          {!isUnlocked ? <Lock size={14} className="text-amber-700" /> : surah.number}
                         </div>
 
                         <div>
@@ -1761,11 +1842,15 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
                             <span className="font-extrabold text-sm text-[#164C68] font-heading">
                               {surah.nameLatin}
                             </span>
-                            {recordingsCount > 0 && (
+                            {!isUnlocked ? (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                                {accountTier === 'guest' ? '🔒 Daftar' : '👑 PRO'}
+                              </span>
+                            ) : recordingsCount > 0 ? (
                               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 {recordingsCount} rekaman
                               </span>
-                            )}
+                            ) : null}
                           </div>
                           <span className="text-xs text-[#8C9BA7]">
                             {surah.translation} • {surah.ayahCount} ayat • Juz {surah.juzNumber}
@@ -1886,6 +1971,84 @@ export const HafalanModule: React.FC<HafalanModuleProps> = ({
         pulseTrigger={companionPulseTrigger}
         message="Lumi mendengarkan hafalanmu! Tetap semangat ✨"
       />
+
+      {/* GUEST SURAH RESTRICTION MODAL */}
+      <GuestRestrictionModal
+        isOpen={showGuestSurahModal}
+        onClose={() => setShowGuestSurahModal(false)}
+        title={`Buka ${lockedSurahTitle || 'Surah Al-Qur\'an'}`}
+        description="Saat ini kamu berada di Mode Tamu. Mode Tamu mencakup 3 surah awal coba (An-Nas, Al-Falaq, Al-Ikhlas) dan Al-Fatihah. Yuk daftar gratis dalam 5 detik via Google atau WhatsApp untuk membuka 22 Surah Juz 30 dan menyimpan hafalanmu!"
+        featureName="Akses Hafalan Akun Terdaftar"
+        onOpenAuth={(mode) => {
+          setShowGuestSurahModal(false);
+          onOpenRegisterModal?.();
+        }}
+      />
+
+      {/* PRO SURAH RESTRICTION MODAL */}
+      {showProSurahModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in"
+          onClick={() => setShowProSurahModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl border-2 border-amber-300 shadow-2xl p-6 text-center space-y-4 animate-in zoom-in-95 font-sans"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-400 text-white flex items-center justify-center text-3xl mx-auto shadow-md">
+              👑
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                Fitur Santri PRO
+              </span>
+              <h3 className="text-lg font-black text-[#164C68] font-heading">
+                {lockedSurahTitle || 'Surah Al-Qur\'an'} (Eksklusif PRO)
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                Akun Free mencakup 60% Juz 30 (22 Surah terpendek dari Adh-Dhuha sampai An-Nas). Untuk membuka seluruh surah panjang Juz 30 dan 30 Juz Al-Qur'an lengkap (114 Surah), tingkatkan ke Santri PRO!
+              </p>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-3 text-left space-y-2 text-xs text-amber-950 font-bold">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Seluruh 114 Surah 30 Juz Al-Qur'an lengkap</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Buka Iqra Jilid 1 sampai 6 (semua 180+ halaman)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-amber-600 shrink-0" />
+                <span>Semua 8 Arena Game edukasi islami interaktif</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProSurahModal(false);
+                  onOpenPlanModal?.();
+                }}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
+              >
+                <span>Lihat Pilihan Paket Santri PRO 👑</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowProSurahModal(false)}
+                className="w-full py-2 px-3 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                Kembali ke Surah Terbuka
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

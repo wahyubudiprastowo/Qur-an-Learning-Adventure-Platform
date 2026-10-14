@@ -35,6 +35,7 @@ import { PaymentCheckoutModal } from '../subscription/PaymentCheckoutModal';
 import { AiTokenTopupModal } from '../subscription/AiTokenTopupModal';
 import { AffiliateDashboardModal } from '../affiliate/AffiliateDashboardModal';
 import { AuthModal } from '../auth/AuthModal';
+import { TwoFactorAuthModal } from '../auth/TwoFactorAuthModal';
 
 interface AkunHomeProps {
   userAccount: UserAccount;
@@ -58,6 +59,8 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
   const [showCheckoutModal, setShowCheckoutModal] = useState<boolean>(false);
   const [showAiTokenModal, setShowAiTokenModal] = useState<boolean>(false);
   const [showAffiliateModal, setShowAffiliateModal] = useState<boolean>(false);
+  const [show2FaModal, setShow2FaModal] = useState<boolean>(false);
+  const [twoFaModalMode, setTwoFaModalMode] = useState<'setup' | 'manage'>('setup');
   const [checkoutPlanId, setCheckoutPlanId] = useState<string>('1_year');
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [copiedAffiliate, setCopiedAffiliate] = useState<boolean>(false);
@@ -522,6 +525,8 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           </div>
         </div>
       </div>
+
+
 
       {/* Achievements / Lencana Badge Section */}
       <div className="space-y-2.5">

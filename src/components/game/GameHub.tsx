@@ -60,8 +60,8 @@ export const GameHub: React.FC<GameHubProps> = ({
   onOpenStarShop,
 }) => {
   const currentUserAccount = userAccount || StorageService.getUserAccount();
-  const isPro = currentUserAccount.planTier === 'pro' || currentUserAccount.entitlement === 'active' || currentUserAccount.entitlement === 'trial';
-  const PRO_GAME_IDS = ['continue_ayah', 'arabic_matching', 'tajwid_class', 'guess_surah'];
+  const accountTier = StorageService.getAccountTier(currentUserAccount);
+  const isPro = accountTier === 'pro';
 
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [score, setScore] = useState<number>(0);
@@ -731,7 +731,7 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   // Start selected game
   const handleStartGame = (gameId: GameType) => {
-    if (gameId && PRO_GAME_IDS.includes(gameId) && !isPro) {
+    if (gameId && !StorageService.isGameUnlocked(gameId, accountTier)) {
       onOpenUpgradeModal?.();
       return;
     }

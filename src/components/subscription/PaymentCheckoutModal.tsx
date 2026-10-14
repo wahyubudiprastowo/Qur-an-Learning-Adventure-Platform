@@ -238,6 +238,9 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       const newTx: PaymentTransaction = {
         id: `tx-${Date.now()}`,
         userId: userAccount.id,
+        userName: payerName || userAccount.parentName,
+        userEmail: payerEmail || userAccount.email,
+        userWhatsapp: payerWhatsapp || userAccount.whatsapp,
         planId: plan.id,
         planName: plan.name,
         amountUsd: finalPriceUsd,
