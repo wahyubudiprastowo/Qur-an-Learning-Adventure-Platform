@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { NavigationTab, ChildProfile, UserAccount, MemorizationBlock } from './types';
+import { NavigationTab, ChildProfile, UserAccount, MemorizationBlock, BroadcastAnnouncement } from './types';
 import { StorageService } from './services/storageService';
+import { BroadcastNoticeModal } from './components/broadcast/BroadcastNoticeModal';
 import { Header } from './components/common/Header';
 import { BottomNavigation } from './components/common/BottomNavigation';
 import { BerandaHome } from './components/beranda/BerandaHome';
@@ -93,6 +94,10 @@ export default function App() {
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [ibadahInitialTab, setIbadahInitialTab] = useState<'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi'>('jadwal');
   const [activeInAppReminder, setActiveInAppReminder] = useState<ReminderSchedule | null>(null);
+  const [activeBroadcastNotice, setActiveBroadcastNotice] = useState<BroadcastAnnouncement | null>(null);
+  const [unreadBroadcasts, setUnreadBroadcasts] = useState<BroadcastAnnouncement[]>(() =>
+    StorageService.getUnreadBroadcasts()
+  );
   const [showAdminPortal, setShowAdminPortal] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const h = window.location.hash.toLowerCase();
@@ -504,6 +509,54 @@ export default function App() {
           </div>
         )}
 
+        {/* Active Broadcast Announcement & Daily Push Banner */}
+        {unreadBroadcasts.length > 0 && !activeInAppReminder && (
+          <div className="mx-4 mt-2 mb-1 p-3 bg-linear-to-r from-amber-500 via-amber-400 to-amber-300 text-slate-950 rounded-2xl shadow-md border border-amber-300 flex items-center justify-between gap-3 animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              <span className="w-8 h-8 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                📢
+              </span>
+              <div className="overflow-hidden">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-slate-950 text-amber-300 uppercase">
+                    {unreadBroadcasts[0].badge || 'Pengumuman'}
+                  </span>
+                  <span className="text-xs font-black truncate">
+                    {unreadBroadcasts[0].title}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-900 font-medium truncate hidden sm:block">
+                  {unreadBroadcasts[0].content}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setActiveBroadcastNotice(unreadBroadcasts[0]);
+                  StorageService.recordBroadcastImpression(unreadBroadcasts[0].id);
+                  StorageService.markBroadcastAsRead(unreadBroadcasts[0].id);
+                  setUnreadBroadcasts(StorageService.getUnreadBroadcasts());
+                }}
+                className="px-3 py-1.5 rounded-xl bg-slate-950 text-white font-black text-xs hover:bg-slate-900 active:scale-95 transition-all cursor-pointer whitespace-nowrap shadow-xs"
+              >
+                Lihat Detail
+              </button>
+              <button
+                onClick={() => {
+                  StorageService.markBroadcastAsRead(unreadBroadcasts[0].id);
+                  setUnreadBroadcasts(StorageService.getUnreadBroadcasts());
+                }}
+                className="p-1 rounded-lg hover:bg-black/10 text-slate-900 cursor-pointer"
+                title="Tutup"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Scrollable Content Container */}
         <main className="flex-1 px-4 sm:px-6 pt-3 md:pb-8 overflow-y-auto">
           {/* TAB 1: BERANDA */}
@@ -882,6 +935,29 @@ export default function App() {
             }
           }}
           currentUser={userAccount}
+        />
+
+        {/* Global Broadcast Announcement & Daily Push Notification Modal */}
+        <BroadcastNoticeModal
+          isOpen={!!activeBroadcastNotice}
+          onClose={() => setActiveBroadcastNotice(null)}
+          broadcast={activeBroadcastNotice}
+          onActionClick={(target) => {
+            if (target === 'mufrodat' || target === 'bahasa') {
+              setActiveTab('alquran');
+              setAlQuranSubView('bahasa');
+            } else if (target === 'iqra') {
+              setActiveTab('alquran');
+              setAlQuranSubView('iqra');
+            } else if (target === 'tahfiz') {
+              setActiveTab('tahfiz');
+              navigateTahfiz('murojaah');
+            } else if (target === 'pro') {
+              setShowPlanModal(true);
+            } else if (target === 'akun') {
+              setActiveTab('akun');
+            }
+          }}
         />
       </div>
     </div>

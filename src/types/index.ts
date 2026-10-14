@@ -112,7 +112,12 @@ export interface AdminAuditLog {
     | 'flag_fake_transfer'
     | 'suspend_user'
     | 'reactivate_user'
-    | 'admin_login_2fa';
+    | 'admin_login_2fa'
+    | 'dismiss_suspicious_alert'
+    | 'resolve_suspicious_alert'
+    | 'create_broadcast'
+    | 'send_push_notification'
+    | 'delete_broadcast';
   targetUserId?: string;
   targetUserName?: string;
   targetUserEmail?: string;
@@ -120,6 +125,73 @@ export interface AdminAuditLog {
   previousValue?: string;
   newValue?: string;
   metadata?: Record<string, any>;
+}
+
+export interface BroadcastAnnouncement {
+  id: string;
+  title: string;
+  category: 'feature_update' | 'important_announcement' | 'materi_tilawah' | 'kajian_event' | 'daily_encouragement' | 'promo_syiar';
+  audience: 'all' | 'wali_santri' | 'santri_aktif' | 'free_users' | 'pro_users';
+  content: string;
+  badge?: string; // e.g. "Fitur Baru", "Penting", "Kajian", "Spesial"
+  priority: 'normal' | 'high' | 'urgent';
+  mediaType?: 'image' | 'video' | 'none';
+  mediaUrl?: string; // Image URL or YouTube/Video URL
+  mediaCaption?: string;
+  actionLabel?: string; // CTA Button text e.g. "Coba Fitur Sekarang"
+  actionTarget?: string; // e.g. "mufrodat", "iqra", "pro", "hafalan", "ibadah"
+  isPushNotification?: boolean;
+  isDailyEncouragement?: boolean;
+  scheduledTime?: string;
+  createdAt: string;
+  sentAt?: string;
+  status: 'draft' | 'published' | 'scheduled' | 'archived';
+  impressionsCount: number;
+  clicksCount: number;
+  authorAdmin: string;
+}
+
+export interface DailyEncouragementQuote {
+  id: string;
+  source: string; // e.g. "HR. Bukhari No. 5027", "QS. Fatir: 29-30"
+  arabicText?: string;
+  translationIndo: string;
+  encouragementMessage: string;
+  category: 'subuh_semangat' | 'murojaah_sore' | 'malam_syukur' | 'adab_santri' | 'wali_kebanggaan';
+  recommendedTime: string; // "05:00", "16:00", "19:30"
+  tagLabel: string;
+}
+
+export interface DailyPushSettings {
+  autoPushEnabled: boolean;
+  scheduledSlots: {
+    slotId: string;
+    time: string;
+    category: string;
+    enabled: boolean;
+  }[];
+  lastSentAt?: string;
+  totalNotificationsSent: number;
+}
+
+export interface SuspiciousPatternAlert {
+  id: string;
+  type: 'rapid_registrations_same_ip' | 'duplicate_transfer_proof' | 'repeated_failed_logins' | 'abnormal_location_velocity';
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  description: string;
+  timestamp: string;
+  detectedAt: string;
+  indicators: string[];
+  affectedUserIds?: string[];
+  affectedUserNames?: string[];
+  affectedTransactionIds?: string[];
+  ipAddress?: string;
+  duplicateProofUrl?: string;
+  duplicateRrn?: string;
+  isDismissed?: boolean;
+  isResolved?: boolean;
+  recommendedAction: string;
 }
 
 export interface UserLoginRecord {

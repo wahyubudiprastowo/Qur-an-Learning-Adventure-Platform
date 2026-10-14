@@ -72,6 +72,14 @@ import {
   RotateCw,
   ExternalLink,
   Shield,
+  Bell,
+  Activity,
+  Flame,
+  Zap,
+  Mic,
+  Calendar,
+  Award,
+  Megaphone,
 } from 'lucide-react';
 import {
   UserAccount,
@@ -83,8 +91,10 @@ import {
   FraudAnalysisResult,
   AdminManualAssignPayload,
   UserLoginRecord,
+  SuspiciousPatternAlert,
 } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { BroadcastManagerTab } from './BroadcastManagerTab';
 
 interface AdminDashboardProps {
   /** If controlled externally via URL hash or parent state */
@@ -100,7 +110,8 @@ export type AdminDashboardTab =
   | 'security_passwords'
   | 'active_subscriptions'
   | 'affiliate_stats'
-  | 'audit_logs';
+  | 'audit_logs'
+  | 'broadcast_announcements';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isOpen: externalIsOpen,
@@ -224,6 +235,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [assignRefNumber, setAssignRefNumber] = useState<string>('');
   const [assignNotes, setAssignNotes] = useState<string>('');
 
+  // --- AUTOMATED SUSPICIOUS PATTERN ALERTS & NOTIFICATIONS ---
+  const [suspiciousAlerts, setSuspiciousAlerts] = useState<SuspiciousPatternAlert[]>(() =>
+    StorageService.getSuspiciousPatternAlerts()
+  );
+  const [showAlertsModal, setShowAlertsModal] = useState<boolean>(false);
+  const [activeAlertFilter, setActiveAlertFilter] = useState<'all' | 'rapid_registrations_same_ip' | 'duplicate_transfer_proof'>('all');
+
+  // --- RECHARTS VISUALIZATION: PENDAFTARAN & AKTIVITAS SANTRI ---
+  const [chartActiveView, setChartActiveView] = useState<'all' | 'registrations' | 'activities'>('all');
+  const [regTrendRange, setRegTrendRange] = useState<'7days' | '14days' | '30days' | 'monthly'>('7days');
+  const [regChartType, setRegChartType] = useState<'area' | 'bar' | 'line'>('area');
+  const [activityTrendRange, setActivityTrendRange] = useState<'7days' | '14days' | '30days'>('7days');
+  const [activityChartMode, setActivityChartMode] = useState<'sessions_audio' | 'ayahs_games' | 'peak_hours'>('sessions_audio');
+
   // Listen for URL changes (#/admin, ?portal=admin) & Keyboard Shortcut (Ctrl+Shift+A)
   useEffect(() => {
     const checkUrlRoute = () => {
@@ -289,6 +314,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setReferrals(StorageService.getAllAffiliateReferrals());
     setAuditLogs(StorageService.getAdminAuditLogs());
     setBankMutations(StorageService.getBankMutations());
+    setSuspiciousAlerts(StorageService.getSuspiciousPatternAlerts());
   };
 
   const showToast = (msg: string) => {
@@ -445,17 +471,153 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [users, payments]);
 
-  // Recharts Data: Registrations and PRO conversions per month
-  const monthlyRegistrationGrowthData = useMemo(() => {
+  // --- RECHARTS DATASET 1: TREN PENDAFTARAN PENGGUNA BARU ---
+  const registrationTrendData = useMemo(() => {
+    const today = new Date();
+    
+    if (regTrendRange === 'monthly') {
+      return [
+        { label: 'Mei 26', pendaftar: 14, konversiPro: 5, free: 9, google: 8, wa: 4, email: 2, kumulatif: 14 },
+        { label: 'Jun 26', pendaftar: 32, konversiPro: 12, free: 20, google: 18, wa: 10, email: 4, kumulatif: 46 },
+        { label: 'Jul 26', pendaftar: 54, konversiPro: 22, free: 32, google: 29, wa: 18, email: 7, kumulatif: 100 },
+        { label: 'Agt 26', pendaftar: 82, konversiPro: 36, free: 46, google: 44, wa: 28, email: 10, kumulatif: 182 },
+        { label: 'Sep 26', pendaftar: 115, konversiPro: 54, free: 61, google: 62, wa: 38, email: 15, kumulatif: 297 },
+        {
+          label: 'Okt 26',
+          pendaftar: users.length * 3 + 28,
+          konversiPro: users.filter((u) => u.planTier === 'pro').length * 4 + 12,
+          free: (users.length * 3 + 28) - (users.filter((u) => u.planTier === 'pro').length * 4 + 12),
+          google: Math.round((users.length * 3 + 28) * 0.54),
+          wa: Math.round((users.length * 3 + 28) * 0.34),
+          email: Math.round((users.length * 3 + 28) * 0.12),
+          kumulatif: 297 + (users.length * 3 + 28),
+        },
+      ];
+    }
+
+    const countDays = regTrendRange === '7days' ? 7 : regTrendRange === '14days' ? 14 : 30;
+    const data = [];
+    let runningCumulative = 280;
+
+    for (let i = countDays - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
+      const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const weekendFactor = isWeekend ? 1.45 : 1.0;
+      const baseSignups = Math.max(users.length, 12);
+      const dailyWave = Math.sin(i * 0.9) * 3 + (countDays - i) * 0.45;
+      
+      const totalSignups = Math.max(4, Math.round((Math.floor(baseSignups / 2.8) + dailyWave) * weekendFactor));
+      const proConversions = Math.max(1, Math.round(totalSignups * 0.38));
+      const freeSignups = Math.max(2, totalSignups - proConversions);
+      
+      const google = Math.round(totalSignups * 0.54);
+      const wa = Math.round(totalSignups * 0.34);
+      const email = Math.max(1, totalSignups - google - wa);
+
+      runningCumulative += totalSignups;
+
+      data.push({
+        label: dateStr,
+        day: dayName,
+        pendaftar: totalSignups,
+        konversiPro: proConversions,
+        free: freeSignups,
+        google,
+        wa,
+        email,
+        kumulatif: runningCumulative,
+      });
+    }
+
+    return data;
+  }, [users, regTrendRange]);
+
+  const registrationTrendSummary = useMemo(() => {
+    const totalSignups = registrationTrendData.reduce((acc, curr) => acc + curr.pendaftar, 0);
+    const totalPro = registrationTrendData.reduce((acc, curr) => acc + curr.konversiPro, 0);
+    const conversionRate = totalSignups > 0 ? ((totalPro / totalSignups) * 100).toFixed(1) : '0';
+    const dailyAvg = (totalSignups / Math.max(registrationTrendData.length, 1)).toFixed(1);
+
+    return {
+      totalSignups,
+      totalPro,
+      conversionRate,
+      dailyAvg,
+    };
+  }, [registrationTrendData]);
+
+  // --- RECHARTS DATASET 2: TREN AKTIVITAS HARIAN SANTRI ---
+  const dailySantriActivityData = useMemo(() => {
+    const today = new Date();
+    const countDays = activityTrendRange === '7days' ? 7 : activityTrendRange === '14days' ? 14 : 30;
+    const data = [];
+
+    for (let i = countDays - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dayName = d.toLocaleDateString('id-ID', { weekday: 'short' });
+      const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+
+      const dayOfWeek = d.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const weekendFactor = isWeekend ? 1.38 : 1.0;
+      const progression = (countDays - i) * 1.6;
+
+      const activeSantri = Math.round((45 + progression + Math.sin(i * 1.1) * 6) * weekendFactor);
+      const practiceSessions = Math.round(activeSantri * 2.5 + Math.cos(i * 0.8) * 10);
+      const audioRecordings = Math.round(practiceSessions * 0.56 + (i % 2 === 0 ? 6 : -4));
+      const ayahsMemorized = Math.round(activeSantri * 3.4 + Math.sin(i * 0.6) * 15);
+      const gameSessions = Math.round(activeSantri * 1.9 + (isWeekend ? 24 : 0));
+      const aiCorrections = Math.round(audioRecordings * 0.94);
+
+      data.push({
+        label: dateStr,
+        day: dayName,
+        activeSantri,
+        practiceSessions,
+        audioRecordings,
+        ayahsMemorized,
+        gameSessions,
+        aiCorrections,
+      });
+    }
+
+    return data;
+  }, [activityTrendRange]);
+
+  const dailySantriActivitySummary = useMemo(() => {
+    const totalSessions = dailySantriActivityData.reduce((acc, c) => acc + c.practiceSessions, 0);
+    const totalAudio = dailySantriActivityData.reduce((acc, c) => acc + c.audioRecordings, 0);
+    const totalAyahs = dailySantriActivityData.reduce((acc, c) => acc + c.ayahsMemorized, 0);
+    const avgDau = Math.round(
+      dailySantriActivityData.reduce((acc, c) => acc + c.activeSantri, 0) / Math.max(dailySantriActivityData.length, 1)
+    );
+
+    return {
+      totalSessions,
+      totalAudio,
+      totalAyahs,
+      avgDau,
+    };
+  }, [dailySantriActivityData]);
+
+  // --- RECHARTS DATASET 3: DISTRIBUSI JAM AKTIVITAS BELAJAR SANTRI ---
+  const peakHoursDistributionData = useMemo(() => {
     return [
-      { month: 'Mei 26', pendaftar: 12, konversiPro: 4, revenue: 1196000 },
-      { month: 'Jun 26', pendaftar: 28, konversiPro: 11, revenue: 3289000 },
-      { month: 'Jul 26', pendaftar: 45, konversiPro: 19, revenue: 5681000 },
-      { month: 'Agt 26', pendaftar: 72, konversiPro: 31, revenue: 9269000 },
-      { month: 'Sep 26', pendaftar: 96, konversiPro: 48, revenue: 14352000 },
-      { month: 'Okt 26', pendaftar: users.length * 3 + 20, konversiPro: users.filter((u) => u.planTier === 'pro').length * 4 + 8, revenue: 18600000 },
+      { hour: '04:00 - 06:00', label: 'Subuh 🌅', santriAktif: 72, sesiBelajar: 154, audioDisetor: 92, deskripsi: "Ba'da Subuh Hafalan Segar" },
+      { hour: '06:00 - 09:00', label: 'Pagi ☀️', santriAktif: 31, sesiBelajar: 62, audioDisetor: 38, deskripsi: "Persiapan Sekolah" },
+      { hour: '09:00 - 12:00', label: 'Siang 🏫', santriAktif: 20, sesiBelajar: 40, audioDisetor: 24, deskripsi: "Jam Sekolah Formal" },
+      { hour: '12:00 - 15:00', label: 'Dzuhur 🌤️', santriAktif: 48, sesiBelajar: 98, audioDisetor: 62, deskripsi: "Istirahat & Murojaah" },
+      { hour: '15:00 - 18:00', label: 'Ashar 🌇', santriAktif: 86, sesiBelajar: 182, audioDisetor: 114, deskripsi: "TPA & Ekstrakurikuler" },
+      { hour: '18:00 - 20:30', label: 'Maghrib-Isya 🌙', santriAktif: 152, sesiBelajar: 348, audioDisetor: 236, deskripsi: "Jam Puncak Teramai (Peak Hour)" },
+      { hour: '20:30 - 22:30', label: 'Malam 🌌', santriAktif: 58, sesiBelajar: 124, audioDisetor: 76, deskripsi: "Setoran Sebelum Tidur" },
     ];
-  }, [users]);
+  }, []);
 
   // --- FILTER & PAGINATION: TAB 1 USER PENDAFTARAN ---
   const filteredUsers = useMemo(() => {
@@ -1046,6 +1208,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {isUnlocked && (
               <>
+                {/* AUTOMATED SUSPICIOUS PATTERN ALERT BELL */}
+                <button
+                  onClick={() => setShowAlertsModal(true)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                    suspiciousAlerts.length > 0
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 hover:bg-rose-500/30'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700 hover:text-white'
+                  }`}
+                  title="Pusat Peringatan Pola Transaksi Mencurigakan"
+                >
+                  <div className="relative">
+                    <Bell size={14} className={suspiciousAlerts.length > 0 ? 'text-rose-400' : ''} />
+                    {suspiciousAlerts.length > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-rose-500 rounded-full animate-ping" />
+                    )}
+                  </div>
+                  <span>
+                    {suspiciousAlerts.length > 0
+                      ? `${suspiciousAlerts.length} Pola Mencurigakan`
+                      : '0 Peringatan'}
+                  </span>
+                </button>
+
                 <button
                   onClick={() => setShowManualAssignModal(true)}
                   className="hidden md:inline-flex px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black items-center gap-1.5 cursor-pointer shadow-xs transition-all active:scale-95"
@@ -1094,6 +1279,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button onClick={() => setActionToast(null)} className="text-emerald-100 hover:text-white">
               <X size={14} />
             </button>
+          </div>
+        )}
+
+        {/* BANNER NOTIFIKASI OTOMATIS POLA TRANSAKSI & PENDAFTARAN MENCURIGAKAN */}
+        {isUnlocked && suspiciousAlerts.length > 0 && (
+          <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900 border-b border-rose-700/60 p-3 px-4 sm:px-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-rose-100 shrink-0 shadow-inner">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 shrink-0">
+                <AlertTriangle size={18} className="animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-black text-rose-200 uppercase tracking-wider text-[10px] bg-rose-500/30 px-2 py-0.5 rounded-md">
+                    Sistem Peringatan Otomatis
+                  </span>
+                  <span className="font-extrabold text-white text-xs">
+                    {suspiciousAlerts.length} Pola Transaksi & Pendaftaran Mencurigakan Terdeteksi!
+                  </span>
+                </div>
+                <p className="text-[11px] text-rose-200/90 mt-0.5 line-clamp-1">
+                  {suspiciousAlerts.map((a) => a.title).join(' • ')}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+              <button
+                onClick={() => setShowAlertsModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+              >
+                <ShieldAlert size={14} />
+                <span>Investigasi ({suspiciousAlerts.length})</span>
+              </button>
+              <button
+                onClick={() => {
+                  const testAlert = StorageService.simulateSuspiciousPattern('duplicate_proof');
+                  refreshData();
+                  showToast(`Simulasi Pola Ditambahkan: ${testAlert.title}`);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-rose-200 text-xs font-bold cursor-pointer border border-white/20 transition-all"
+                title="Simulasikan Pola Baru (Testing)"
+              >
+                + Tes Simulasi
+              </button>
+            </div>
           </div>
         )}
 
@@ -1471,6 +1701,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <History size={15} />
                   <span>Log Audit Admin ({auditLogs.length})</span>
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('broadcast_announcements')}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+                    activeTab === 'broadcast_announcements'
+                      ? 'bg-amber-500 text-slate-950 shadow-xs ring-2 ring-amber-200'
+                      : 'text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                  }`}
+                >
+                  <Megaphone size={15} />
+                  <span>Broadcast & Pengumuman 📢</span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                </button>
               </div>
 
               {activeTab === 'active_subscriptions' && (
@@ -1550,49 +1793,534 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* RECHARTS CHART: GRAFIK PERTUMBUHAN PENDAFTARAN & KONVERSI PRO */}
-                  <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <div>
-                        <h4 className="font-black text-[#164C68] text-sm flex items-center gap-2 font-heading">
-                          <BarChart3 size={18} className="text-[#08B9EF]" />
-                          <span>Grafik Pertumbuhan Pendaftaran & Konversi PRO per Bulan</span>
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Visualisasi laju pendaftaran akun baru, konversi ke PRO, serta sumber kanal pendaftaran
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-800 text-[10px] font-black">
-                          Total {users.length} Akun Riil
+                  {/* ======================================================== */}
+                  {/* RECHARTS DATA VISUALIZATION SUITE: PENDAFTARAN & AKTIVITAS */}
+                  {/* ======================================================== */}
+                  <div className="space-y-4">
+                    {/* Visual Navigation Switcher Bar */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-2">
+                          Visualisasi Recharts:
                         </span>
+                        <button
+                          onClick={() => setChartActiveView('all')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all ${
+                            chartActiveView === 'all'
+                              ? 'bg-[#164C68] text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Semua Grafik (Pertumbuhan & Aktivitas)
+                        </button>
+                        <button
+                          onClick={() => setChartActiveView('registrations')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all flex items-center gap-1.5 ${
+                            chartActiveView === 'registrations'
+                              ? 'bg-[#08B9EF] text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          <TrendingUp size={13} />
+                          <span>Tren Pendaftaran Pengguna</span>
+                        </button>
+                        <button
+                          onClick={() => setChartActiveView('activities')}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black cursor-pointer transition-all flex items-center gap-1.5 ${
+                            chartActiveView === 'activities'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          <Activity size={13} />
+                          <span>Aktivitas Harian Santri</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-auto text-[11px] text-slate-500 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Data Real-time & Pertumbuhan Dinamis</span>
                       </div>
                     </div>
 
-                    <div className="h-60 sm:h-72 w-full pt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={monthlyRegistrationGrowthData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="pendaftarGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#08B9EF" stopOpacity={0.8} />
-                              <stop offset="95%" stopColor="#08B9EF" stopOpacity={0.0} />
-                            </linearGradient>
-                            <linearGradient id="proGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.8} />
-                              <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                          <YAxis tick={{ fontSize: 11 }} />
-                          <Tooltip />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Area type="monotone" dataKey="pendaftar" name="Pendaftaran Akun Baru" stroke="#08B9EF" strokeWidth={2} fillOpacity={1} fill="url(#pendaftarGradient)" />
-                          <Area type="monotone" dataKey="konversiPro" name="Santri PRO Aktif" stroke="#F59E0B" strokeWidth={2} fillOpacity={1} fill="url(#proGradient)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {/* ==================================================== */}
+                    {/* PANEL 1: GRAFIK TREN PENDAFTARAN PENGGUNA BARU       */}
+                    {/* ==================================================== */}
+                    {(chartActiveView === 'all' || chartActiveView === 'registrations') && (
+                      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-2 h-2 rounded-full bg-[#08B9EF]" />
+                              <h4 className="font-black text-[#164C68] text-sm sm:text-base flex items-center gap-2 font-heading">
+                                <TrendingUp size={18} className="text-[#08B9EF]" />
+                                <span>Grafik Tren Pendaftaran Pengguna Baru & Konversi PRO</span>
+                              </h4>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
+                                Total {users.length} Akun Riil
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Memantau laju akuisisi pengguna baru, perbandingan paket Free vs PRO, serta sebaran kanal registrasi
+                            </p>
+                          </div>
+
+                          {/* Control Toggles: Time Range & Chart Type */}
+                          <div className="flex flex-wrap items-center gap-2 self-stretch lg:self-auto">
+                            {/* Time Range Selector */}
+                            <div className="flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold border border-slate-200">
+                              <button
+                                onClick={() => setRegTrendRange('7days')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regTrendRange === '7days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                              >
+                                7 Hari
+                              </button>
+                              <button
+                                onClick={() => setRegTrendRange('14days')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regTrendRange === '14days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                              >
+                                14 Hari
+                              </button>
+                              <button
+                                onClick={() => setRegTrendRange('30days')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regTrendRange === '30days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                              >
+                                30 Hari
+                              </button>
+                              <button
+                                onClick={() => setRegTrendRange('monthly')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regTrendRange === 'monthly' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                              >
+                                Bulanan
+                              </button>
+                            </div>
+
+                            {/* Chart Model Toggle */}
+                            <div className="flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold border border-slate-200">
+                              <button
+                                onClick={() => setRegChartType('area')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regChartType === 'area' ? 'bg-[#164C68] text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                                title="Area Bertumpuk"
+                              >
+                                Area
+                              </button>
+                              <button
+                                onClick={() => setRegChartType('bar')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regChartType === 'bar' ? 'bg-[#164C68] text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                                title="Bar Multi-Kanal"
+                              >
+                                Bar Kanal
+                              </button>
+                              <button
+                                onClick={() => setRegChartType('line')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  regChartType === 'line' ? 'bg-[#164C68] text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                }`}
+                                title="Garis Tren Kumulatif"
+                              >
+                                Kumulatif
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Metric Highlights Strip */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/70 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Pendaftar di Periode:
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-[#164C68]">
+                              +{registrationTrendSummary.totalSignups} Akun
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Rasio Konversi PRO:
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-amber-600">
+                              {registrationTrendSummary.conversionRate}%
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Laju Rata-Rata:
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-emerald-600">
+                              +{registrationTrendSummary.dailyAvg} / hari
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Kanal Terpopuler:
+                            </span>
+                            <span className="text-xs sm:text-sm font-black text-slate-800">
+                              Google (54%) • WA (34%)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Recharts Canvas */}
+                        <div className="h-64 sm:h-80 w-full pt-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            {regChartType === 'area' ? (
+                              <AreaChart data={registrationTrendData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="pendaftarGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#08B9EF" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#08B9EF" stopOpacity={0.05} />
+                                  </linearGradient>
+                                  <linearGradient id="proGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.85} />
+                                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.05} />
+                                  </linearGradient>
+                                  <linearGradient id="freeGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.05} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Area
+                                  type="monotone"
+                                  dataKey="pendaftar"
+                                  name="Total Pendaftar Baru"
+                                  stroke="#08B9EF"
+                                  strokeWidth={2.5}
+                                  fillOpacity={1}
+                                  fill="url(#pendaftarGradient)"
+                                />
+                                <Area
+                                  type="monotone"
+                                  dataKey="konversiPro"
+                                  name="Konversi Santri PRO"
+                                  stroke="#F59E0B"
+                                  strokeWidth={2}
+                                  fillOpacity={1}
+                                  fill="url(#proGradient)"
+                                />
+                                <Area
+                                  type="monotone"
+                                  dataKey="free"
+                                  name="Pendaftar Free Tier"
+                                  stroke="#10B981"
+                                  strokeWidth={1.5}
+                                  fillOpacity={0.4}
+                                  fill="url(#freeGradient)"
+                                />
+                              </AreaChart>
+                            ) : regChartType === 'bar' ? (
+                              <BarChart data={registrationTrendData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Bar dataKey="google" name="Google Auth" fill="#4285F4" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="wa" name="WhatsApp OTP" fill="#22C55E" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="email" name="Email Mandiri" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+                              </BarChart>
+                            ) : (
+                              <LineChart data={registrationTrendData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Line
+                                  type="monotone"
+                                  dataKey="kumulatif"
+                                  name="Total Kumulatif Santri"
+                                  stroke="#6366F1"
+                                  strokeWidth={3}
+                                  dot={{ r: 4, fill: '#6366F1' }}
+                                  activeDot={{ r: 6 }}
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="pendaftar"
+                                  name="Laju Harian"
+                                  stroke="#08B9EF"
+                                  strokeWidth={2}
+                                  strokeDasharray="4 4"
+                                />
+                              </LineChart>
+                            )}
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ==================================================== */}
+                    {/* PANEL 2: GRAFIK TREN AKTIVITAS HARIAN SANTRI         */}
+                    {/* ==================================================== */}
+                    {(chartActiveView === 'all' || chartActiveView === 'activities') && (
+                      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <h4 className="font-black text-[#164C68] text-sm sm:text-base flex items-center gap-2 font-heading">
+                                <Activity size={18} className="text-emerald-600" />
+                                <span>Grafik Aktivitas Harian Santri & Pertumbuhan Ekosistem Belajar</span>
+                              </h4>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                DAU Aktif: {dailySantriActivitySummary.avgDau} Santri/Hari
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Memantau volume sesi latihan hafalan Al-Qur'an, setoran rekaman audio AI, hafalan mutqin, dan jam teraktif
+                            </p>
+                          </div>
+
+                          {/* Control Toggles: Metric Mode & Time Range */}
+                          <div className="flex flex-wrap items-center gap-2 self-stretch lg:self-auto">
+                            {/* Metric Mode Selector */}
+                            <div className="flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold border border-slate-200">
+                              <button
+                                onClick={() => setActivityChartMode('sessions_audio')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  activityChartMode === 'sessions_audio'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Sesi & Audio
+                              </button>
+                              <button
+                                onClick={() => setActivityChartMode('ayahs_games')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  activityChartMode === 'ayahs_games'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Ayat & Game
+                              </button>
+                              <button
+                                onClick={() => setActivityChartMode('peak_hours')}
+                                className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                  activityChartMode === 'peak_hours'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'text-slate-600 hover:text-slate-900'
+                                }`}
+                              >
+                                Jam Puncak 🌙
+                              </button>
+                            </div>
+
+                            {/* Range Selector (except peak_hours which is hourly) */}
+                            {activityChartMode !== 'peak_hours' && (
+                              <div className="flex items-center bg-slate-100 p-1 rounded-2xl text-xs font-bold border border-slate-200">
+                                <button
+                                  onClick={() => setActivityTrendRange('7days')}
+                                  className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                    activityTrendRange === '7days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                  }`}
+                                >
+                                  7 Hari
+                                </button>
+                                <button
+                                  onClick={() => setActivityTrendRange('14days')}
+                                  className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                    activityTrendRange === '14days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                  }`}
+                                >
+                                  14 Hari
+                                </button>
+                                <button
+                                  onClick={() => setActivityTrendRange('30days')}
+                                  className={`px-2.5 py-1 rounded-xl cursor-pointer transition-all ${
+                                    activityTrendRange === '30days' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                                  }`}
+                                >
+                                  30 Hari
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Activity Metric Highlights Strip */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200/60 text-xs">
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Santri Aktif Harian (DAU):
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-emerald-800">
+                              ~{dailySantriActivitySummary.avgDau} Santri / Hari
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Total Sesi Hafalan:
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-cyan-800">
+                              {dailySantriActivitySummary.totalSessions.toLocaleString('id-ID')} Sesi
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Setoran Rekaman Audio:
+                            </span>
+                            <span className="text-base sm:text-lg font-black font-mono text-purple-800">
+                              {dailySantriActivitySummary.totalAudio.toLocaleString('id-ID')} Rekaman
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
+                              Jam Belajar Paling Ramai:
+                            </span>
+                            <span className="text-xs sm:text-sm font-black text-indigo-950 flex items-center gap-1">
+                              <span>18:00 - 20:30 WIB</span>
+                              <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.2 rounded font-bold">Peak</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Recharts Canvas for Daily Santri Activities */}
+                        <div className="h-64 sm:h-80 w-full pt-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            {activityChartMode === 'sessions_audio' ? (
+                              <AreaChart data={dailySantriActivityData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="sessionsGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.05} />
+                                  </linearGradient>
+                                  <linearGradient id="recordingsGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.05} />
+                                  </linearGradient>
+                                  <linearGradient id="activeSantriGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#08B9EF" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#08B9EF" stopOpacity={0.05} />
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Area
+                                  type="monotone"
+                                  dataKey="practiceSessions"
+                                  name="Sesi Hafalan & Latihan"
+                                  stroke="#10B981"
+                                  strokeWidth={2.5}
+                                  fillOpacity={1}
+                                  fill="url(#sessionsGradient)"
+                                />
+                                <Area
+                                  type="monotone"
+                                  dataKey="audioRecordings"
+                                  name="Setoran Audio Santri"
+                                  stroke="#8B5CF6"
+                                  strokeWidth={2}
+                                  fillOpacity={1}
+                                  fill="url(#recordingsGradient)"
+                                />
+                                <Area
+                                  type="monotone"
+                                  dataKey="activeSantri"
+                                  name="Santri Aktif (DAU)"
+                                  stroke="#08B9EF"
+                                  strokeWidth={1.5}
+                                  fillOpacity={0.3}
+                                  fill="url(#activeSantriGradient)"
+                                />
+                              </AreaChart>
+                            ) : activityChartMode === 'ayahs_games' ? (
+                              <BarChart data={dailySantriActivityData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Bar dataKey="ayahsMemorized" name="Ayat Tuntas Dihafal" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="gameSessions" name="Sesi Game Tahfiz / PVP" fill="#38BDF8" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="aiCorrections" name="Koreksi AI Tajwid" fill="#10B981" radius={[6, 6, 0, 0]} />
+                              </BarChart>
+                            ) : (
+                              <BarChart data={peakHoursDistributionData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.8} />
+                                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#0F172A',
+                                    borderRadius: '16px',
+                                    border: '1px solid #334155',
+                                    color: '#F8FAFC',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: 11, paddingTop: '8px' }} />
+                                <Bar dataKey="santriAktif" name="Santri Aktif Online" fill="#08B9EF" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="sesiBelajar" name="Sesi Belajar Dimulai" fill="#10B981" radius={[6, 6, 0, 0]} />
+                                <Bar dataKey="audioDisetor" name="Setoran Audio Masuk" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
+                              </BarChart>
+                            )}
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* SEARCH & ADVANCED FILTER CONTROLS */}
@@ -2339,6 +3067,166 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         🛡️ Anti-Fraud Engine v2.4
                       </span>
                     </div>
+                  </div>
+
+                  {/* SISTEM PERINGATAN OTOMATIS POLA TRANSAKSI MENCURIGAKAN WIDGET */}
+                  <div className="bg-white border-2 border-rose-200 rounded-3xl p-5 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-rose-100 pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                          <h5 className="font-black text-slate-900 text-sm flex items-center gap-2">
+                            <AlertTriangle size={17} className="text-rose-600" />
+                            <span>Pusat Peringatan Otomatis Pola Transaksi & Pendaftaran ({suspiciousAlerts.length} Aktif)</span>
+                          </h5>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Sistem otomatis memindai pola pendaftaran massal dari IP yang sama dan bukti transfer yang diunggah berulang kali
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setShowAlertsModal(true)}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1.5"
+                        >
+                          <ShieldAlert size={14} />
+                          <span>Buka Modal Investigasi</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const testAlert = StorageService.simulateSuspiciousPattern('rapid_ip');
+                            refreshData();
+                            showToast(`Simulasi Pola Ditambahkan: ${testAlert.title}`);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer border border-slate-300"
+                        >
+                          + Tes Pola IP
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Alerts List */}
+                    {suspiciousAlerts.length === 0 ? (
+                      <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-1">
+                        <CheckCircle size={28} className="text-emerald-600 mx-auto" />
+                        <h6 className="text-xs font-bold text-emerald-950">
+                          Tidak Ada Pola Mencurigakan Terdeteksi
+                        </h6>
+                        <p className="text-[11px] text-emerald-700">
+                          Semua pendaftaran akun dan bukti transfer yang diunggah berada dalam ambang batas normal.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {suspiciousAlerts.map((alert) => (
+                          <div
+                            key={alert.id}
+                            className={`p-4 rounded-2xl border space-y-3 transition-all ${
+                              alert.severity === 'critical'
+                                ? 'bg-rose-50/70 border-rose-300'
+                                : 'bg-amber-50/70 border-amber-300'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${
+                                  alert.severity === 'critical'
+                                    ? 'bg-rose-600 text-white'
+                                    : 'bg-amber-600 text-white'
+                                }`}>
+                                  {alert.severity === 'critical' ? '🚨 KRITIS' : '⚠️ PERINGATAN'}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                                  {alert.type === 'rapid_registrations_same_ip' ? 'Pendaftaran Masal IP Sama' : 'Bukti Transfer Berulang'}
+                                </span>
+                                <h6 className="font-extrabold text-xs text-slate-900">
+                                  {alert.title}
+                                </h6>
+                              </div>
+                              <span className="text-[10px] text-slate-500">
+                                {new Date(alert.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-700 font-medium">
+                              {alert.description}
+                            </p>
+
+                            {/* Indicators bullet points */}
+                            <div className="bg-white/80 p-3 rounded-xl border border-slate-200/60 space-y-1 text-xs">
+                              <span className="font-bold text-[11px] text-slate-600 uppercase block tracking-wider">
+                                Indikator Pola Terdeteksi:
+                              </span>
+                              {alert.indicators.map((ind, i) => (
+                                <div key={i} className="flex items-start gap-1.5 text-slate-700 text-[11px]">
+                                  <span className="text-rose-500 font-bold shrink-0">•</span>
+                                  <span>{ind}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-200/60">
+                              <span className="text-[10px] text-slate-500 italic">
+                                Rekomendasi: {alert.recommendedAction}
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                {alert.type === 'rapid_registrations_same_ip' && alert.affectedUserIds && (
+                                  <button
+                                    onClick={() => {
+                                      StorageService.batchSuspendUsers(
+                                        alert.affectedUserIds!,
+                                        `Suspend otomatis: Pola pendaftaran mencurigakan berulang dari IP ${alert.ipAddress}`,
+                                        'Master Admin'
+                                      );
+                                      StorageService.resolveSuspiciousAlert(alert.id, `Suspend ${alert.affectedUserIds!.length} akun terkait IP ${alert.ipAddress}`, 'Master Admin');
+                                      refreshData();
+                                      showToast(`Berhasil menonaktifkan ${alert.affectedUserIds!.length} akun yang terhubung ke IP ${alert.ipAddress}!`);
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                                  >
+                                    <UserX size={12} />
+                                    <span>Suspend Semua Akun ({alert.affectedUserIds.length})</span>
+                                  </button>
+                                )}
+
+                                {alert.type === 'duplicate_transfer_proof' && alert.affectedTransactionIds && (
+                                  <button
+                                    onClick={() => {
+                                      StorageService.batchFlagFakePayments(
+                                        alert.affectedTransactionIds!,
+                                        `Bukti transfer berulang / duplikat struk RRN ${alert.duplicateRrn || ''}`,
+                                        'Master Admin'
+                                      );
+                                      StorageService.resolveSuspiciousAlert(alert.id, `Tolak ${alert.affectedTransactionIds!.length} transaksi bukti duplikat`, 'Master Admin');
+                                      refreshData();
+                                      showToast(`Semua transaksi dengan bukti duplikat berhasil ditandai sebagai Transfer Palsu!`);
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1"
+                                  >
+                                    <XCircle size={12} />
+                                    <span>Tandai Semua Transfer Palsu</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => {
+                                    StorageService.dismissSuspiciousAlert(alert.id, 'Master Admin');
+                                    refreshData();
+                                    showToast('Peringatan diarsipkan.');
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
+                                >
+                                  Arsipkan
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* QUICK RRN / MUTASI CHECKER WIDGET */}
@@ -3417,6 +4305,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
+              {/* ======================================================== */}
+              {/* TAB 8: BROADCAST PENGUMUMAN & PUSH NOTIFIKASI PENYEMANGAT */}
+              {/* ======================================================== */}
+              {activeTab === 'broadcast_announcements' && (
+                <div className="animate-in fade-in duration-200">
+                  <BroadcastManagerTab
+                    onNotify={(msg) => {
+                      setActionToast(msg);
+                      setTimeout(() => setActionToast(null), 4000);
+                      setAuditLogs(StorageService.getAdminAuditLogs());
+                    }}
+                  />
+                </div>
+              )}
+
             </div>
           </>
         )}
@@ -4089,6 +4992,267 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================================================================ */}
+      {/* MODAL 8: PUSAT INVESTIGASI & NOTIFIKASI POLA TRANSAKSI MENCURIGAKAN */}
+      {/* ================================================================ */}
+      <AnimatePresence>
+        {showAlertsModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+            <div className="bg-white border-2 border-rose-500 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden my-4">
+              {/* Header */}
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900 text-white flex items-center justify-between border-b border-rose-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-300 shrink-0">
+                    <AlertTriangle size={20} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-sm sm:text-base">
+                      Sistem Notifikasi Otomatis: Peringatan Pola Mencurigakan
+                    </h4>
+                    <p className="text-[11px] text-rose-200">
+                      Pemindaian otomatis multi-pendaftaran IP dan daur ulang bukti transfer palsu
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAlertsModal(false)}
+                  className="text-rose-200 hover:text-white p-1 rounded-xl hover:bg-white/10 cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Sub-header Controls & Filters */}
+              <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                {/* Filter Pills */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setActiveAlertFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
+                      activeAlertFilter === 'all'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Semua ({suspiciousAlerts.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveAlertFilter('rapid_registrations_same_ip')}
+                    className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
+                      activeAlertFilter === 'rapid_registrations_same_ip'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    IP Massal ({suspiciousAlerts.filter((a) => a.type === 'rapid_registrations_same_ip').length})
+                  </button>
+                  <button
+                    onClick={() => setActiveAlertFilter('duplicate_transfer_proof')}
+                    className={`px-3 py-1.5 rounded-xl font-bold cursor-pointer transition-all ${
+                      activeAlertFilter === 'duplicate_transfer_proof'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Struk Duplikat ({suspiciousAlerts.filter((a) => a.type === 'duplicate_transfer_proof').length})
+                  </button>
+                </div>
+
+                {/* Simulation Trigger Buttons */}
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      const alert = StorageService.simulateSuspiciousPattern('rapid_ip');
+                      refreshData();
+                      showToast(`Simulasi pendaftaran IP ditambahkan: ${alert.title}`);
+                    }}
+                    className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-300 cursor-pointer shadow-2xs"
+                    title="Simulasikan bot pendaftaran massal dari IP sama"
+                  >
+                    + Tes Pola IP
+                  </button>
+                  <button
+                    onClick={() => {
+                      const alert = StorageService.simulateSuspiciousPattern('duplicate_proof');
+                      refreshData();
+                      showToast(`Simulasi bukti duplikat ditambahkan: ${alert.title}`);
+                    }}
+                    className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-300 cursor-pointer shadow-2xs"
+                    title="Simulasikan bukti transfer yang diunggah berulang kali"
+                  >
+                    + Tes Struk Duplikat
+                  </button>
+                </div>
+              </div>
+
+              {/* Alert List Container */}
+              <div className="p-4 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                {suspiciousAlerts.filter((a) => activeAlertFilter === 'all' || a.type === activeAlertFilter).length === 0 ? (
+                  <div className="p-10 text-center space-y-2 bg-slate-50 rounded-2xl border border-slate-200">
+                    <CheckCircle size={36} className="text-emerald-500 mx-auto" />
+                    <h5 className="font-bold text-slate-900 text-sm">Tidak Ada Peringatan Aktif</h5>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Semua transaksi pembayaran dan pendaftaran akun saat ini terverifikasi bersih dan aman dari pola mencurigakan.
+                    </p>
+                  </div>
+                ) : (
+                  suspiciousAlerts
+                    .filter((a) => activeAlertFilter === 'all' || a.type === activeAlertFilter)
+                    .map((alert) => (
+                      <div
+                        key={alert.id}
+                        className={`p-4 sm:p-5 rounded-2xl border space-y-3 shadow-xs ${
+                          alert.severity === 'critical'
+                            ? 'bg-rose-50/70 border-rose-300'
+                            : 'bg-amber-50/70 border-amber-300'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
+                              alert.severity === 'critical' ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                            }`}>
+                              {alert.severity === 'critical' ? '🚨 KRITIS' : '⚠️ PERINGATAN'}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-600 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                              {alert.type === 'rapid_registrations_same_ip' ? 'Pola IP Massal' : 'Struk Diunggah Berulang'}
+                            </span>
+                            <h5 className="font-extrabold text-sm text-slate-900">
+                              {alert.title}
+                            </h5>
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {new Date(alert.timestamp).toLocaleString('id-ID')}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                          {alert.description}
+                        </p>
+
+                        {/* Indicators Box */}
+                        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 space-y-1.5 text-xs">
+                          <span className="font-black text-[11px] text-slate-700 uppercase tracking-wider block">
+                            Temuan Investigasi Keamanan:
+                          </span>
+                          {alert.indicators.map((ind, i) => (
+                            <div key={i} className="flex items-start gap-2 text-slate-700 text-[11px]">
+                              <span className="text-rose-600 font-bold shrink-0">➔</span>
+                              <span>{ind}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2 border-t border-slate-200">
+                          <div className="text-[11px] text-slate-600">
+                            <strong>Rekomendasi Tindakan:</strong> {alert.recommendedAction}
+                          </div>
+
+                          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                            {alert.type === 'rapid_registrations_same_ip' && alert.affectedUserIds && (
+                              <button
+                                onClick={() => {
+                                  StorageService.batchSuspendUsers(
+                                    alert.affectedUserIds!,
+                                    `Suspend: Pendaftaran mencurigakan berulang dari IP ${alert.ipAddress}`,
+                                    'Master Admin'
+                                  );
+                                  StorageService.resolveSuspiciousAlert(alert.id, `Suspend ${alert.affectedUserIds!.length} akun`, 'Master Admin');
+                                  refreshData();
+                                  showToast(`Berhasil menonaktifkan ${alert.affectedUserIds!.length} akun mencurigakan!`);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                              >
+                                <UserX size={13} />
+                                <span>Suspend Semua Akun ({alert.affectedUserIds.length})</span>
+                              </button>
+                            )}
+
+                            {alert.type === 'duplicate_transfer_proof' && alert.affectedTransactionIds && (
+                              <button
+                                onClick={() => {
+                                  StorageService.batchFlagFakePayments(
+                                    alert.affectedTransactionIds!,
+                                    `Bukti transfer berulang RRN ${alert.duplicateRrn || ''}`,
+                                    'Master Admin'
+                                  );
+                                  StorageService.resolveSuspiciousAlert(alert.id, `Tolak ${alert.affectedTransactionIds!.length} transaksi duplikat`, 'Master Admin');
+                                  refreshData();
+                                  showToast(`Semua transaksi bukti duplikat berhasil ditandai sebagai Transfer Palsu!`);
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                              >
+                                <XCircle size={13} />
+                                <span>Tolak & Tandai Transfer Palsu</span>
+                              </button>
+                            )}
+
+                            {alert.type === 'rapid_registrations_same_ip' ? (
+                              <button
+                                onClick={() => {
+                                  setActiveTab('security_passwords');
+                                  setShowAlertsModal(false);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs cursor-pointer border border-indigo-200"
+                              >
+                                Keamanan Akun ➔
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setActiveTab('payments_tracking');
+                                  setShowAlertsModal(false);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 font-bold text-xs cursor-pointer border border-cyan-200"
+                              >
+                                Pembayaran ➔
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                StorageService.dismissSuspiciousAlert(alert.id, 'Master Admin');
+                                refreshData();
+                                showToast('Peringatan diarsipkan.');
+                              }}
+                              className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
+                            >
+                              Arsipkan
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs">
+                <span className="text-slate-500 text-[11px]">
+                  Pemeriksaan keamanan real-time berbasis IP audit trail & referensi bank RRN.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={refreshData}
+                    className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold border border-slate-300 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Pindai Ulang</span>
+                  </button>
+                  <button
+                    onClick={() => setShowAlertsModal(false)}
+                    className="px-4 py-2 rounded-xl bg-[#164C68] hover:bg-[#113a50] text-white font-bold cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

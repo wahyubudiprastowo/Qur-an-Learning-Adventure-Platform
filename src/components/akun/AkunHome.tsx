@@ -22,6 +22,8 @@ import {
   MessageCircle,
   Send,
   Crown,
+  Smartphone,
+  KeyRound,
 } from 'lucide-react';
 import { ChildProfile, UserAccount, PointsLedgerEntry } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -432,6 +434,87 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
         </div>
       </div>
 
+      {/* 04B. KEAMANAN AKUN & 2FA (OTENTIKASI DUA FAKTOR TOTP) */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
+          04B. KEAMANAN AKUN & 2FA (OTENTIKASI DUA FAKTOR)
+        </span>
+
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 shadow-lg shadow-indigo-950/20 border border-indigo-800/40 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shrink-0 shadow-inner ${
+                userAccount.twoFactorEnabled
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {userAccount.twoFactorEnabled ? <ShieldCheck size={26} /> : <Smartphone size={24} />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-black font-heading">
+                    Otentikasi 2 Langkah (2FA TOTP)
+                  </h3>
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
+                    userAccount.twoFactorEnabled
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                      : 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+                  }`}>
+                    {userAccount.twoFactorEnabled ? '🟢 AKTIF (TERLINDUNGI)' : '⚪ BELUM AKTIF (DIREKOMENDASIKAN)'}
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/90 font-medium mt-1">
+                  Proteksi profil santri & akun wali dengan kode 6-digit Time-based One-Time Password (Google Authenticator / Microsoft Authenticator).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="space-y-1 text-indigo-100/90">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white">Metode Terpasang:</span>
+                <span className="text-indigo-200">
+                  {userAccount.twoFactorMethod === 'email' ? 'Kode Verifikasi Email' : 'Aplikasi Authenticator TOTP (Google/Microsoft)'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-indigo-300/80">
+                <span>Kode Cadangan Darurat:</span>
+                <span className="font-mono text-emerald-300 font-bold">5 Kode Pemulihan Tersedia</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {userAccount.twoFactorEnabled ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTwoFaModalMode('manage');
+                    setShow2FaModal(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow-xs transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <KeyRound size={14} />
+                  <span>Kelola 2FA / Cadangan</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTwoFaModalMode('setup');
+                    setShow2FaModal(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-xs cursor-pointer shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <ShieldCheck size={14} />
+                  <span>Aktifkan 2FA (TOTP) Sekarang 🛡️</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 05. PROGRAM SAHABAT SYIAR & AFILIASI */}
       <div className="space-y-2.5">
         <span className="text-xs font-black text-[#8C9BA7] uppercase tracking-wider block px-1">
@@ -684,6 +767,19 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
           userAccount={userAccount}
           onSuccess={() => onRefreshData()}
           onOpenProModal={() => setShowPlanModal(true)}
+        />
+      )}
+
+      {/* Two-Factor Authentication (2FA TOTP) Modal */}
+      {show2FaModal && (
+        <TwoFactorAuthModal
+          isOpen={show2FaModal}
+          onClose={() => setShow2FaModal(false)}
+          mode={twoFaModalMode}
+          userAccount={userAccount}
+          onUpdated={() => {
+            onRefreshData();
+          }}
         />
       )}
     </div>

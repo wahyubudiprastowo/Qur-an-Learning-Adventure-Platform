@@ -20,6 +20,10 @@ import {
   FraudAnalysisResult,
   BankMutationItem,
   UserLoginRecord,
+  SuspiciousPatternAlert,
+  BroadcastAnnouncement,
+  DailyEncouragementQuote,
+  DailyPushSettings,
 } from '../types';
 import { getLevelForXp } from '../data/levelsAndAchievements';
 import {
@@ -62,6 +66,10 @@ const STORAGE_KEYS = {
   ADMIN_2FA_PENDING_CODE: 'cahaya_tahfiz_admin_2fa_pending_code',
   ADMIN_SESSION_TOKEN: 'cahaya_tahfiz_admin_session_token',
   BANK_MUTATIONS: 'cahaya_tahfiz_bank_mutations',
+  SUSPICIOUS_ALERTS: 'cahaya_tahfiz_suspicious_alerts',
+  BROADCAST_ANNOUNCEMENTS: 'cahaya_tahfiz_broadcast_announcements',
+  DAILY_PUSH_SETTINGS: 'cahaya_tahfiz_daily_push_settings',
+  READ_BROADCAST_IDS: 'cahaya_tahfiz_read_broadcast_ids',
   MUFRODAT_TRACKER_PREFIX: 'cahaya_tahfiz_mufrodat_tracker_',
   MUFRODAT_STAGES_PREFIX: 'cahaya_tahfiz_mufrodat_stages_',
 };
@@ -350,7 +358,55 @@ const DEFAULT_USERS_LIST: UserAccount[] = [
     authProvider: 'whatsapp',
     role: 'user',
     entitlementExpiry: '2026-12-31',
-    createdAt: new Date(Date.now() - 1 * 3600000).toISOString(),
+    createdAt: new Date(Date.now() - 3600000 * 0.8).toISOString(),
+    lastLogin: {
+      timestamp: new Date(Date.now() - 3600000 * 0.8).toISOString(),
+      ipAddress: '103.47.132.88',
+      device: 'Tor Browser 13.5 / Linux x86_64',
+      location: 'Jakarta (Datacenter Proxy / VPN)',
+    },
+  },
+  {
+    id: 'usr-suspicious-ip-2',
+    email: 'budi.santoso.bot@gmail.com',
+    parentName: 'Budi Santoso',
+    whatsapp: '08529911999',
+    activeChildId: 'child-budi',
+    pin: '1234',
+    entitlement: 'free',
+    planTier: 'free',
+    isRegistered: true,
+    authProvider: 'email',
+    role: 'user',
+    entitlementExpiry: '2026-12-31',
+    createdAt: new Date(Date.now() - 3600000 * 0.6).toISOString(),
+    lastLogin: {
+      timestamp: new Date(Date.now() - 3600000 * 0.6).toISOString(),
+      ipAddress: '103.47.132.88',
+      device: 'Firefox 130 / Linux',
+      location: 'Jakarta (Datacenter Proxy / VPN)',
+    },
+  },
+  {
+    id: 'usr-suspicious-ip-3',
+    email: 'iwan.bot.auto@gmail.com',
+    parentName: 'Iwan Bot Multi',
+    whatsapp: '08529911888',
+    activeChildId: 'child-iwan',
+    pin: '1234',
+    entitlement: 'free',
+    planTier: 'free',
+    isRegistered: true,
+    authProvider: 'email',
+    role: 'user',
+    entitlementExpiry: '2026-12-31',
+    createdAt: new Date(Date.now() - 3600000 * 0.4).toISOString(),
+    lastLogin: {
+      timestamp: new Date(Date.now() - 3600000 * 0.4).toISOString(),
+      ipAddress: '103.47.132.88',
+      device: 'Python-requests 2.31 / Linux',
+      location: 'Jakarta (Datacenter Proxy / VPN)',
+    },
   },
   {
     id: 'usr-zahra',
@@ -1098,6 +1154,45 @@ export class StorageService {
               notes: 'PERINGATAN SISTEM: Indikasi transfer palsu / fiktif! JANGAN verifikasi sebelum dana riil masuk.',
             },
             adminNotes: 'PERINGATAN: Indikasi struk palsu - belum ada dana masuk di mutasi BCA Yayasan',
+          });
+          localStorage.setItem(STORAGE_KEYS.PAYMENT_HISTORY, JSON.stringify(parsed));
+        }
+
+        // Ensure fake test tx with duplicate RRN exists for duplicate proof detection pattern
+        if (!parsed.some((t: PaymentTransaction) => t.id === 'tx-fake-003')) {
+          parsed.splice(2, 0, {
+            id: 'tx-fake-003',
+            userId: 'usr-suspicious-ip-2',
+            userName: 'Budi Santoso',
+            userEmail: 'budi.santoso.bot@gmail.com',
+            userWhatsapp: '08529911999',
+            planId: 'plan_yearly',
+            planName: 'Cahaya Tahfiz Premium 1 Tahun',
+            amountUsd: 19.99,
+            amountIdr: 299000,
+            paymentMethod: 'bank_transfer_manual',
+            transferBankName: 'Bank BCA (014-9988-234)',
+            paymentMethodDetails: 'Transfer BCA Manual (Bukti Struk Diunggah Berulang)',
+            senderBankName: 'Bank BCA',
+            senderAccountName: 'RUDI HARTONO',
+            senderAccountNumber: '1234567890',
+            transferRrn: '999999999999', // DUPLICATE IDENTICAL TO tx-fake-002
+            transferProofUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=60',
+            status: 'pending',
+            invoiceNumber: 'INV-202610-0105',
+            createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+            fraudAnalysis: {
+              authenticityScore: 5,
+              status: 'confirmed_fake',
+              mutationMatched: false,
+              indicators: [
+                'PERINGATAN SISTEM: Bukti transfer RRN 999999999999 terdeteksi diunggah berulang kali pada transaksi INV-202610-0099 dan INV-202610-0105!',
+                'TIDAK DITEMUKAN mutasi kredit Rp 299.000 pada rekening BCA Yayasan',
+                'Terindikasi daur ulang struk pembayaran bank atau bukti setoran fiktif',
+              ],
+              notes: 'Bukti transfer diunggah berulang kali oleh akun berbeda.',
+            },
+            adminNotes: 'PERINGATAN POLA DUPLIKAT: Struk dan RRN persis sama dengan transaksi Abi Rudi Hartono',
           });
           localStorage.setItem(STORAGE_KEYS.PAYMENT_HISTORY, JSON.stringify(parsed));
         }
@@ -3429,6 +3524,605 @@ export class StorageService {
       localStorage.setItem('iqra_voice_gender', gender);
     } catch (e) {
       console.warn('Failed to save preferred voice gender:', e);
+    }
+  }
+
+  // --- Automated Suspicious Pattern Alert Engine ---
+  static getSuspiciousPatternAlerts(includeDismissed = false): SuspiciousPatternAlert[] {
+    const alerts: SuspiciousPatternAlert[] = [];
+    let savedMeta: Record<string, { isDismissed?: boolean; isResolved?: boolean }> = {};
+    try {
+      const savedMetaRaw = localStorage.getItem(STORAGE_KEYS.SUSPICIOUS_ALERTS);
+      if (savedMetaRaw) savedMeta = JSON.parse(savedMetaRaw);
+    } catch {}
+
+    // 1. PATTERN: Rapid registrations / logins from the same IP
+    const users = this.getAllUsers();
+    const ipGroups = new Map<string, UserAccount[]>();
+
+    users.forEach((u) => {
+      const ip = u.lastLogin?.ipAddress;
+      if (ip && ip !== '127.0.0.1' && ip !== 'localhost') {
+        const list = ipGroups.get(ip) || [];
+        list.push(u);
+        ipGroups.set(ip, list);
+      }
+    });
+
+    ipGroups.forEach((groupUsers, ip) => {
+      if (groupUsers.length >= 2) {
+        const alertId = `alert-ip-${ip.replace(/\./g, '-')}`;
+        const meta = savedMeta[alertId] || {};
+        const isCritical = groupUsers.length >= 3 || ip.includes('103.47') || ip.includes('103.111');
+        
+        alerts.push({
+          id: alertId,
+          type: 'rapid_registrations_same_ip',
+          severity: isCritical ? 'critical' : 'warning',
+          title: `Pola Pendaftaran Masal dari IP Sama (${ip})`,
+          description: `Terdeteksi ${groupUsers.length} akun terdaftar/login dari alamat IP ${ip} dalam selang waktu singkat (${groupUsers[0].lastLogin?.location || 'Unknown'}).`,
+          timestamp: groupUsers[0].lastLogin?.timestamp || new Date().toISOString(),
+          detectedAt: new Date().toISOString(),
+          indicators: [
+            `Alamat IP Sumber: ${ip} (${groupUsers[0].lastLogin?.location || 'Lokasi teridentifikasi proxy/VPN'})`,
+            `Total Akun Terhubung: ${groupUsers.length} akun`,
+            `Daftar Akun: ${groupUsers.map((u) => `${u.parentName} (${u.email})`).join(' • ')}`,
+            `Perangkat Terdeteksi: ${Array.from(new Set(groupUsers.map((u) => u.lastLogin?.device).filter(Boolean))).join(', ')}`,
+            'Indikasi Pola: Registrasi massal otomatis (bot/farming) atau penyalahgunaan kuota akun gratis.',
+          ],
+          affectedUserIds: groupUsers.map((u) => u.id),
+          affectedUserNames: groupUsers.map((u) => u.parentName),
+          ipAddress: ip,
+          isDismissed: meta.isDismissed || false,
+          isResolved: meta.isResolved || false,
+          recommendedAction: 'Nonaktifkan (suspend) akun yang mencurigakan atau lakukan reset password manual pada akun yang terdampak.',
+        });
+      }
+    });
+
+    // 2. PATTERN: Repeated transfer proof upload / duplicate proof
+    const payments = this.getPaymentHistory();
+    const rrnGroups = new Map<string, PaymentTransaction[]>();
+    const proofUrlGroups = new Map<string, PaymentTransaction[]>();
+
+    payments.forEach((tx) => {
+      if (tx.transferRrn && tx.transferRrn.trim().length >= 4) {
+        const rrnKey = tx.transferRrn.trim();
+        const list = rrnGroups.get(rrnKey) || [];
+        list.push(tx);
+        rrnGroups.set(rrnKey, list);
+      }
+      if (tx.transferProofUrl && tx.transferProofUrl.trim().length > 10) {
+        const urlKey = tx.transferProofUrl.trim();
+        const list = proofUrlGroups.get(urlKey) || [];
+        list.push(tx);
+        proofUrlGroups.set(urlKey, list);
+      }
+    });
+
+    // Detect duplicate RRN
+    rrnGroups.forEach((groupTxs, rrn) => {
+      if (groupTxs.length >= 2) {
+        const alertId = `alert-dup-rrn-${rrn.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const meta = savedMeta[alertId] || {};
+        const userNames = Array.from(new Set(groupTxs.map((t) => t.userName).filter(Boolean)));
+        const userIds = Array.from(new Set(groupTxs.map((t) => t.userId).filter(Boolean)));
+        const txIds = groupTxs.map((t) => t.id);
+
+        alerts.push({
+          id: alertId,
+          type: 'duplicate_transfer_proof',
+          severity: 'critical',
+          title: `Bukti Transfer / RRN Diunggah Berulang (${rrn})`,
+          description: `Nomor referensi mutasi / RRN ${rrn} diunggah pada ${groupTxs.length} transaksi pembayaran berbeda.`,
+          timestamp: groupTxs[0].createdAt,
+          detectedAt: new Date().toISOString(),
+          indicators: [
+            `Nomor Referensi Struk: ${rrn}`,
+            `Transaksi Terkait: ${groupTxs.map((t) => `${t.invoiceNumber} (${t.planName} - Rp ${t.amountIdr.toLocaleString('id-ID')})`).join(' • ')}`,
+            `Pengunggah: ${userNames.join(', ')}`,
+            'Indikasi Pola: Struk pembayaran bank yang sama didaur ulang untuk mengklaim paket berulang kali.',
+          ],
+          affectedTransactionIds: txIds,
+          affectedUserIds: userIds,
+          affectedUserNames: userNames as string[],
+          duplicateRrn: rrn,
+          duplicateProofUrl: groupTxs[0].transferProofUrl,
+          isDismissed: meta.isDismissed || false,
+          isResolved: meta.isResolved || false,
+          recommendedAction: 'Tolak semua transaksi terkait dan tandai sebagai bukti transfer palsu (Confirmed Fake).',
+        });
+      }
+    });
+
+    // Filter out dismissed alerts unless requested
+    return includeDismissed ? alerts : alerts.filter((a) => !a.isDismissed);
+  }
+
+  static dismissSuspiciousAlert(alertId: string, adminName = 'Master Admin'): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.SUSPICIOUS_ALERTS);
+      const current = raw ? JSON.parse(raw) : {};
+      current[alertId] = { ...(current[alertId] || {}), isDismissed: true };
+      localStorage.setItem(STORAGE_KEYS.SUSPICIOUS_ALERTS, JSON.stringify(current));
+
+      this.addAdminAuditLog({
+        adminName,
+        action: 'dismiss_suspicious_alert',
+        description: `Mengarsipkan peringatan pola mencurigakan (${alertId}).`,
+      });
+    } catch (e) {
+      console.warn('Failed to dismiss suspicious alert:', e);
+    }
+  }
+
+  static resolveSuspiciousAlert(alertId: string, actionNote: string, adminName = 'Master Admin'): void {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.SUSPICIOUS_ALERTS);
+      const current = raw ? JSON.parse(raw) : {};
+      current[alertId] = { ...(current[alertId] || {}), isResolved: true, isDismissed: true };
+      localStorage.setItem(STORAGE_KEYS.SUSPICIOUS_ALERTS, JSON.stringify(current));
+
+      this.addAdminAuditLog({
+        adminName,
+        action: 'resolve_suspicious_alert',
+        description: `Menyelesaikan peringatan pola mencurigakan (${alertId}). Tindakan: ${actionNote}`,
+      });
+    } catch (e) {
+      console.warn('Failed to resolve suspicious alert:', e);
+    }
+  }
+
+  static batchSuspendUsers(userIds: string[], reason: string, adminName = 'Master Admin'): void {
+    userIds.forEach((uid) => {
+      this.suspendUser(uid, reason, adminName);
+    });
+  }
+
+  static batchFlagFakePayments(transactionIds: string[], reason: string, adminName = 'Master Admin'): void {
+    transactionIds.forEach((txId) => {
+      this.flagPaymentAsFake(txId, reason, adminName);
+    });
+  }
+
+  static simulateSuspiciousPattern(patternType: 'rapid_ip' | 'duplicate_proof'): SuspiciousPatternAlert {
+    if (patternType === 'rapid_ip') {
+      const users = this.getAllUsers();
+      const testIp = '103.47.132.88';
+      const newBotId = `usr-sim-bot-${Date.now().toString().slice(-4)}`;
+      const newBot: UserAccount = {
+        id: newBotId,
+        email: `bot.${Date.now().toString().slice(-4)}@proxy-test.net`,
+        parentName: `Simulasi Bot #${Date.now().toString().slice(-3)}`,
+        whatsapp: '08129999000',
+        activeChildId: `child-${newBotId}`,
+        pin: '1234',
+        entitlement: 'free',
+        planTier: 'free',
+        isRegistered: true,
+        authProvider: 'email',
+        role: 'user',
+        entitlementExpiry: '2026-12-31',
+        createdAt: new Date().toISOString(),
+        lastLogin: {
+          timestamp: new Date().toISOString(),
+          ipAddress: testIp,
+          device: 'HeadlessChrome / Linux',
+          location: 'Jakarta (Datacenter Proxy)',
+        },
+      };
+      users.unshift(newBot);
+      localStorage.setItem(STORAGE_KEYS.ALL_USERS, JSON.stringify(users));
+      const alerts = this.getSuspiciousPatternAlerts();
+      return alerts.find((a) => a.type === 'rapid_registrations_same_ip') || alerts[0];
+    } else {
+      const history = this.getPaymentHistory();
+      const duplicateRrn = '999999999999';
+      const simTx: PaymentTransaction = {
+        id: `tx-sim-dup-${Date.now().toString().slice(-4)}`,
+        userId: 'usr-sim-actor',
+        userName: `Pengunggah Duplikat #${Date.now().toString().slice(-3)}`,
+        userEmail: 'duplikat.struk@gmail.com',
+        userWhatsapp: '085211223344',
+        planId: 'plan_yearly',
+        planName: 'Cahaya Tahfiz Premium 1 Tahun',
+        amountUsd: 19.99,
+        amountIdr: 299000,
+        paymentMethod: 'bank_transfer_manual',
+        transferBankName: 'Bank BCA (014-9988-234)',
+        paymentMethodDetails: 'Transfer BCA Manual (Simulasi Struk Berulang)',
+        senderBankName: 'Bank BCA',
+        senderAccountName: 'RUDI HARTONO',
+        senderAccountNumber: '1234567890',
+        transferRrn: duplicateRrn,
+        transferProofUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=60',
+        status: 'pending',
+        invoiceNumber: `INV-SIM-${Date.now().toString().slice(-4)}`,
+        createdAt: new Date().toISOString(),
+        fraudAnalysis: {
+          authenticityScore: 5,
+          status: 'confirmed_fake',
+          mutationMatched: false,
+          indicators: [
+            'PERINGATAN SISTEM: Bukti transfer RRN 999999999999 terdeteksi diunggah berulang kali!',
+            'TIDAK DITEMUKAN mutasi kredit cocok pada rekening yayasan',
+          ],
+          notes: 'Simulasi deteksi struk berulang.',
+        },
+        adminNotes: 'PERINGATAN POLA DUPLIKAT: Struk dan RRN persis sama dengan transaksi sebelumnya',
+      };
+      history.unshift(simTx);
+      localStorage.setItem(STORAGE_KEYS.PAYMENT_HISTORY, JSON.stringify(history));
+      const alerts = this.getSuspiciousPatternAlerts();
+      return alerts.find((a) => a.type === 'duplicate_transfer_proof') || alerts[0];
+    }
+  }
+
+  // =========================================================================
+  // 📢 BROADCAST PENGUMUMAN, FITUR, MEDIA & PUSH NOTIFICATION PENYEMANGAT
+  // =========================================================================
+
+  private static readonly DEFAULT_BROADCASTS: BroadcastAnnouncement[] = [
+    {
+      id: 'bc-mufrodat-2026',
+      title: '🚀 Rilis Fitur Baru: Modul Mufrodat Interaktif & AI Audio Checker',
+      category: 'feature_update',
+      audience: 'all',
+      content: 'Alhamdulillah! Kini santri dapat menghafal dan memahami kosakata Al-Qur\'an tematik (Hewan, Alam, Ibadah, Keluarga) dengan visual menarik, audio qari fasih, dan evaluasi pelafalan AI cerdas.',
+      badge: 'Fitur Baru 🌟',
+      priority: 'high',
+      mediaType: 'image',
+      mediaUrl: 'https://images.unsplash.com/photo-1584281722572-88151f153b66?q=80&w=900&auto=format&fit=crop',
+      mediaCaption: 'Modul Mufrodat Bahasa Al-Qur\'an Ramah Anak',
+      actionLabel: 'Mulai Belajar Mufrodat',
+      actionTarget: 'mufrodat',
+      isPushNotification: true,
+      createdAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+      sentAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+      status: 'published',
+      impressionsCount: 412,
+      clicksCount: 228,
+      authorAdmin: 'Super Admin Tahfiz',
+    },
+    {
+      id: 'bc-video-tips-tahfiz',
+      title: '🎥 Video Edukasi: Metode 3x Murojaah Menyenangkan Tanpa Bosan',
+      category: 'materi_tilawah',
+      audience: 'wali_santri',
+      content: 'Simak video panduan 7 menit: Bagaimana mendampingi ananda mengulang hafalan di rumah dengan sistem bintang petualangan Lumi tanpa paksaan dan penuh keceriaan.',
+      badge: 'Video Kajian 📹',
+      priority: 'normal',
+      mediaType: 'video',
+      mediaUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+      mediaCaption: 'Tips Murojaah Bahagia Bersama Buah Hati di Rumah',
+      actionLabel: 'Buka Video Edukasi',
+      actionTarget: 'tahfiz',
+      isPushNotification: false,
+      createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+      sentAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+      status: 'published',
+      impressionsCount: 685,
+      clicksCount: 310,
+      authorAdmin: 'Ustadz Pembina Tahfiz',
+    },
+    {
+      id: 'bc-keamanan-2fa-totp',
+      title: '🛡️ Pengumuman Keamanan: Aktifkan 2FA TOTP di Profil Anda',
+      category: 'important_announcement',
+      audience: 'all',
+      content: 'Untuk meningkatkan keamanan data santri dan riwayat hafalan, kini fitur Two-Factor Authentication (2FA TOTP) dengan Google Authenticator sudah dapat diaktifkan di menu Profil Pengguna.',
+      badge: 'Keamanan 🔒',
+      priority: 'urgent',
+      mediaType: 'image',
+      mediaUrl: 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?q=80&w=900&auto=format&fit=crop',
+      mediaCaption: 'Proteksi Akun Ganda untuk Semua Santri & Wali',
+      actionLabel: 'Aktifkan 2FA Sekarang',
+      actionTarget: 'akun',
+      isPushNotification: true,
+      createdAt: new Date(Date.now() - 3600000 * 72).toISOString(),
+      sentAt: new Date(Date.now() - 3600000 * 72).toISOString(),
+      status: 'published',
+      impressionsCount: 920,
+      clicksCount: 442,
+      authorAdmin: 'Admin IT & Security',
+    },
+  ];
+
+  public static readonly DEFAULT_DAILY_ENCOURAGEMENTS: DailyEncouragementQuote[] = [
+    {
+      id: 'quote-subuh-01',
+      source: 'HR. Bukhari No. 5027',
+      arabicText: 'خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ',
+      translationIndo: 'Sebaik-baik kalian adalah orang yang mempelajari Al-Qur\'an dan mengajarkannya.',
+      encouragementMessage: '🌅 Bismillah! Awali pagi dengan membaca 1 halaman Al-Qur\'an. Setiap huruf yang ananda lantunkan adalah mata air kebaikan yang tak terputus.',
+      category: 'subuh_semangat',
+      recommendedTime: '05:00',
+      tagLabel: 'Waktu Emas Subuh',
+    },
+    {
+      id: 'quote-subuh-02',
+      source: 'HR. Muslim No. 798',
+      arabicText: 'الَّذِي يَقْرَأُ الْقُرْآنَ وَهُوَ مَاهِرٌ بِهِ مَعَ السَّفَرَةِ الْكِرَامِ الْبَرَرَةِ...',
+      translationIndo: 'Orang yang mahir membaca Al-Qur\'an akan bersama malaikat yang mulia. Dan yang terbata-bata mendapatkan DUA PAHALA.',
+      encouragementMessage: '✨ Jangan takut salah atau terbata-bata saat berlatih! Allah melipatgandakan pahala kesungguhan ananda hari ini.',
+      category: 'subuh_semangat',
+      recommendedTime: '05:30',
+      tagLabel: 'Pahala Berlipat',
+    },
+    {
+      id: 'quote-sore-01',
+      source: 'HR. Abu Dawud No. 1464 & Tirmidzi',
+      arabicText: 'اقْرَأْ وَارْتَقِ وَرَتِّلْ كَمَا كُنْتَ تُرَتِّلُ فِي الدُّنْيَا',
+      translationIndo: 'Bacalah, naiklah tingkatan surga, dan tartilkanlah sebagaimana engkau mentartilkannya di dunia...',
+      encouragementMessage: '☀️ Semangat sore hafiz cilik! 10 menit murojaah ba\'da Ashar akan menaikkan derajatmu di surga kelak bersama Lumi.',
+      category: 'murojaah_sore',
+      recommendedTime: '16:00',
+      tagLabel: 'Murojaah Sore',
+    },
+    {
+      id: 'quote-sore-02',
+      source: 'HR. Tirmidzi No. 2910',
+      arabicText: 'مَنْ قَرَأَ حَرْفًا مِنْ كِتَابِ اللَّهِ فَلَهُ بِهِ حَسَنَةٌ، وَالْحَسَنَةُ بِعَشْرِ أَمْثَالِهَا',
+      translationIndo: 'Barangsiapa membaca satu huruf dari Kitabullah, maka baginya sepuluh kebaikan.',
+      encouragementMessage: '⭐ Setiap klik dan bacaan di aplikasi bernilai ratusan pahala. Yuk capai target bintang hafalanmu sore ini!',
+      category: 'murojaah_sore',
+      recommendedTime: '16:30',
+      tagLabel: 'Pundi Kebaikan',
+    },
+    {
+      id: 'quote-malam-01',
+      source: 'HR. Ahmad & Al-Hakim (Shahih)',
+      arabicText: 'يُكْسَى وَالِدَاهُ حُلَّتَيْنِ لَا يَقُومُ لَهُمَا أَهْلُ الدُّنْيَا...',
+      translationIndo: 'Kedua orang tua penghafal Al-Qur\'an akan dipakaikan mahkota dan jubah kemuliaan yang cahayanya lebih terang dari matahari.',
+      encouragementMessage: '🌙 Apresiasi setinggi-tingginya untuk Ayah & Bunda yang setia menemani ananda belajar. Mahkota surga menanti Ayah Bunda.',
+      category: 'wali_kebanggaan',
+      recommendedTime: '19:30',
+      tagLabel: 'Mahkota Kemuliaan',
+    },
+    {
+      id: 'quote-malam-02',
+      source: 'QS. Fatir: 29-30',
+      arabicText: 'إِنَّ الَّذِينَ يَتْلُونَ كِتَابَ اللَّهِ وَأَقَامُوا الصَّلَاةَ... يَرْجُونَ تِجَارَةً لَنْ تَبُورَ',
+      translationIndo: 'Sesungguhnya orang-orang yang selalu membaca Kitab Allah... mereka mengharapkan perdagangan yang tidak akan pernah rugi.',
+      encouragementMessage: '📖 Sebelum istirahat malam, murajaah 3 ayat penutup hari agar tidur dilindungi para malaikat dan hati selalu tenang.',
+      category: 'malam_syukur',
+      recommendedTime: '20:15',
+      tagLabel: 'Tidur Dalam Dzikir',
+    },
+    {
+      id: 'quote-adab-01',
+      source: 'Nasihat Imam Asy-Syafi\'i',
+      arabicText: 'شَكَوْتُ إِلَى وَكِيعٍ سُوءَ حِفْظِي فَأَرْشَدَنِي إِلَى تَرْكِ الْمَعَاصِي',
+      translationIndo: 'Aku mengadu kepada guruku Waki\' tentang buruknya hafalanku, maka beliau berpesan untuk menjaga hati dan meninggalkan maksiat.',
+      encouragementMessage: '🌿 Santun tutur kata dan hati yang bersih adalah kunci mudahnya hafalan melekat di ingatan.',
+      category: 'adab_santri',
+      recommendedTime: '13:00',
+      tagLabel: 'Adab & Akhlak',
+    },
+  ];
+
+  public static getBroadcastAnnouncements(): BroadcastAnnouncement[] {
+    if (typeof window === 'undefined') return this.DEFAULT_BROADCASTS;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(this.DEFAULT_BROADCASTS));
+        return this.DEFAULT_BROADCASTS;
+      }
+      return JSON.parse(raw);
+    } catch (e) {
+      console.warn('Failed to parse broadcast announcements', e);
+      return this.DEFAULT_BROADCASTS;
+    }
+  }
+
+  public static saveBroadcastAnnouncement(item: Partial<BroadcastAnnouncement>): BroadcastAnnouncement {
+    const list = this.getBroadcastAnnouncements();
+    const now = new Date().toISOString();
+
+    if (item.id && list.some((b) => b.id === item.id)) {
+      // Update existing
+      const updatedList = list.map((b) => {
+        if (b.id === item.id) {
+          return {
+            ...b,
+            ...item,
+            sentAt: item.status === 'published' && !b.sentAt ? now : b.sentAt,
+          } as BroadcastAnnouncement;
+        }
+        return b;
+      });
+      localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(updatedList));
+
+      this.addAdminAuditLog({
+        action: 'create_broadcast',
+        adminName: 'Admin Syiar',
+        description: `Memperbarui broadcast pengumuman: "${item.title || item.id}"`,
+      });
+
+      return updatedList.find((b) => b.id === item.id)!;
+    } else {
+      // Create new
+      const newBroadcast: BroadcastAnnouncement = {
+        id: item.id || `bc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: item.title || 'Pengumuman Baru',
+        category: item.category || 'important_announcement',
+        audience: item.audience || 'all',
+        content: item.content || '',
+        badge: item.badge || 'Pengumuman',
+        priority: item.priority || 'normal',
+        mediaType: item.mediaType || 'none',
+        mediaUrl: item.mediaUrl || '',
+        mediaCaption: item.mediaCaption || '',
+        actionLabel: item.actionLabel || 'Lihat Detail',
+        actionTarget: item.actionTarget || 'mufrodat',
+        isPushNotification: item.isPushNotification ?? true,
+        isDailyEncouragement: item.isDailyEncouragement ?? false,
+        scheduledTime: item.scheduledTime,
+        createdAt: now,
+        sentAt: item.status === 'published' ? now : undefined,
+        status: item.status || 'published',
+        impressionsCount: 0,
+        clicksCount: 0,
+        authorAdmin: item.authorAdmin || 'Super Admin',
+      };
+
+      list.unshift(newBroadcast);
+      localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(list));
+
+      this.addAdminAuditLog({
+        action: 'create_broadcast',
+        adminName: newBroadcast.authorAdmin,
+        description: `Membuat & mempublikasikan broadcast baru: "${newBroadcast.title}" (Kategori: ${newBroadcast.category}, Sasaran: ${newBroadcast.audience})`,
+      });
+
+      return newBroadcast;
+    }
+  }
+
+  public static deleteBroadcastAnnouncement(id: string): void {
+    const list = this.getBroadcastAnnouncements();
+    const target = list.find((b) => b.id === id);
+    const filtered = list.filter((b) => b.id !== id);
+    localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(filtered));
+
+    if (target) {
+      this.addAdminAuditLog({
+        action: 'delete_broadcast',
+        adminName: 'Super Admin',
+        description: `Menghapus broadcast: "${target.title}"`,
+      });
+    }
+  }
+
+  public static recordBroadcastImpression(id: string): void {
+    const list = this.getBroadcastAnnouncements();
+    const updated = list.map((b) => (b.id === id ? { ...b, impressionsCount: (b.impressionsCount || 0) + 1 } : b));
+    localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(updated));
+  }
+
+  public static recordBroadcastClick(id: string): void {
+    const list = this.getBroadcastAnnouncements();
+    const updated = list.map((b) => (b.id === id ? { ...b, clicksCount: (b.clicksCount || 0) + 1 } : b));
+    localStorage.setItem(STORAGE_KEYS.BROADCAST_ANNOUNCEMENTS, JSON.stringify(updated));
+  }
+
+  public static getDailyEncouragements(): DailyEncouragementQuote[] {
+    return this.DEFAULT_DAILY_ENCOURAGEMENTS;
+  }
+
+  public static getDailyPushSettings(): DailyPushSettings {
+    const defaultSettings: DailyPushSettings = {
+      autoPushEnabled: true,
+      scheduledSlots: [
+        { slotId: 'slot-subuh', time: '05:00', category: 'subuh_semangat', enabled: true },
+        { slotId: 'slot-ashar', time: '16:00', category: 'murojaah_sore', enabled: true },
+        { slotId: 'slot-isya', time: '19:30', category: 'wali_kebanggaan', enabled: true },
+      ],
+      lastSentAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+      totalNotificationsSent: 148,
+    };
+
+    if (typeof window === 'undefined') return defaultSettings;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.DAILY_PUSH_SETTINGS);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEYS.DAILY_PUSH_SETTINGS, JSON.stringify(defaultSettings));
+        return defaultSettings;
+      }
+      return JSON.parse(raw);
+    } catch {
+      return defaultSettings;
+    }
+  }
+
+  public static saveDailyPushSettings(settings: DailyPushSettings): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DAILY_PUSH_SETTINGS, JSON.stringify(settings));
+    } catch (e) {
+      console.warn('Failed to save daily push settings', e);
+    }
+  }
+
+  public static sendDailyPushEncouragement(
+    quoteId: string,
+    customMessage?: string,
+    targetAudience: string = 'all'
+  ): { success: boolean; notificationTitle: string; notificationBody: string } {
+    const quote = this.DEFAULT_DAILY_ENCOURAGEMENTS.find((q) => q.id === quoteId) || this.DEFAULT_DAILY_ENCOURAGEMENTS[0];
+    const title = `⭐ Semangat Murojaah Hari Ini (${quote.tagLabel})`;
+    const body = customMessage || `${quote.encouragementMessage} — "${quote.translationIndo}" (${quote.source})`;
+
+    // Trigger browser notification if supported and granted
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body: body.length > 140 ? body.slice(0, 137) + '...' : body,
+          icon: '/favicon.ico',
+        });
+      } catch (e) {
+        console.warn('Native notification trigger error', e);
+      }
+    }
+
+    // Update settings counter
+    const settings = this.getDailyPushSettings();
+    settings.lastSentAt = new Date().toISOString();
+    settings.totalNotificationsSent = (settings.totalNotificationsSent || 0) + 1;
+    this.saveDailyPushSettings(settings);
+
+    // Save as an active published broadcast item so it displays on user devices
+    this.saveBroadcastAnnouncement({
+      id: `bc-daily-push-${Date.now()}`,
+      title,
+      category: 'daily_encouragement',
+      audience: targetAudience as any,
+      content: body,
+      badge: 'Penyemangat Harian ✨',
+      priority: 'high',
+      mediaType: 'none',
+      actionLabel: 'Mulai Murojaah Sekarang',
+      actionTarget: 'tahfiz',
+      isPushNotification: true,
+      isDailyEncouragement: true,
+      status: 'published',
+      authorAdmin: 'Sistem Pengingat Harian',
+    });
+
+    this.addAdminAuditLog({
+      action: 'send_push_notification',
+      adminName: 'Admin Syiar',
+      description: `Mengirim push notification penyemangat harian: "${quote.tagLabel} - ${quote.source}" ke audiens "${targetAudience}"`,
+    });
+
+    return {
+      success: true,
+      notificationTitle: title,
+      notificationBody: body,
+    };
+  }
+
+  public static getUnreadBroadcasts(): BroadcastAnnouncement[] {
+    const all = this.getBroadcastAnnouncements().filter((b) => b.status === 'published');
+    if (typeof window === 'undefined') return all;
+    try {
+      const readIds = JSON.parse(localStorage.getItem(STORAGE_KEYS.READ_BROADCAST_IDS) || '[]') as string[];
+      return all.filter((b) => !readIds.includes(b.id));
+    } catch {
+      return all;
+    }
+  }
+
+  public static markBroadcastAsRead(broadcastId: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const readIds = JSON.parse(localStorage.getItem(STORAGE_KEYS.READ_BROADCAST_IDS) || '[]') as string[];
+      if (!readIds.includes(broadcastId)) {
+        readIds.push(broadcastId);
+        localStorage.setItem(STORAGE_KEYS.READ_BROADCAST_IDS, JSON.stringify(readIds));
+      }
+    } catch (e) {
+      console.warn('Failed to mark broadcast as read', e);
     }
   }
 }
