@@ -145,7 +145,8 @@ export const RiwayatEvaluasiModal: React.FC<RiwayatEvaluasiModalProps> = ({
 
     const audioUrl = await AudioDatabaseService.getAudioUrl(rec.id, rec.audioDataUrl || rec.audioBlobUrl);
     if (!audioUrl) {
-      alert('File rekaman tidak ditemukan atau telah kedaluwarsa.');
+      setCleanupNotice('File rekaman tidak ditemukan atau telah kedaluwarsa.');
+      setTimeout(() => setCleanupNotice(null), 3500);
       return;
     }
 

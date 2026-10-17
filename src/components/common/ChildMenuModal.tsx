@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ChildProfile, UserAccount } from '../../types';
 import { getLevelForXp } from '../../data/levelsAndAchievements';
+import { StorageService } from '../../services/storageService';
 
 interface ChildMenuModalProps {
   isOpen: boolean;
@@ -130,6 +131,30 @@ export const ChildMenuModal: React.FC<ChildMenuModalProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Medali Digital Bar */}
+            {(() => {
+              const badges = StorageService.getChildBadges(activeChild.id);
+              const sessions = StorageService.getFullSessionsCount(activeChild.id);
+              return (
+                <div className="p-2.5 bg-white/90 border border-amber-300 rounded-2xl flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🏅</span>
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-amber-900 block">
+                        Medali Digital Sesi Hafalan
+                      </span>
+                      <span className="text-xs font-bold text-slate-800">
+                        {badges.length > 0 ? `${badges.length} Medali Terbuka` : 'Menuju Medali Pertama'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                    {sessions} Sesi Selesai
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* 2. Switch Child Profile List */}

@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { Sparkles, CheckCircle2, HelpCircle, BookOpen, Star, Volume2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Sparkles, CheckCircle2, HelpCircle, BookOpen, Star, Volume2, Loader2 } from 'lucide-react';
 import { TAJWID_CURRICULUM } from '../../data/tajwidData';
 import { StorageService } from '../../services/storageService';
 import { CompanionService } from '../../services/companionService';
+import { GlobalAudioManager } from '../../services/audioService';
+import { SoundEffects } from '../../services/soundEffects';
+import { SURAHS_METADATA } from '../../data/surahsMetadata';
+import { getAyahAudioUrl } from '../../data/recitersData';
 import { TajwidTopic } from '../../types';
 import { Button } from '../common/Button';
 
@@ -17,6 +21,10 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
     StorageService.getCompletedTajwid(childId)
   );
 
+  // Audio Playback for Tajwid Examples
+  const [playingExampleIdx, setPlayingExampleIdx] = useState<number | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Mini quiz state per topic
   const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
   const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
@@ -24,9 +32,58 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
   const activeTopic = TAJWID_CURRICULUM.find((t) => t.id === selectedTopicId) || TAJWID_CURRICULUM[0];
 
   const handleSelectTopic = (id: string) => {
+    stopCurrentAudio();
     setSelectedTopicId(id);
     setSelectedQuizOption(null);
     setQuizSubmitted(false);
+  };
+
+  const stopCurrentAudio = () => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    setPlayingExampleIdx(null);
+  };
+
+  const playExampleAudio = (ex: { surahName: string; ayahNumber: number }, idx: number) => {
+    if (playingExampleIdx === idx) {
+      stopCurrentAudio();
+      return;
+    }
+
+    stopCurrentAudio();
+    GlobalAudioManager.stopAll();
+
+    // Find surahNumber
+    const cleanName = ex.surahName.toLowerCase().replace(/[^a-z]/g, '');
+    const surah = SURAHS_METADATA.find(
+      (s) => s.nameLatin.toLowerCase().replace(/[^a-z]/g, '').includes(cleanName) ||
+             cleanName.includes(s.nameLatin.toLowerCase().replace(/[^a-z]/g, ''))
+    );
+    const surahNum = surah ? surah.number : 113;
+
+    const audioUrl = getAyahAudioUrl('husary', surahNum, ex.ayahNumber);
+    const audio = new Audio(audioUrl);
+    activeAudioRef.current = audio;
+    GlobalAudioManager.registerRawAudio(audio);
+    setPlayingExampleIdx(idx);
+
+    audio.onended = () => {
+      setPlayingExampleIdx(null);
+      activeAudioRef.current = null;
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
+
+    audio.onerror = () => {
+      setPlayingExampleIdx(null);
+      activeAudioRef.current = null;
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
+
+    audio.play().catch(() => {
+      setPlayingExampleIdx(null);
+    });
   };
 
   const handleAnswerQuiz = (index: number) => {
@@ -35,6 +92,8 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
     setQuizSubmitted(true);
 
     if (index === activeTopic.quiz.correctIndex) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       StorageService.markTajwidCompleted(childId, activeTopic.id);
       setCompletedTopicIds(StorageService.getCompletedTajwid(childId));
       CompanionService.recordActivity(
@@ -44,6 +103,8 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
         3,
         `Latihan Tajwid: ${activeTopic.name}`
       );
+    } else {
+      SoundEffects.playWrongSound();
     }
   };
 
@@ -130,27 +191,48 @@ export const TajwidModule: React.FC<TajwidModuleProps> = ({ childId, onBack }) =
             CONTOH DALAM AL-QUR'AN:
           </span>
 
-          {activeTopic.examples.map((ex, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-2xl bg-[#FFF9F5] border border-orange-200/80 space-y-1"
-            >
-              <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
-                <span>
-                  Surah {ex.surahName} : Ayat {ex.ayahNumber}
-                </span>
-                <span className="text-orange-600 font-quran font-bold">
-                  {ex.highlight}
-                </span>
+          {activeTopic.examples.map((ex, idx) => {
+            const isPlaying = playingExampleIdx === idx;
+            return (
+              <div
+                key={idx}
+                className={`p-3.5 rounded-2xl transition-all border ${
+                  isPlaying
+                    ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-200'
+                    : 'bg-[#FFF9F5] border-orange-200/80'
+                } space-y-1.5`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold text-[#8C9BA7]">
+                  <span className="flex items-center gap-1.5">
+                    <span>Surah {ex.surahName} : Ayat {ex.ayahNumber}</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-600 font-quran font-bold text-sm bg-orange-100/70 px-2 py-0.5 rounded-md">
+                      {ex.highlight}
+                    </span>
+                    <button
+                      onClick={() => playExampleAudio(ex, idx)}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 cursor-pointer transition-all ${
+                        isPlaying
+                          ? 'bg-amber-500 text-slate-950 animate-pulse'
+                          : 'bg-white hover:bg-orange-100 text-[#164C68] border border-orange-200'
+                      }`}
+                      title="Dengarkan pengucapan hukum tajwid ini"
+                    >
+                      <Volume2 size={13} className={isPlaying ? 'text-slate-950' : 'text-orange-500'} />
+                      <span>{isPlaying ? 'Memutar...' : 'Dengar'}</span>
+                    </button>
+                  </div>
+                </div>
+                <p dir="rtl" className="font-quran text-2xl text-[#164C68] text-right py-1 leading-loose">
+                  {ex.arabicText}
+                </p>
+                <p className="text-[11px] text-[#8C9BA7] font-medium">
+                  {ex.explanation}
+                </p>
               </div>
-              <p dir="rtl" className="font-quran text-2xl text-[#164C68] text-right py-1">
-                {ex.arabicText}
-              </p>
-              <p className="text-[11px] text-[#8C9BA7] font-medium">
-                {ex.explanation}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Interactive Mini Quiz */}

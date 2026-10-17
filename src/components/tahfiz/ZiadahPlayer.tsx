@@ -21,10 +21,11 @@ import {
   getActiveWordIndexFromProgress,
 } from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
-import { AyahData, MemorizationBlock } from '../../types';
+import { AyahData, MemorizationBlock, AchievementBadge } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
+import { ZiadahSessionCelebration } from './ZiadahSessionCelebration';
 import { CompanionService } from '../../services/companionService';
 import { SubtleCompanionReaction } from '../companion/SubtleCompanionReaction';
 
@@ -56,8 +57,14 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
   const [progressInfo, setProgressInfo] = useState<AudioProgressInfo | null>(null);
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
 
-  // Reward modal state
+  // Reward modal state (per block)
   const [rewardModalOpen, setRewardModalOpen] = useState<boolean>(false);
+  // Full session celebration modal state
+  const [sessionCelebrationOpen, setSessionCelebrationOpen] = useState<boolean>(false);
+  const [unlockedSessionBadge, setUnlockedSessionBadge] = useState<AchievementBadge | null>(null);
+  const [badgeMilestoneInfo, setBadgeMilestoneInfo] = useState(() =>
+    StorageService.getBadgeProgressInfo(childId)
+  );
   const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
   const companion = CompanionService.getCompanionData(childId);
   const [rewardData, setRewardData] = useState<{ stars: number; xp: number; title: string; message: string }>({
@@ -74,10 +81,38 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
   const currentAyahIndexRef = useRef<number>(0);
   currentAyahIndexRef.current = currentAyahIndex;
 
+  const currentBlockIndexRef = useRef<number>(0);
+  currentBlockIndexRef.current = currentBlockIndex;
+
+  // Ref to trigger session completion from player audio callbacks
+  const triggerSessionCompletionRef = useRef<() => void>(() => {});
+
+  const triggerSessionCompletion = () => {
+    playerRef.current?.pause();
+    const result = StorageService.recordCompletedFullSession(
+      childId,
+      surahNumber,
+      selectedBlocks.length
+    );
+    if (result.newBadgeUnlocked) {
+      setUnlockedSessionBadge(result.newBadgeUnlocked);
+    } else {
+      setUnlockedSessionBadge(null);
+    }
+    setBadgeMilestoneInfo(StorageService.getBadgeProgressInfo(childId));
+    setSessionCelebrationOpen(true);
+  };
+  triggerSessionCompletionRef.current = triggerSessionCompletion;
+
   const activeBlock = selectedBlocks[currentBlockIndex] || selectedBlocks[0];
   const surahMeta = useMemo(() => {
     return SURAHS_METADATA.find((s) => s.number === surahNumber) || SURAHS_METADATA[0];
   }, [surahNumber]);
+
+  // Total Ayahs across all selected blocks in the session
+  const totalAyahsInSession = useMemo(() => {
+    return selectedBlocks.reduce((acc, b) => acc + (b.endAyah - b.startAyah + 1), 0);
+  }, [selectedBlocks]);
 
   // Initialize Player once on mount
   useEffect(() => {
@@ -100,6 +135,13 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
         setCurrentAyahIndex(idx);
         setActiveWordIndex(null);
         setCompanionPulseTrigger((prev) => prev + 1);
+      }
+    };
+    player.onBlockCycleComplete = (completedCount) => {
+      if (blockRepeats !== -1 && completedCount >= blockRepeats) {
+        if (currentBlockIndexRef.current >= selectedBlocks.length - 1) {
+          triggerSessionCompletionRef.current();
+        }
       }
     };
 
@@ -223,10 +265,29 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
   const handleNextAfterReward = () => {
     setRewardModalOpen(false);
     if (currentBlockIndex < selectedBlocks.length - 1) {
-      setCurrentBlockIndex((prev) => prev + 1);
+      const nextIdx = currentBlockIndex + 1;
+      setCurrentBlockIndex(nextIdx);
+      currentBlockIndexRef.current = nextIdx;
     } else {
-      onFinishSession();
+      // Completed all blocks in session! Pop celebration confetti & check digital medal!
+      triggerSessionCompletion();
     }
+  };
+
+  const handleRepeatSession = () => {
+    setSessionCelebrationOpen(false);
+    setCurrentBlockIndex(0);
+    currentBlockIndexRef.current = 0;
+    setCurrentAyahIndex(0);
+    setActiveWordIndex(null);
+    if (playerRef.current && selectedBlocks[0]) {
+      playerRef.current.jumpToAyah(selectedBlocks[0].startAyah);
+    }
+  };
+
+  const handleFinishSessionCelebration = () => {
+    setSessionCelebrationOpen(false);
+    onFinishSession();
   };
 
   const totalBlocks = selectedBlocks.length;
@@ -421,7 +482,7 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
         Sudah Hafal Blok Ini
       </Button>
 
-      {/* Celebratory Reward Modal */}
+      {/* Celebratory Reward Modal (Per Block) */}
       <RewardModal
         isOpen={rewardModalOpen}
         onClose={() => setRewardModalOpen(false)}
@@ -429,8 +490,39 @@ export const ZiadahPlayer: React.FC<ZiadahPlayerProps> = ({
         message={rewardData.message}
         starsEarned={rewardData.stars}
         xpEarned={rewardData.xp}
-        nextLabel={currentBlockIndex < selectedBlocks.length - 1 ? 'Lanjut Blok Berikutnya' : 'Selesai Latihan'}
+        nextLabel={currentBlockIndex < selectedBlocks.length - 1 ? 'Lanjut Blok Berikutnya' : 'Lihat Hasil Sesi'}
         onNext={handleNextAfterReward}
+      />
+
+      {/* Sesi Hafalan Penuh: Perayaan Confetti & Fanfare */}
+      <ZiadahSessionCelebration
+        isOpen={sessionCelebrationOpen}
+        onClose={() => setSessionCelebrationOpen(false)}
+        surahName={surahMeta.nameLatin}
+        totalBlocks={selectedBlocks.length}
+        totalAyahs={totalAyahsInSession}
+        starsEarned={selectedBlocks.length * 5 + (unlockedSessionBadge ? 15 : 0)}
+        xpEarned={selectedBlocks.length * 25 + (unlockedSessionBadge ? 50 : 0)}
+        companionName={companion.name}
+        companionAvatar={
+          companion.species === 'kibo'
+            ? '🐱'
+            : companion.species === 'fajr'
+            ? '🕊️'
+            : companion.species === 'buraq'
+            ? '🦄'
+            : companion.species === 'dino'
+            ? '🦖'
+            : '🌟'
+        }
+        totalSessionsCount={badgeMilestoneInfo.totalSessions}
+        newBadgeUnlocked={unlockedSessionBadge}
+        nextMedalTitle={badgeMilestoneInfo.nextMedal.title}
+        nextMedalIcon={badgeMilestoneInfo.nextMedal.icon}
+        sessionsUntilNextMedal={badgeMilestoneInfo.remaining}
+        progressToNextMedalPercent={badgeMilestoneInfo.progressPercent}
+        onRepeatSession={handleRepeatSession}
+        onFinish={handleFinishSessionCelebration}
       />
 
       {/* Subtle Companion Presence in corner (never intrusive) */}

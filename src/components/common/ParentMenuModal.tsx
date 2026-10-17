@@ -17,6 +17,7 @@ import {
   Smartphone,
   Phone,
   Gift,
+  Calendar,
 } from 'lucide-react';
 import { UserAccount, AccountTier, ChildProfile } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -35,6 +36,8 @@ interface ParentMenuModalProps {
   onOpenAffiliateModal?: () => void;
   onNavigateToAkunTab: () => void;
   onAccountUpdated: (account: UserAccount) => void;
+  onOpenCalendar?: () => void;
+  onOpenAdminPortal?: () => void;
 }
 
 export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
@@ -51,6 +54,8 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
   onOpenAffiliateModal,
   onNavigateToAkunTab,
   onAccountUpdated,
+  onOpenCalendar,
+  onOpenAdminPortal,
 }) => {
   if (!isOpen) return null;
 
@@ -302,6 +307,37 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
               <ChevronRight size={16} className="text-slate-400 group-hover:text-[#164C68] shrink-0" />
             </button>
 
+            {/* Kalender & Evaluasi Santri */}
+            {onOpenCalendar && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenCalendar();
+                }}
+                className="w-full p-3 rounded-2xl bg-white hover:bg-teal-50/50 border-2 border-[#C9E1ED] hover:border-teal-700 flex items-center justify-between text-left transition-all cursor-pointer shadow-2xs group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 group-hover:bg-teal-700 group-hover:text-white flex items-center justify-center shrink-0 transition-colors shadow-2xs">
+                    <Calendar size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black text-[#164C68]">
+                        Kalender & Evaluasi Santri
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-teal-100 text-teal-800">
+                        Adab & Ujian
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                      Daily task adab, target custom, & jadwal ujian hafalan
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-400 group-hover:text-[#164C68] shrink-0" />
+              </button>
+            )}
+
             {/* Saldo Token AI Guru & Topup */}
             {onOpenAiTokens && (
               <button
@@ -392,6 +428,39 @@ export const ParentMenuModal: React.FC<ParentMenuModalProps> = ({
                 <ChevronRight size={16} className="text-emerald-600 shrink-0" />
               </button>
             )}
+
+            {/* Portal Master Admin Yayasan */}
+            <button
+              onClick={() => {
+                onClose();
+                if (onOpenAdminPortal) {
+                  onOpenAdminPortal();
+                } else if (typeof window !== 'undefined') {
+                  window.location.hash = '#/admin';
+                }
+              }}
+              className="w-full p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between text-left transition-all cursor-pointer shadow-xs group"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 font-bold text-lg">
+                  🔐
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black text-amber-300">
+                      Portal Admin & Pengurus
+                    </span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold">
+                      2FA
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 font-medium truncate mt-0.5">
+                    Verifikasi Pembayaran, Laporan Omset & Raport Santri
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-amber-400 shrink-0" />
+            </button>
           </div>
 
           {/* ======================================================== */}

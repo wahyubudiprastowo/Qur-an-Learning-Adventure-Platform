@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
-import { Headphones, Mic, Award, Play, ChevronRight, Sparkles, BookOpen } from 'lucide-react';
+import {
+  Headphones,
+  Mic,
+  Award,
+  Play,
+  ChevronRight,
+  Sparkles,
+  BookOpen,
+  Target,
+  Calendar as CalendarIcon,
+  Check,
+} from 'lucide-react';
 import { ChildProfile } from '../../types';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
+import { StorageService } from '../../services/storageService';
 import { CardShareButton } from '../common/CardShareButton';
 import { ShareModal } from '../common/ShareModal';
 
@@ -17,6 +29,9 @@ interface TahfizHomeProps {
   };
   onSelectStep: (step: 'dengar' | 'latihan' | 'hafalan') => void;
   onResumeLastSession: () => void;
+  onOpenCalendar?: () => void;
+  onOpenSmartGoalWizard?: () => void;
+  onStartPortion?: (surahNumber: number) => void;
 }
 
 export const TahfizHome: React.FC<TahfizHomeProps> = ({
@@ -24,8 +39,17 @@ export const TahfizHome: React.FC<TahfizHomeProps> = ({
   lastSession,
   onSelectStep,
   onResumeLastSession,
+  onOpenCalendar,
+  onOpenSmartGoalWizard,
+  onStartPortion,
 }) => {
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const activeSmartGoal = StorageService.getActiveSmartGoal(activeChild.id);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayPortion =
+    activeSmartGoal?.dailyPortions && Array.isArray(activeSmartGoal.dailyPortions)
+      ? activeSmartGoal.dailyPortions.find((p) => p.date === todayStr) || activeSmartGoal.dailyPortions[0]
+      : undefined;
 
   return (
     <div className="space-y-4 pb-20 animate-in fade-in duration-200">
@@ -81,6 +105,110 @@ export const TahfizHome: React.FC<TahfizHomeProps> = ({
           <Play size={26} className="fill-[#FF7A50] ml-1" />
         </button>
       </div>
+
+      {/* Smart Goal Sepekan & Porsi Hari Ini */}
+      {activeSmartGoal ? (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-4.5 shadow-md border-2 border-amber-300 space-y-3 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎯</span>
+              <div>
+                <h4 className="text-sm font-black font-heading tracking-tight">
+                  Smart Goal: {activeSmartGoal.title}
+                </h4>
+                <p className="text-[11px] text-amber-100 font-medium">
+                  {activeSmartGoal.completedAyatCount} dari {activeSmartGoal.totalAyat} Ayat Tuntas • Intensitas {activeSmartGoal.intensityLevel}
+                </p>
+              </div>
+            </div>
+            {onOpenCalendar && (
+              <button
+                onClick={onOpenCalendar}
+                className="px-2.5 py-1 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <CalendarIcon size={12} />
+                <span>Kalender</span>
+              </button>
+            )}
+          </div>
+
+          {todayPortion && (
+            <div className="p-3 bg-white text-slate-900 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs border border-amber-200">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                    Porsi Hari Ini ({todayPortion.dayName})
+                  </span>
+                  {todayPortion.isCompleted ? (
+                    <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check size={11} /> Selesai (+{todayPortion.starsReward} ⭐)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                      Target (+{todayPortion.starsReward} ⭐)
+                    </span>
+                  )}
+                </div>
+                <h5 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                  {todayPortion.title}
+                </h5>
+                <p className="text-[11px] text-slate-500 font-medium truncate">
+                  {todayPortion.notes} • ~{todayPortion.estimatedMinutes} menit
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {todayPortion.type !== 'istirahat' && (
+                  <button
+                    onClick={() => {
+                      if (onStartPortion) {
+                        onStartPortion(todayPortion.surahNumber);
+                      } else {
+                        onSelectStep('latihan');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <BookOpen size={13} />
+                    <span>Latih Sekarang ➔</span>
+                  </button>
+                )}
+                {onOpenSmartGoalWizard && (
+                  <button
+                    onClick={onOpenSmartGoalWizard}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 cursor-pointer rounded-lg hover:bg-slate-100"
+                    title="Ganti Target Sepekan"
+                  >
+                    <Target size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-2xl">🎯</span>
+            <div>
+              <h4 className="text-xs font-black text-amber-950">
+                Belum Menetapkan Target Hafalan Pekanan?
+              </h4>
+              <p className="text-[11px] text-amber-800 font-medium">
+                Pasang Smart Goal agar otomatis dipecah ke kalender harian anak.
+              </p>
+            </div>
+          </div>
+          {onOpenSmartGoalWizard && (
+            <button
+              onClick={onOpenSmartGoalWizard}
+              className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-xs cursor-pointer active:scale-95 shrink-0"
+            >
+              Pasang Target ➔
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 3 Sequential Steps Section */}
       <div className="space-y-3">

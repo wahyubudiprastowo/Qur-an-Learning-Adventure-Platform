@@ -85,6 +85,21 @@ class NotificationServiceManager {
     }
   }
 
+  // Detect whether running inside an installed Android Launcher App (PWA / Standalone / WebAPK)
+  public isAndroidLauncher(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches ||
+        (window.navigator as any).standalone === true ||
+        (document.referrer && document.referrer.includes('android-app://'));
+      return !!isStandalone;
+    } catch {
+      return false;
+    }
+  }
+
   // Get stored reminders or defaults
   public getReminders(): ReminderSchedule[] {
     if (typeof window === 'undefined') return DEFAULT_REMINDERS;
@@ -193,30 +208,47 @@ class NotificationServiceManager {
       } catch {}
     });
 
-    // 3. Dispatch native browser notification
+    // 3. Dispatch native browser & Android launcher notification
     const title = isTest ? `[Uji Coba] ${reminder.title}` : reminder.title;
-    const options: NotificationOptions & { renotify?: boolean } = {
+    const options: NotificationOptions & {
+      renotify?: boolean;
+      vibrate?: number[];
+      actions?: { action: string; title: string }[];
+    } = {
       body: reminder.body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      tag: reminder.tag,
+      tag: reminder.tag || `reminder-${reminder.id}`,
       renotify: true,
-      requireInteraction: false,
+      requireInteraction: true,
+      vibrate: [200, 100, 200, 100, 200],
       data: {
-        url: '/',
+        url: reminder.id.includes('calendar') || reminder.id.includes('adab') ? '/#calendar' : '/#murojaah',
         reminderId: reminder.id,
       },
+      actions: [
+        { action: 'open_murojaah', title: '📖 Buka Murojaah' },
+        { action: 'view_calendar', title: '📅 Cek Kalender Santri' },
+      ],
     };
 
-    // Try service worker registration first (works better on mobile PWA)
+    // Try service worker registration first (ensures push arrives when installed on Android Launcher)
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.getRegistration();
+        let reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) {
+          reg = await navigator.serviceWorker.register('/sw.js');
+        }
         if (reg && reg.showNotification) {
           await reg.showNotification(title, options);
+          if ('setAppBadge' in navigator) {
+            (navigator as any).setAppBadge(1).catch(() => {});
+          }
           return true;
         }
-      } catch {}
+      } catch (err) {
+        console.warn('SW notification fallback note:', err);
+      }
     }
 
     // Fallback to standard Notification constructor
@@ -231,6 +263,72 @@ class NotificationServiceManager {
       } catch {
         return false;
       }
+    }
+
+    return false;
+  }
+
+  // Explicit Android Launcher Push Notification Trigger
+  public async triggerAndroidPushNotification(
+    title: string,
+    body: string,
+    targetUrl: string = '/#calendar'
+  ): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+
+    this.playChimeSound();
+
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      try {
+        await Notification.requestPermission();
+      } catch {}
+    }
+
+    const options: any = {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: `android-launcher-push-${Date.now()}`,
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [250, 100, 250, 100, 250],
+      data: {
+        url: targetUrl,
+      },
+      actions: [
+        { action: 'view_calendar', title: '📅 Cek Agenda Santri' },
+        { action: 'open_murojaah', title: '📖 Lanjut Murojaah' },
+      ],
+    };
+
+    if ('serviceWorker' in navigator) {
+      try {
+        let reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) {
+          reg = await navigator.serviceWorker.register('/sw.js');
+        }
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, options);
+          if ('setAppBadge' in navigator) {
+            (navigator as any).setAppBadge(1).catch(() => {});
+          }
+          return true;
+        }
+      } catch (e) {
+        console.warn('SW push error:', e);
+      }
+    }
+
+    if (this.isSupported() && Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(title, options);
+        notif.onclick = () => {
+          window.focus();
+          window.location.hash = targetUrl.replace('/', '');
+          notif.close();
+        };
+        return true;
+      } catch {}
     }
 
     return false;

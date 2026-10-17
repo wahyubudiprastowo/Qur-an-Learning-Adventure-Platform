@@ -15,6 +15,9 @@ import {
   BarChart3,
   Trophy,
   Crown,
+  Target,
+  Calendar as CalendarIcon,
+  Check,
 } from 'lucide-react';
 import { ChildProfile, ChildBlockProgress, ChildAyahProgress, UserAccount } from '../../types';
 import { CompanionData } from '../../types/companion';
@@ -52,6 +55,8 @@ interface BerandaHomeProps {
   onOpenPlanModal?: () => void;
   onOpenIbadahModal?: (tab?: 'jadwal' | 'adab' | 'doa' | 'tasbih' | 'notifikasi') => void;
   onOpenStarShop?: () => void;
+  onOpenCalendar?: () => void;
+  onOpenSmartGoalWizard?: () => void;
 }
 
 export const BerandaHome: React.FC<BerandaHomeProps> = ({
@@ -72,6 +77,8 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   onOpenPlanModal,
   onOpenIbadahModal,
   onOpenStarShop,
+  onOpenCalendar,
+  onOpenSmartGoalWizard,
 }) => {
   const [showWeeklyModal, setShowWeeklyModal] = useState<boolean>(false);
   const memorizedBlocksCount = blockProgressList.filter((b) => b.state === 'MEMORIZED').length;
@@ -83,6 +90,16 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
   const adabTasks = AdabService.getDailyTasks(child.id);
   const completedAdabCount = AdabService.getCompletedCount(adabTasks);
   const isPro = userAccount?.planTier === 'pro' || userAccount?.entitlement === 'active' || userAccount?.entitlement === 'trial';
+
+  const activeSmartGoal = StorageService.getActiveSmartGoal(child.id);
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayPortion =
+    activeSmartGoal?.dailyPortions && Array.isArray(activeSmartGoal.dailyPortions)
+      ? activeSmartGoal.dailyPortions.find((p) => p.date === todayDateStr) || activeSmartGoal.dailyPortions[0]
+      : undefined;
+  const percentComplete = activeSmartGoal && activeSmartGoal.totalAyat > 0
+    ? Math.round((activeSmartGoal.completedAyatCount / activeSmartGoal.totalAyat) * 100)
+    : 0;
 
   return (
     <div className="pb-24 animate-in fade-in duration-200">
@@ -102,6 +119,151 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
             onOpenStarShop={onOpenStarShop}
             onOpenUpgradeModal={onOpenPlanModal}
           />
+
+          {/* 🎯 SMART GOAL: Target Hafalan Mingguan & Porsi Harian Kalender Interaktif */}
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-3xl p-5 shadow-md shadow-orange-950/20 border-2 border-amber-300 relative overflow-hidden space-y-3.5">
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs text-white flex items-center justify-center text-xl shadow-inner shrink-0">
+                  🎯
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-black font-heading tracking-tight">
+                      Target Hafalan Sepekan (Smart Goal)
+                    </h3>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white text-orange-950 shadow-2xs">
+                      Porsi Harian Otomatis
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-100 font-medium mt-0.5">
+                    Target mingguan dipecah ke jadwal kalender harian anak
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {onOpenCalendar && (
+                  <button
+                    onClick={onOpenCalendar}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all cursor-pointer shadow-2xs backdrop-blur-xs"
+                    title="Buka Kalender Hafalan"
+                  >
+                    <CalendarIcon size={14} />
+                    <span className="hidden sm:inline">Kalender</span>
+                  </button>
+                )}
+                {onOpenSmartGoalWizard && (
+                  <button
+                    onClick={onOpenSmartGoalWizard}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white text-orange-950 hover:bg-amber-50 text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <span>{activeSmartGoal ? 'Ganti Target ⚙️' : 'Pasang Target 🎯'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {activeSmartGoal ? (
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-4 border border-white/20 space-y-3 relative z-10">
+                {/* Title and Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-extrabold text-white font-heading truncate max-w-[70%]">
+                      {activeSmartGoal.title}
+                    </span>
+                    <span className="font-bold text-amber-200 shrink-0">
+                      {activeSmartGoal.completedAyatCount} / {activeSmartGoal.totalAyat} Ayat ({percentComplete}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-black/20 h-2.5 rounded-full overflow-hidden p-0.5">
+                    <div
+                      className="bg-gradient-to-r from-yellow-300 to-amber-200 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(4, Math.min(100, percentComplete))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Today's Daily Portion Breakdown Highlight */}
+                {todayPortion && (
+                  <div className="bg-white text-slate-900 rounded-xl p-3.5 shadow-sm space-y-2 border border-amber-200/60">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md">
+                          Porsi Hari Ini ({todayPortion.dayName})
+                        </span>
+                        {todayPortion.isCompleted ? (
+                          <span className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check size={11} /> Tuntas (+{todayPortion.starsReward} ⭐)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">
+                            ⏳ Target Hari Ini (+{todayPortion.starsReward} ⭐)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        ⏱️ ~{todayPortion.estimatedMinutes} Menit
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                          {todayPortion.title}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-medium truncate">
+                          {todayPortion.notes}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {todayPortion.type !== 'istirahat' && (
+                          <button
+                            onClick={() => onNavigateToModule('ziadah')}
+                            className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-black flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                          >
+                            <BookOpen size={13} />
+                            <span>Hafal Porsi Ini ➔</span>
+                          </button>
+                        )}
+                        {onOpenCalendar && (
+                          <button
+                            onClick={onOpenCalendar}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition-all"
+                          >
+                            Jadwal Pekanan 📅
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Promised reward note */}
+                {activeSmartGoal.rewardDescription && (
+                  <p className="text-[11px] text-amber-100 font-medium flex items-center gap-1.5">
+                    <span>🎁</span>
+                    <span><strong>Hadiah Orang Tua:</strong> {activeSmartGoal.rewardDescription}</span>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-4 border border-white/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left relative z-10">
+                <p className="text-xs text-amber-100 font-medium leading-relaxed">
+                  Belum punya target sepekan? Pasang surah targetmu sekarang! Sistem pintar akan membaginya ke porsi latihan harian yang seimbang.
+                </p>
+                {onOpenSmartGoalWizard && (
+                  <button
+                    onClick={onOpenSmartGoalWizard}
+                    className="px-4 py-2 rounded-xl bg-white text-orange-950 font-black text-xs shadow-md hover:bg-amber-50 cursor-pointer active:scale-95 transition-all shrink-0"
+                  >
+                    Pasang Target Sekarang ➔
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* 2. Current Memorization Multi-Metric Grid & Weekly Report Preview */}
           <div className="space-y-2.5">
@@ -273,7 +435,41 @@ export const BerandaHome: React.FC<BerandaHomeProps> = ({
               >
                 📿 Tasbih Digital
               </button>
+              {onOpenCalendar && (
+                <button
+                  onClick={onOpenCalendar}
+                  className="py-1 px-2.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-[11px] font-black whitespace-nowrap cursor-pointer transition-all shadow-xs"
+                >
+                  📅 Kalender Santri
+                </button>
+              )}
             </div>
+
+            {/* Kalender & Evaluasi Santri Quick Banner */}
+            {onOpenCalendar && (
+              <div
+                onClick={onOpenCalendar}
+                className="mt-3 p-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/25 cursor-pointer transition-all flex items-center justify-between gap-3 text-white shadow-2xs group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                    📅
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-black block truncate text-amber-200">
+                      🎯 Smart Goal & Kalender Progres Santri
+                    </span>
+                    <span className="text-[10px] text-teal-100 font-medium truncate block">
+                      Target Mingguan Otomatis, Daily Adab & Jadwal Ujian Hafalan
+                    </span>
+                  </div>
+                </div>
+
+                <span className="px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-[10px] font-black shrink-0 shadow-xs">
+                  Buka Kalender ➔
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

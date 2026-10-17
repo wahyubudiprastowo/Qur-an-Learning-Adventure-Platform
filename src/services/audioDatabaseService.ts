@@ -251,7 +251,7 @@ export class AudioDatabaseService {
     try {
       const blob = await this.getAudioBlob(rec.id, rec.audioDataUrl || rec.audioBlobUrl);
       if (!blob) {
-        alert('File audio tidak ditemukan di memori perangkat.');
+        console.warn('File audio tidak ditemukan di memori perangkat.');
         return false;
       }
 
@@ -275,7 +275,6 @@ export class AudioDatabaseService {
       return true;
     } catch (err) {
       console.error('Failed to download audio file:', err);
-      alert('Gagal mengunduh berkas audio.');
       return false;
     }
   }

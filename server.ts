@@ -1,8 +1,11 @@
 import express from 'express';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
+import { DUEL_QUESTIONS_CATALOG } from './src/data/duelQuestionsData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +13,7 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
+  const server = http.createServer(app);
 
   // JSON Body Parser for Base64 Audio and Tahfiz Metadata
   app.use(express.json({ limit: '15mb' }));
@@ -437,6 +441,552 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
     });
   });
 
+  // Natural User Bot Catalog (Realistic Indonesian Santri Peers)
+  const NATURAL_USER_BOTS = [
+    { name: 'Zaidan Al-Fatih', avatar: '👦', school: 'TPQ Al-Ikhlas Bandung', badge: 'Pendekar Hafiz', baseSpeed: 3800 },
+    { name: 'Maryam Salsabila', avatar: '🧕', school: 'Rumah Tahfiz Ar-Rahman Jogja', badge: 'Jawara Tartil', baseSpeed: 3500 },
+    { name: 'Kenzi Hafiz', avatar: '👦', school: 'SDIT Insan Kamil Malang', badge: 'Bintang Qur\'an', baseSpeed: 4200 },
+    { name: 'Fatimah Azzahra', avatar: '🧕', school: 'Kuttab Al-Fatih Jakarta', badge: 'Ksatria Mutqin', baseSpeed: 3200 },
+    { name: 'Raihan El-Bukhari', avatar: '👳', school: 'Pesantren Cilik Cirebon', badge: 'Muhaffizh Muda', baseSpeed: 3600 },
+    { name: 'Nadia Tartila', avatar: '🧕', school: 'MI Pembangunan Surabaya', badge: 'Duta Tilawah', baseSpeed: 4000 },
+    { name: 'Ibrahim As-Suyuthi', avatar: '👦', school: 'TPQ Nurul Huda Medan', badge: 'Penjaga Ayat', baseSpeed: 3900 },
+    { name: 'Salwa Al-Husna', avatar: '🧕', school: 'Rumah Qur\'an Semarang', badge: 'Bintang Murojaah', baseSpeed: 4100 },
+    { name: 'Ahmad Bilal', avatar: '👦', school: 'SDIT Sahabat Qur\'an Solo', badge: 'Hafiz Cilik', baseSpeed: 4300 },
+    { name: 'Aisyah Humaira', avatar: '🧕', school: 'TPQ Baitul Mal Tangerang', badge: 'Jawara Tartil', baseSpeed: 3700 },
+  ];
+
+  // --- API: Weekly Duel Leaderboard with Dynamic Natural User Bot Calibration ---
+  // Mandatory Rule: Natural user bots are NEVER more than 4 ranks above the santri!
+  // This keeps the santri within arm's reach of the podium and highly motivated!
+  app.get('/api/duel/leaderboard', (req, res) => {
+    const playerName = (req.query.playerName as string) || 'Santri Bintang';
+    const playerAvatar = (req.query.playerAvatar as string) || '👦';
+    const rawScore = parseInt(req.query.score as string, 10);
+    const playerScore = Number.isFinite(rawScore) && rawScore > 0 ? rawScore : 260;
+    const playerSchool = (req.query.schoolName as string) || 'Rumah Tahfiz Al-Qur\'an';
+
+    // Santri target rank is at most Rank 4 (meaning exactly 3 bots ahead of them)
+    // NEVER placed more than 4 levels below 1st place!
+    const botsAheadCount = Math.min(3, Math.max(1, 3));
+    const stepDiff = Math.max(25, Math.round(playerScore * 0.09));
+
+    const leaderboard: any[] = [];
+
+    // Bots ahead of santri (Rank 1, 2, 3)
+    for (let i = 0; i < botsAheadCount; i++) {
+      const bot = NATURAL_USER_BOTS[i];
+      const botScore = playerScore + (botsAheadCount - i) * stepDiff;
+      leaderboard.push({
+        rank: i + 1,
+        id: `bot-lead-${i + 1}`,
+        name: bot.name,
+        avatar: bot.avatar,
+        schoolName: bot.school,
+        score: botScore,
+        isBot: true,
+        isCurrentPlayer: false,
+        streak: 4 - i,
+        tierBadge: bot.badge,
+      });
+    }
+
+    // Active Santri
+    leaderboard.push({
+      rank: botsAheadCount + 1,
+      id: 'current-player-rank',
+      name: playerName,
+      avatar: playerAvatar,
+      schoolName: playerSchool,
+      score: playerScore,
+      isBot: false,
+      isCurrentPlayer: true,
+      streak: 2,
+      tierBadge: 'Pejuang Tahfiz',
+    });
+
+    // Bots below santri
+    for (let i = botsAheadCount; i < NATURAL_USER_BOTS.length; i++) {
+      const bot = NATURAL_USER_BOTS[i];
+      const penalty = (i - botsAheadCount + 1) * stepDiff;
+      leaderboard.push({
+        rank: i + 2,
+        id: `bot-trail-${i + 1}`,
+        name: bot.name,
+        avatar: bot.avatar,
+        schoolName: bot.school,
+        score: Math.max(40, playerScore - penalty),
+        isBot: true,
+        isCurrentPlayer: false,
+        streak: 1,
+        tierBadge: bot.badge,
+      });
+    }
+
+    // Sort descending by score and assign exact ranks 1..N
+    leaderboard.sort((a, b) => b.score - a.score);
+    let playerFinalRank = 4;
+    leaderboard.forEach((item, idx) => {
+      item.rank = idx + 1;
+      if (item.isCurrentPlayer) {
+        playerFinalRank = idx + 1;
+      }
+    });
+
+    res.json({
+      success: true,
+      weekTitle: 'Liga Santri Nasional - Pekan Ini',
+      resetsInDays: 3,
+      resetsInHours: 8,
+      playerRank: playerFinalRank,
+      leaderboard,
+    });
+  });
+
+  // --- WebSocket Duel Server Implementation ---
+  interface DuelPlayerSession {
+    ws: WebSocket | null;
+    id: string;
+    name: string;
+    avatar: string;
+    schoolName?: string;
+    isHost: boolean;
+    isReady: boolean;
+    hp: number;
+    score: number;
+    comboStreak: number;
+    isBot?: boolean;
+    hasAnsweredCurrentRound?: boolean;
+  }
+
+  interface DuelLiveRoom {
+    roomCode: string;
+    category: string;
+    status: 'waiting' | 'countdown' | 'in_game' | 'round_result' | 'game_over';
+    host: DuelPlayerSession;
+    guest?: DuelPlayerSession;
+    currentRound: number;
+    totalRounds: number;
+    questions: any[];
+    botTimer?: any;
+    createdTime: number;
+  }
+
+  const activeRooms = new Map<string, DuelLiveRoom>();
+  const clientRoomMap = new Map<WebSocket, string>();
+
+  function broadcastRoom(room: DuelLiveRoom, type: string, payload: any) {
+    const msg = JSON.stringify({ type, payload });
+    if (room.host.ws && room.host.ws.readyState === WebSocket.OPEN) {
+      room.host.ws.send(msg);
+    }
+    if (room.guest?.ws && room.guest.ws.readyState === WebSocket.OPEN) {
+      room.guest.ws.send(msg);
+    }
+  }
+
+  function getSafeRoomSnapshot(room: DuelLiveRoom) {
+    return {
+      roomCode: room.roomCode,
+      category: room.category,
+      status: room.status,
+      currentRound: room.currentRound,
+      totalRounds: room.totalRounds,
+      host: {
+        id: room.host.id,
+        name: room.host.name,
+        avatar: room.host.avatar,
+        schoolName: room.host.schoolName,
+        isHost: true,
+        isReady: room.host.isReady,
+        hp: room.host.hp,
+        score: room.host.score,
+        comboStreak: room.host.comboStreak,
+        isBot: !!room.host.isBot,
+      },
+      guest: room.guest
+        ? {
+            id: room.guest.id,
+            name: room.guest.name,
+            avatar: room.guest.avatar,
+            schoolName: room.guest.schoolName,
+            isHost: false,
+            isReady: room.guest.isReady,
+            hp: room.guest.hp,
+            score: room.guest.score,
+            comboStreak: room.guest.comboStreak,
+            isBot: !!room.guest.isBot,
+          }
+        : undefined,
+      currentQuestion:
+        room.status === 'in_game' || room.status === 'round_result'
+          ? room.questions[room.currentRound % room.questions.length]
+          : undefined,
+    };
+  }
+
+  const wss = new WebSocketServer({ server, path: '/ws/duel' });
+
+  wss.on('connection', (ws: WebSocket) => {
+    ws.on('message', (raw: string) => {
+      try {
+        const { type, payload } = JSON.parse(raw.toString());
+
+        // 1. CREATE_ROOM
+        if (type === 'CREATE_ROOM') {
+          const roomCode = `SANTRI-${Math.floor(100 + Math.random() * 900)}`;
+          // Pick 5 random questions from catalog
+          const shuffled = [...DUEL_QUESTIONS_CATALOG].sort(() => 0.5 - Math.random()).slice(0, 5);
+
+          const room: DuelLiveRoom = {
+            roomCode,
+            category: payload.category || 'mix',
+            status: 'waiting',
+            host: {
+              ws,
+              id: payload.id || 'host-1',
+              name: payload.name || 'Santri Host',
+              avatar: payload.avatar || '👦',
+              schoolName: payload.schoolName || 'Rumah Tahfiz Al-Qur\'an',
+              isHost: true,
+              isReady: false,
+              hp: 100,
+              score: 0,
+              comboStreak: 0,
+            },
+            currentRound: 0,
+            totalRounds: 5,
+            questions: shuffled,
+            createdTime: Date.now(),
+          };
+
+          activeRooms.set(roomCode, room);
+          clientRoomMap.set(ws, roomCode);
+
+          ws.send(
+            JSON.stringify({
+              type: 'ROOM_CREATED',
+              payload: getSafeRoomSnapshot(room),
+            })
+          );
+        }
+
+        // 2. JOIN_ROOM
+        else if (type === 'JOIN_ROOM') {
+          const code = (payload.roomCode || '').toUpperCase().trim();
+          const room = activeRooms.get(code);
+
+          if (!room) {
+            ws.send(JSON.stringify({ type: 'JOIN_ERROR', payload: { message: `Ruangan ${code} tidak ditemukan.` } }));
+            return;
+          }
+          if (room.guest && !room.guest.isBot) {
+            ws.send(JSON.stringify({ type: 'JOIN_ERROR', payload: { message: `Ruangan ${code} sudah penuh (2 santri).` } }));
+            return;
+          }
+
+          room.guest = {
+            ws,
+            id: payload.id || 'guest-1',
+            name: payload.name || 'Santri Tamu',
+            avatar: payload.avatar || '🧕',
+            schoolName: payload.schoolName || 'TPQ Al-Ikhlas',
+            isHost: false,
+            isReady: false,
+            hp: 100,
+            score: 0,
+            comboStreak: 0,
+          };
+
+          clientRoomMap.set(ws, code);
+          broadcastRoom(room, 'ROOM_UPDATED', getSafeRoomSnapshot(room));
+        }
+
+        // 3. QUICK_MATCH (Instant matching with real peer or Natural User Bot)
+        else if (type === 'QUICK_MATCH') {
+          // Look for an open room with 1 human waiting
+          let foundRoom: DuelLiveRoom | null = null;
+          for (const r of activeRooms.values()) {
+            if (r.status === 'waiting' && !r.guest) {
+              foundRoom = r;
+              break;
+            }
+          }
+
+          if (foundRoom) {
+            // Join as human guest!
+            foundRoom.guest = {
+              ws,
+              id: payload.id || 'quick-guest',
+              name: payload.name || 'Santri Kawan',
+              avatar: payload.avatar || '👦',
+              schoolName: payload.schoolName || 'TPQ Sahabat',
+              isHost: false,
+              isReady: true,
+              hp: 100,
+              score: 0,
+              comboStreak: 0,
+            };
+            foundRoom.host.isReady = true;
+            clientRoomMap.set(ws, foundRoom.roomCode);
+            broadcastRoom(foundRoom, 'ROOM_UPDATED', getSafeRoomSnapshot(foundRoom));
+
+            // Start countdown directly
+            foundRoom.status = 'countdown';
+            broadcastRoom(foundRoom, 'COUNTDOWN_START', { seconds: 3, room: getSafeRoomSnapshot(foundRoom) });
+            setTimeout(() => {
+              if (activeRooms.has(foundRoom!.roomCode)) {
+                foundRoom!.status = 'in_game';
+                broadcastRoom(foundRoom!, 'MATCH_STARTED', getSafeRoomSnapshot(foundRoom!));
+              }
+            }, 3000);
+          } else {
+            // Create a room and spawn a Natural User Bot
+            const roomCode = `SANTRI-${Math.floor(100 + Math.random() * 900)}`;
+            const shuffled = [...DUEL_QUESTIONS_CATALOG].sort(() => 0.5 - Math.random()).slice(0, 5);
+            const randomBot = NATURAL_USER_BOTS[Math.floor(Math.random() * NATURAL_USER_BOTS.length)];
+
+            const room: DuelLiveRoom = {
+              roomCode,
+              category: 'mix',
+              status: 'waiting',
+              host: {
+                ws,
+                id: payload.id || 'host-quick',
+                name: payload.name || 'Santri Penantang',
+                avatar: payload.avatar || '👦',
+                schoolName: payload.schoolName || 'Rumah Tahfiz Al-Qur\'an',
+                isHost: true,
+                isReady: true,
+                hp: 100,
+                score: 0,
+                comboStreak: 0,
+              },
+              guest: {
+                ws: null,
+                id: `bot-${Date.now()}`,
+                name: randomBot.name,
+                avatar: randomBot.avatar,
+                schoolName: randomBot.school,
+                isHost: false,
+                isReady: true,
+                hp: 100,
+                score: 0,
+                comboStreak: 0,
+                isBot: true,
+              },
+              currentRound: 0,
+              totalRounds: 5,
+              questions: shuffled,
+              createdTime: Date.now(),
+            };
+
+            activeRooms.set(roomCode, room);
+            clientRoomMap.set(ws, roomCode);
+
+            // Send notification that friend bot has joined
+            ws.send(JSON.stringify({ type: 'ROOM_CREATED', payload: getSafeRoomSnapshot(room) }));
+
+            // Countdown to match
+            setTimeout(() => {
+              if (activeRooms.has(roomCode)) {
+                room.status = 'countdown';
+                broadcastRoom(room, 'COUNTDOWN_START', { seconds: 3, room: getSafeRoomSnapshot(room) });
+
+                setTimeout(() => {
+                  if (activeRooms.has(roomCode)) {
+                    room.status = 'in_game';
+                    broadcastRoom(room, 'MATCH_STARTED', getSafeRoomSnapshot(room));
+                    triggerBotTurn(room);
+                  }
+                }, 3000);
+              }
+            }, 1200);
+          }
+        }
+
+        // 4. TOGGLE_READY
+        else if (type === 'TOGGLE_READY') {
+          const roomCode = payload.roomCode || clientRoomMap.get(ws);
+          const room = activeRooms.get(roomCode);
+          if (!room) return;
+
+          if (room.host.ws === ws) room.host.isReady = payload.isReady;
+          if (room.guest?.ws === ws) room.guest.isReady = payload.isReady;
+
+          broadcastRoom(room, 'ROOM_UPDATED', getSafeRoomSnapshot(room));
+
+          // If both players ready, start match countdown
+          if (room.host.isReady && room.guest?.isReady) {
+            room.status = 'countdown';
+            broadcastRoom(room, 'COUNTDOWN_START', { seconds: 3, room: getSafeRoomSnapshot(room) });
+            setTimeout(() => {
+              if (activeRooms.has(room.roomCode)) {
+                room.status = 'in_game';
+                broadcastRoom(room, 'MATCH_STARTED', getSafeRoomSnapshot(room));
+                if (room.guest?.isBot) {
+                  triggerBotTurn(room);
+                }
+              }
+            }, 3000);
+          }
+        }
+
+        // 5. SUBMIT_ANSWER
+        else if (type === 'SUBMIT_ANSWER') {
+          const roomCode = payload.roomCode || clientRoomMap.get(ws);
+          const room = activeRooms.get(roomCode);
+          if (!room || room.status !== 'in_game') return;
+
+          const isHost = room.host.ws === ws;
+          const player = isHost ? room.host : room.guest!;
+          const opponent = isHost ? room.guest! : room.host;
+
+          if (player.hasAnsweredCurrentRound) return;
+          player.hasAnsweredCurrentRound = true;
+
+          const currentQ = room.questions[room.currentRound % room.questions.length];
+          const isCorrect = payload.optionIndex === currentQ.correctIndex;
+
+          if (isCorrect) {
+            player.comboStreak += 1;
+            const damage = 20 + Math.min(10, player.comboStreak * 2);
+            opponent.hp = Math.max(0, opponent.hp - damage);
+            player.score += 25 + player.comboStreak * 5;
+          } else {
+            player.comboStreak = 0;
+          }
+
+          broadcastRoom(room, 'ROUND_RESULT', {
+            room: getSafeRoomSnapshot(room),
+            attackerName: player.name,
+            isCorrect,
+            damageDealt: isCorrect ? 20 : 0,
+            feedback: isCorrect ? 'hit' : 'miss',
+          });
+
+          // Check if match over (HP = 0 or last round)
+          if (room.host.hp <= 0 || (room.guest && room.guest.hp <= 0) || room.currentRound >= room.totalRounds - 1) {
+            room.status = 'game_over';
+            const winner = room.host.score > (room.guest?.score || 0) ? room.host : room.guest;
+            broadcastRoom(room, 'GAME_OVER', {
+              room: getSafeRoomSnapshot(room),
+              winner: winner ? { name: winner.name, avatar: winner.avatar, score: winner.score } : null,
+              isDraw: room.host.score === (room.guest?.score || 0),
+            });
+          } else {
+            // Next Round after 2.5s
+            setTimeout(() => {
+              if (activeRooms.has(room.roomCode) && room.status === 'in_game') {
+                room.currentRound += 1;
+                room.host.hasAnsweredCurrentRound = false;
+                if (room.guest) room.guest.hasAnsweredCurrentRound = false;
+
+                broadcastRoom(room, 'NEXT_ROUND', getSafeRoomSnapshot(room));
+
+                if (room.guest?.isBot) {
+                  triggerBotTurn(room);
+                }
+              }
+            }, 2500);
+          }
+        }
+
+        // 6. SEND_EMOTE
+        else if (type === 'SEND_EMOTE') {
+          const roomCode = payload.roomCode || clientRoomMap.get(ws);
+          const room = activeRooms.get(roomCode);
+          if (!room) return;
+
+          const isHost = room.host.ws === ws;
+          const sender = isHost ? room.host : room.guest!;
+          broadcastRoom(room, 'EMOTE_RECEIVED', {
+            senderName: sender.name,
+            senderAvatar: sender.avatar,
+            emote: payload.emote || '✨',
+          });
+        }
+      } catch (err) {
+        console.warn('[WS Handler Error]', err);
+      }
+    });
+
+    ws.on('close', () => {
+      const roomCode = clientRoomMap.get(ws);
+      if (roomCode) {
+        const room = activeRooms.get(roomCode);
+        if (room) {
+          broadcastRoom(room, 'OPPONENT_DISCONNECTED', { message: 'Lawan tanding telah meninggalkan arena.' });
+          activeRooms.delete(roomCode);
+        }
+        clientRoomMap.delete(ws);
+      }
+    });
+  });
+
+  // Dynamic Natural User Bot AI logic in match
+  function triggerBotTurn(room: DuelLiveRoom) {
+    if (!room.guest?.isBot || room.status !== 'in_game') return;
+
+    const currentQ = room.questions[room.currentRound % room.questions.length];
+    // Dynamic difficulty calibration:
+    // If player HP is low, bot makes mistakes (60% accuracy). If player is doing great, bot has 80% accuracy.
+    const playerHp = room.host.hp;
+    const botAccuracy = playerHp < 35 ? 0.60 : 0.82;
+    const isBotCorrect = Math.random() < botAccuracy;
+    const botOption = isBotCorrect
+      ? currentQ.correctIndex
+      : (currentQ.correctIndex + 1 + Math.floor(Math.random() * 3)) % 4;
+
+    const botDelay = 3200 + Math.random() * 2200; // Realistic delay 3.2s - 5.4s
+
+    room.botTimer = setTimeout(() => {
+      if (room.status !== 'in_game' || !activeRooms.has(room.roomCode)) return;
+
+      const bot = room.guest!;
+      const player = room.host;
+      if (bot.hasAnsweredCurrentRound) return;
+      bot.hasAnsweredCurrentRound = true;
+
+      if (isBotCorrect) {
+        bot.comboStreak += 1;
+        const damage = 20 + Math.min(8, bot.comboStreak * 2);
+        player.hp = Math.max(0, player.hp - damage);
+        bot.score += 25 + bot.comboStreak * 5;
+      } else {
+        bot.comboStreak = 0;
+      }
+
+      broadcastRoom(room, 'ROUND_RESULT', {
+        room: getSafeRoomSnapshot(room),
+        attackerName: bot.name,
+        isCorrect: isBotCorrect,
+        damageDealt: isBotCorrect ? 20 : 0,
+        feedback: isBotCorrect ? 'hit' : 'miss',
+      });
+
+      // Check if match over
+      if (player.hp <= 0 || bot.hp <= 0 || room.currentRound >= room.totalRounds - 1) {
+        room.status = 'game_over';
+        const winner = player.score > bot.score ? player : bot;
+        broadcastRoom(room, 'GAME_OVER', {
+          room: getSafeRoomSnapshot(room),
+          winner: { name: winner.name, avatar: winner.avatar, score: winner.score },
+          isDraw: player.score === bot.score,
+        });
+      } else {
+        setTimeout(() => {
+          if (activeRooms.has(room.roomCode) && room.status === 'in_game') {
+            room.currentRound += 1;
+            player.hasAnsweredCurrentRound = false;
+            bot.hasAnsweredCurrentRound = false;
+            broadcastRoom(room, 'NEXT_ROUND', getSafeRoomSnapshot(room));
+            triggerBotTurn(room);
+          }
+        }, 2500);
+      }
+    }, botDelay);
+  }
+
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (_req, res) => {
@@ -450,9 +1000,10 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
     app.use(vite.middlewares);
   }
 
-  app.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`[Cahaya Tahfiz Server] listening on http://0.0.0.0:${PORT}`);
+  server.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`[Cahaya Tahfiz Full-Stack + WebSocket] listening on http://0.0.0.0:${PORT}`);
   });
 }
 
 startServer();
+

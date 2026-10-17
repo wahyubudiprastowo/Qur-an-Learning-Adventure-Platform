@@ -20,14 +20,19 @@ import {
 import confetti from 'canvas-confetti';
 import { StorageService } from '../../services/storageService';
 import { CompanionService } from '../../services/companionService';
+import { SoundEffects } from '../../services/soundEffects';
 import { getAyahAudioUrl } from '../../data/recitersData';
 import { GlobalAudioManager } from '../../services/audioService';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
 import { WorldMapView } from '../companion/WorldMapView';
+import { SantriDuelArena } from './SantriDuelArena';
+import { VoiceSttModal } from '../voice/VoiceSttModal';
 import { UserAccount } from '../../types';
 
 export type GameType =
+  | 'santri_duel'
+  | 'voice_stt'
   | 'continue_ayah'
   | 'arrange_ayah'
   | 'missing_word'
@@ -66,6 +71,7 @@ export const GameHub: React.FC<GameHubProps> = ({
   const [activeGame, setActiveGame] = useState<GameType>(null);
   const [score, setScore] = useState<number>(0);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
+  const [showVoiceSttModal, setShowVoiceSttModal] = useState<boolean>(false);
   const [companionStateVersion, setCompanionStateVersion] = useState<number>(0);
 
   // Common Question Pointer
@@ -145,6 +151,7 @@ export const GameHub: React.FC<GameHubProps> = ({
     );
 
     const gameTitles: Record<string, string> = {
+      santri_duel: 'Duel Kuis Santri ⚔️',
       continue_ayah: 'Sambung Ayat (PVP)',
       arrange_ayah: 'Susun Ayat',
       missing_word: 'Hujan Kata',
@@ -168,6 +175,7 @@ export const GameHub: React.FC<GameHubProps> = ({
 
     CompanionService.recordActivity(childId, 'game', earnedXp, earnedStars);
     setCompanionStateVersion((v) => v + 1);
+    SoundEffects.playFanfareSound();
     triggerPopConfetti();
     setShowCelebration(true);
   };
@@ -731,6 +739,10 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   // Start selected game
   const handleStartGame = (gameId: GameType) => {
+    if (gameId === 'voice_stt') {
+      setShowVoiceSttModal(true);
+      return;
+    }
     if (gameId && !StorageService.isGameUnlocked(gameId, accountTier)) {
       onOpenUpgradeModal?.();
       return;
@@ -829,11 +841,14 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (sambungFeedback) return;
     setSambungSelected(idx);
     if (idx === item.correctIndex) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setSambungFeedback('correct');
       setScore((s) => s + 15);
       triggerPopConfetti();
       playQariAudio(item.audioInfo.surah, item.audioInfo.ayah);
     } else {
+      SoundEffects.playWrongSound();
       setSambungFeedback('wrong');
     }
   };
@@ -841,6 +856,7 @@ export const GameHub: React.FC<GameHubProps> = ({
   // 2. Susun Ayat Handlers
   const handleAddWordToSlot = (word: string, index: number) => {
     if (arrangeFeedback === 'correct') return;
+    SoundEffects.playClickSound();
     speakHijaiyah(word);
     setPlacedWords((prev) => [...prev, word]);
     setAvailableWords((prev) => prev.filter((_, i) => i !== index));
@@ -849,6 +865,7 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   const handleRemoveWordFromSlot = (word: string, index: number) => {
     if (arrangeFeedback === 'correct') return;
+    SoundEffects.playClickSound();
     setPlacedWords((prev) => prev.filter((_, i) => i !== index));
     setAvailableWords((prev) => [...prev, word]);
     setArrangeFeedback(null);
@@ -856,11 +873,13 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   const handleShuffleArrangeWords = () => {
     if (arrangeFeedback === 'correct') return;
+    SoundEffects.playClickSound();
     setAvailableWords((prev) => [...prev].sort(() => Math.random() - 0.5));
   };
 
   const handleResetArrangeWords = (item: any) => {
     if (arrangeFeedback === 'correct') return;
+    SoundEffects.playClickSound();
     setPlacedWords([]);
     setAvailableWords([...item.scrambledWords]);
     setArrangeFeedback(null);
@@ -869,11 +888,14 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleCheckArrangement = (item: any) => {
     const isCorrect = placedWords.join(' ') === item.correctWords.join(' ');
     if (isCorrect) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setArrangeFeedback('correct');
       setScore((s) => s + 20);
       triggerPopConfetti();
       playQariAudio(item.audioInfo.surah, item.audioInfo.ayah);
     } else {
+      SoundEffects.playWrongSound();
       setArrangeFeedback('wrong');
     }
   };
@@ -883,11 +905,14 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (missingFeedback) return;
     setMissingSelected(idx);
     if (idx === item.correctIndex) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setMissingFeedback('correct');
       setScore((s) => s + 15);
       triggerPopConfetti();
       playQariAudio(item.audioInfo.surah, item.audioInfo.ayah);
     } else {
+      SoundEffects.playWrongSound();
       setMissingFeedback('wrong');
     }
   };
@@ -904,6 +929,8 @@ export const GameHub: React.FC<GameHubProps> = ({
     // If meaning is already selected, verify pair
     if (selectedMeaningIndex !== null) {
       if (idx === selectedMeaningIndex) {
+        SoundEffects.playCorrectSound();
+        SoundEffects.playRewardSound();
         const nextSet = new Set([...matchedPairs, idx]);
         setMatchedPairs(nextSet);
         setScore((s) => s + 10);
@@ -924,6 +951,7 @@ export const GameHub: React.FC<GameHubProps> = ({
           }
         }
       } else {
+        SoundEffects.playWrongSound();
         setMatchingError(true);
         setTimeout(() => {
           setSelectedArabicIndex(null);
@@ -941,6 +969,8 @@ export const GameHub: React.FC<GameHubProps> = ({
 
     if (selectedArabicIndex !== null) {
       if (selectedArabicIndex === idx) {
+        SoundEffects.playCorrectSound();
+        SoundEffects.playRewardSound();
         const nextSet = new Set([...matchedPairs, idx]);
         setMatchedPairs(nextSet);
         setScore((s) => s + 10);
@@ -961,6 +991,7 @@ export const GameHub: React.FC<GameHubProps> = ({
           }
         }
       } else {
+        SoundEffects.playWrongSound();
         setMatchingError(true);
         setTimeout(() => {
           setSelectedArabicIndex(null);
@@ -977,10 +1008,13 @@ export const GameHub: React.FC<GameHubProps> = ({
     setAudioGuessSelected(optIdx);
     const chosen = item.options[optIdx];
     if (chosen.isCorrect) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setAudioGuessFeedback('correct');
       setScore((s) => s + 20);
       triggerPopConfetti();
     } else {
+      SoundEffects.playWrongSound();
       setAudioGuessFeedback('wrong');
     }
   };
@@ -990,10 +1024,13 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (hijaiyahFeedback) return;
     setHijaiyahSelected(idx);
     if (item.options[idx].correct) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setHijaiyahFeedback('correct');
       setScore((s) => s + 15);
       triggerPopConfetti();
     } else {
+      SoundEffects.playWrongSound();
       setHijaiyahFeedback('wrong');
     }
   };
@@ -1019,6 +1056,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       // Child spoke: trigger vibrant harakat pop animation!
       setHarakatRevealed(true);
       setHarakatFeedback('success');
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setScore((s) => s + 25);
       triggerPopConfetti();
 
@@ -1033,10 +1072,13 @@ export const GameHub: React.FC<GameHubProps> = ({
     setSelectedTajwidBucket(bucketId);
     const chosen = item.buckets.find((b: any) => b.id === bucketId);
     if (chosen?.isCorrect) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setTajwidFeedback('correct');
       setScore((s) => s + 15);
       triggerPopConfetti();
     } else {
+      SoundEffects.playWrongSound();
       setTajwidFeedback('wrong');
     }
   };
@@ -1046,12 +1088,15 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (surahGuessFeedback) return;
     setSurahGuessSelected(idx);
     if (idx === item.correctIndex) {
+      SoundEffects.playCorrectSound();
+      SoundEffects.playRewardSound();
       setSurahGuessFeedback('correct');
       const bonus = unlockedClues === 1 ? 25 : unlockedClues === 2 ? 15 : 10;
       setScore((s) => s + bonus);
       triggerPopConfetti();
       playQariAudio(item.audioInfo.surah, item.audioInfo.ayah);
     } else {
+      SoundEffects.playWrongSound();
       setSurahGuessFeedback('wrong');
     }
   };
@@ -1066,6 +1111,19 @@ export const GameHub: React.FC<GameHubProps> = ({
   // -------------------------------------------------------------
   // RENDER INTERACTIVE ARENA FOR ACTIVE GAME
   // -------------------------------------------------------------
+  if (activeGame === 'santri_duel') {
+    return (
+      <SantriDuelArena
+        childId={childId}
+        onBack={() => setActiveGame(null)}
+        onFinish={(finalScore) => {
+          setScore(finalScore);
+          setShowCelebration(true);
+        }}
+      />
+    );
+  }
+
   if (activeGame) {
     return (
       <div className="space-y-4 pb-24 animate-in fade-in duration-200">
@@ -2086,18 +2144,27 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   // Default: Main World Map View
   return (
-    <WorldMapView
-      child={activeChild}
-      companion={companion}
-      initialTab={initialTab}
-      userAccount={currentUserAccount}
-      onOpenUpgradeModal={onOpenUpgradeModal}
-      onOpenStarShop={onOpenStarShop}
-      onNavigateToLand={(tab, subView) => {
-        onNavigateToLand?.(tab, subView);
-      }}
-      onRefreshCompanion={() => setCompanionStateVersion((v) => v + 1)}
-      onLaunchMiniGame={(gameId) => handleStartGame(gameId as GameType)}
-    />
+    <>
+      <WorldMapView
+        child={activeChild}
+        companion={companion}
+        initialTab={initialTab}
+        userAccount={currentUserAccount}
+        onOpenUpgradeModal={onOpenUpgradeModal}
+        onOpenStarShop={onOpenStarShop}
+        onNavigateToLand={(tab, subView) => {
+          onNavigateToLand?.(tab, subView);
+        }}
+        onRefreshCompanion={() => setCompanionStateVersion((v) => v + 1)}
+        onLaunchMiniGame={(gameId) => handleStartGame(gameId as GameType)}
+      />
+
+      {/* Guided Voice AI Speech-to-Text Modal */}
+      <VoiceSttModal
+        isOpen={showVoiceSttModal}
+        onClose={() => setShowVoiceSttModal(false)}
+        childId={childId}
+      />
+    </>
   );
 };

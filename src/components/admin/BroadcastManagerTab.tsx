@@ -163,7 +163,7 @@ export const BroadcastManagerTab: React.FC<BroadcastManagerTabProps> = ({ onNoti
   const handleSaveBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
-      alert('Mohon isi judul dan isi pesan broadcast!');
+      if (onNotify) onNotify('Mohon isi judul dan isi pesan broadcast!');
       return;
     }
 

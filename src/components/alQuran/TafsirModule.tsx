@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { Lightbulb, ArrowLeft, ChevronRight, BookOpen, ShieldCheck, Star } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Lightbulb, ArrowLeft, ChevronRight, BookOpen, ShieldCheck, Star, Volume2, VolumeX, Play, Square, Sparkles } from 'lucide-react';
 import { SCHOLARLY_TAFSIR_DATA, TafsirSurahEntry } from '../../data/tafsirData';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { ArabicText } from '../common/ArabicText';
+import { GlobalAudioManager } from '../../services/audioService';
+import { SoundEffects } from '../../services/soundEffects';
+import { getAyahAudioUrl } from '../../data/recitersData';
+import { StorageService } from '../../services/storageService';
 
 interface TafsirModuleProps {
   childId: string;
@@ -12,6 +16,60 @@ interface TafsirModuleProps {
 export const TafsirModule: React.FC<TafsirModuleProps> = ({ childId, onBack }) => {
   const [selectedSurahNumber, setSelectedSurahNumber] = useState<number | null>(null);
   const [selectedAyahNumber, setSelectedAyahNumber] = useState<number>(1);
+  const [isPlayingAyahAudio, setIsPlayingAyahAudio] = useState<boolean>(false);
+  const [isNarratingTafsir, setIsNarratingTafsir] = useState<boolean>(false);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const stopAllAudio = () => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    setIsPlayingAyahAudio(false);
+    SoundEffects.stopSpeaking();
+    setIsNarratingTafsir(false);
+  };
+
+  const playAyahRecitation = (surahNum: number, ayahNum: number) => {
+    stopAllAudio();
+    GlobalAudioManager.stopAll();
+
+    const audioUrl = getAyahAudioUrl('husary', surahNum, ayahNum);
+    const audio = new Audio(audioUrl);
+    activeAudioRef.current = audio;
+    GlobalAudioManager.registerRawAudio(audio);
+    setIsPlayingAyahAudio(true);
+
+    audio.onended = () => {
+      setIsPlayingAyahAudio(false);
+      activeAudioRef.current = null;
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
+
+    audio.onerror = () => {
+      setIsPlayingAyahAudio(false);
+      activeAudioRef.current = null;
+      GlobalAudioManager.unregisterRawAudio(audio);
+    };
+
+    audio.play().catch(() => {
+      setIsPlayingAyahAudio(false);
+    });
+  };
+
+  const toggleNarrateTafsir = (tafsirText: string, hikmahText: string, surahName: string, ayahNum: number) => {
+    if (isNarratingTafsir) {
+      SoundEffects.stopSpeaking();
+      setIsNarratingTafsir(false);
+    } else {
+      stopAllAudio();
+      const narrative = `Tafsir Surah ${surahName} ayat ke ${ayahNum}. Makna dan penjelasan: ${tafsirText}. Hikmah untuk adik-adik santri: ${hikmahText}`;
+      const started = SoundEffects.speakIndonesian(narrative, () => {
+        setIsNarratingTafsir(false);
+      });
+      setIsNarratingTafsir(started);
+    }
+  };
 
   const tafsirSurah = selectedSurahNumber ? SCHOLARLY_TAFSIR_DATA[selectedSurahNumber] : null;
 
@@ -73,13 +131,48 @@ export const TafsirModule: React.FC<TafsirModuleProps> = ({ childId, onBack }) =
         {/* Ayah Detail Card */}
         {currentAyahTafsir && (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
               <span className="text-xs font-bold text-[#8C9BA7] uppercase tracking-wider">
                 AYAT {currentAyahTafsir.ayahNumber}
               </span>
-              <span className="text-xs font-bold text-[#FFD83E] bg-yellow-50 border border-yellow-200 px-2 py-0.5 rounded-full text-amber-800">
-                Pesan Utama
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Audio Reciter Qari */}
+                <button
+                  type="button"
+                  onClick={() => playAyahRecitation(selectedSurahNumber, currentAyahTafsir.ayahNumber)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                    isPlayingAyahAudio
+                      ? 'bg-amber-500 text-slate-950 animate-pulse font-black'
+                      : 'bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200'
+                  }`}
+                  title="Dengarkan Qari Syaikh Al-Hushary Murattal"
+                >
+                  {isPlayingAyahAudio ? <Square size={13} className="fill-current" /> : <Play size={13} className="fill-current" />}
+                  <span>{isPlayingAyahAudio ? 'Stop Tilawah' : 'Tilawah Qari'}</span>
+                </button>
+
+                {/* Voice Narration Tafsir */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleNarrateTafsir(
+                      currentAyahTafsir.tafsirRingkas,
+                      currentAyahTafsir.hikmahAnak,
+                      tafsirSurah.surahName,
+                      currentAyahTafsir.ayahNumber
+                    )
+                  }
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                    isNarratingTafsir
+                      ? 'bg-rose-500 text-white animate-pulse font-black'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  }`}
+                  title="Dengarkan suara penjelasan tafsir & hikmah untuk anak"
+                >
+                  {isNarratingTafsir ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                  <span>{isNarratingTafsir ? 'Stop Penjelasan' : 'Dengar Tafsir 🔊'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Arabic Text */}

@@ -432,7 +432,7 @@ export const AdminMasterModal: React.FC<AdminMasterModalProps> = ({
       setNewPasswordInput('');
       setPasswordNotesInput('');
     } else {
-      alert(res.message);
+      showToast(res.message);
     }
   };
 
@@ -468,7 +468,7 @@ export const AdminMasterModal: React.FC<AdminMasterModalProps> = ({
   const handleSubmitManualAssign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignUserId) {
-      alert('Pilih akun pengguna tujuan terlebih dahulu.');
+      showToast('Pilih akun pengguna tujuan terlebih dahulu.');
       return;
     }
 
@@ -504,7 +504,7 @@ export const AdminMasterModal: React.FC<AdminMasterModalProps> = ({
       (r) => r.affiliateUserId === affiliateUserId && r.status === 'ready_to_claim'
     );
     if (affiliateRecords.length === 0) {
-      alert('Tidak ada komisi yang menunggu pencairan untuk mitra ini.');
+      showToast('Tidak ada komisi yang menunggu pencairan untuk mitra ini.');
       return;
     }
 

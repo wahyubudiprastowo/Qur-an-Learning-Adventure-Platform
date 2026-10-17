@@ -2,14 +2,15 @@
   "id": "/",
   "name": "Cahaya Tahfiz Anak - Belajar & Hafalan Qur'an",
   "short_name": "Tahfiz Anak",
-  "description": "Aplikasi belajar dan menghafal Al-Qur'an interaktif anak dengan metode Dengar, Latihan bertahap, Hafalan mandiri, rekaman suara, Iqra, Tajwid, dan reward seru.",
+  "description": "Aplikasi belajar dan menghafal Al-Qur'an interaktif anak dengan metode Dengar, Latihan bertahap, Hafalan mandiri, kalender murojaah, dan reward seru.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#EEF8FF",
   "theme_color": "#08B9EF",
-  "categories": ["education", "kids", "books"],
+  "categories": ["education", "kids", "books", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -28,6 +29,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Murojaah Hari Ini",
+      "short_name": "Murojaah",
+      "description": "Lanjutkan setoran hafalan Al-Qur'an",
+      "url": "/#murojaah",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Kalender & Evaluasi Santri",
+      "short_name": "Kalender",
+      "description": "Cek progres harian dan jadwal ujian santri",
+      "url": "/#calendar",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

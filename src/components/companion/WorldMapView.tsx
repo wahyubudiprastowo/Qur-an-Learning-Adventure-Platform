@@ -468,6 +468,28 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {[
               {
+                id: 'santri_duel',
+                title: 'Duel Kuis Santri ⚔️',
+                isProOnly: false,
+                defaultTag: 'LOBBY & REAL-TIME ⚔️',
+                desc: 'Adu kecerdasan sambung ayat, tajwid & surah 1 vs 1 dengan HP Bar & Room Code!',
+                icon: '⚔️',
+                badgeBg: 'bg-rose-600',
+                bannerGradient: 'from-rose-600 via-red-600 to-amber-500',
+                illustration: '⚡ ⚔️ 🏆',
+              },
+              {
+                id: 'voice_stt',
+                title: 'Setoran Suara AI (Voice STT) 🎙️',
+                isProOnly: false,
+                defaultTag: 'AI TERBIMBING 🎙️',
+                desc: 'Uji lafal tajwid mandiri dengan teknologi Speech-to-Text cerdas dan skor otomatis!',
+                icon: '🎙️',
+                badgeBg: 'bg-cyan-600',
+                bannerGradient: 'from-cyan-600 via-teal-600 to-sky-700',
+                illustration: '🎙️ 🌟 📖',
+              },
+              {
                 id: 'continue_ayah',
                 title: 'Sambung Ayat',
                 isProOnly: true,

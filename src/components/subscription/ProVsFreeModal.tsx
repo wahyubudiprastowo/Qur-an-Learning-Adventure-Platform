@@ -45,7 +45,7 @@ export const ProVsFreeModal: React.FC<ProVsFreeModalProps> = ({
   const handleDowngradeToFree = () => {
     const updated = StorageService.setPlanTier('free');
     onPlanChanged(updated);
-    alert('Akun telah beralih ke Paket Free.');
+    onClose();
   };
 
   return (

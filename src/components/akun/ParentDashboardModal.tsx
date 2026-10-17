@@ -150,7 +150,7 @@ export const ParentDashboardModal: React.FC<ParentDashboardModalProps> = ({
 
     const audioUrl = await AudioDatabaseService.getAudioUrl(rec.id, rec.audioDataUrl || rec.audioBlobUrl);
     if (!audioUrl) {
-      alert('File rekaman tidak dapat dimuat.');
+      setPlayingRecId(null);
       return;
     }
 

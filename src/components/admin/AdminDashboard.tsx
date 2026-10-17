@@ -80,6 +80,10 @@ import {
   Calendar,
   Award,
   Megaphone,
+  Printer,
+  QrCode,
+  CheckCircle2,
+  BookmarkCheck,
 } from 'lucide-react';
 import {
   UserAccount,
@@ -92,8 +96,13 @@ import {
   AdminManualAssignPayload,
   UserLoginRecord,
   SuspiciousPatternAlert,
+  ChildProfile,
+  TahfizExamSchedule,
+  ChildBlockProgress,
+  ChildAyahProgress,
 } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { BroadcastManagerTab } from './BroadcastManagerTab';
 
 interface AdminDashboardProps {
@@ -111,7 +120,8 @@ export type AdminDashboardTab =
   | 'active_subscriptions'
   | 'affiliate_stats'
   | 'audit_logs'
-  | 'broadcast_announcements';
+  | 'broadcast_announcements'
+  | 'reports_analytics';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isOpen: externalIsOpen,
@@ -234,6 +244,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [assignPaymentSource, setAssignPaymentSource] = useState<string>('Transfer Bank BCA Manual (Rek Yayasan)');
   const [assignRefNumber, setAssignRefNumber] = useState<string>('');
   const [assignNotes, setAssignNotes] = useState<string>('');
+
+  // --- TAB 9: LAPORAN DATA SANTRI & REKAP KEUANGAN ---
+  const [reportSubTab, setReportSubTab] = useState<'santri' | 'keuangan'>('santri');
+  const [santriSearchQuery, setSantriSearchQuery] = useState<string>('');
+  const [santriLevelFilter, setSantriLevelFilter] = useState<'all' | 'pemula' | 'menengah' | 'mahir'>('all');
+  const [santriProgressFilter, setSantriProgressFilter] = useState<'all' | 'has_memorized' | 'needs_review' | 'has_passed_exam'>('all');
+  const [selectedSantriReport, setSelectedSantriReport] = useState<ChildProfile | null>(null);
+  const [receiptModalPayment, setReceiptModalPayment] = useState<PaymentTransaction | null>(null);
 
   // --- AUTOMATED SUSPICIOUS PATTERN ALERTS & NOTIFICATIONS ---
   const [suspiciousAlerts, setSuspiciousAlerts] = useState<SuspiciousPatternAlert[]>(() =>
@@ -848,9 +866,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (success) {
       showToast('Transfer pembayaran berhasil diverifikasi & PRO aktif!');
       refreshData();
+      const updatedList = StorageService.getPaymentHistory();
+      const verifiedOne = updatedList.find((p: PaymentTransaction) => p.id === paymentId);
+      if (verifiedOne) {
+        setReceiptModalPayment(verifiedOne);
+      }
       setInspectingPayment(null);
     } else {
-      alert('Gagal memverifikasi transfer pembayaran.');
+      showToast('Gagal memverifikasi transfer pembayaran.');
     }
   };
 
@@ -868,7 +891,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setRejectReasonInput('');
       setInspectingPayment(null);
     } else {
-      alert('Gagal menolak pembayaran.');
+      showToast('Gagal menolak pembayaran.');
     }
   };
 
@@ -912,7 +935,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setNewPasswordInput('');
       setPasswordNotesInput('');
     } else {
-      alert(res.message);
+      showToast(res.message);
     }
   };
 
@@ -946,7 +969,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setDetailUser((prev) => (prev ? { ...prev, accountStatus: 'suspended' } : null));
       }
     } else {
-      alert(res.message);
+      showToast(res.message);
     }
   };
 
@@ -959,7 +982,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setDetailUser((prev) => (prev ? { ...prev, accountStatus: 'active' } : null));
       }
     } else {
-      alert(res.message);
+      showToast(res.message);
     }
   };
 
@@ -1081,7 +1104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSubmitManualAssign = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignUserId) {
-      alert('Pilih akun pengguna tujuan terlebih dahulu.');
+      showToast('Pilih akun pengguna tujuan terlebih dahulu.');
       return;
     }
 
@@ -1140,6 +1163,181 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.removeChild(link);
     showToast('Berhasil mengunduh CSV subscription aktif.');
   };
+
+  // Helper function for Indonesian currency words (Terbilang)
+  const formatTerbilangRupiah = (amount: number): string => {
+    if (amount <= 0) return 'Nol Rupiah';
+    const units = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+    const konversi = (n: number): string => {
+      if (n < 12) return units[n];
+      if (n < 20) return konversi(n - 10) + ' Belas';
+      if (n < 100) return konversi(Math.floor(n / 10)) + ' Puluh ' + units[n % 10];
+      if (n < 200) return 'Seratus ' + konversi(n - 100);
+      if (n < 1000) return konversi(Math.floor(n / 100)) + ' Ratus ' + konversi(n % 100);
+      if (n < 2000) return 'Seribu ' + konversi(n - 1000);
+      if (n < 1000000) return konversi(Math.floor(n / 1000)) + ' Ribu ' + konversi(n % 1000);
+      if (n < 1000000000) return konversi(Math.floor(n / 1000000)) + ' Juta ' + konversi(n % 1000000);
+      return n.toString();
+    };
+    return (konversi(Math.floor(amount)).replace(/\s+/g, ' ').trim() + ' Rupiah');
+  };
+
+  // Export Payments CSV
+  const handleExportPaymentsCsv = () => {
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'Invoice,Tanggal,Pengguna,Email,WhatsApp,Paket,Nominal_IDR,Status_Pembayaran,Metode,Bank_Tujuan,Pengirim_Struk,Bank_Pengirim,Skor_Keaslian,Admin_Verifikasi\n';
+
+    filteredPayments.forEach((p) => {
+      const row = [
+        `"${p.invoiceNumber}"`,
+        `"${new Date(p.createdAt).toISOString()}"`,
+        `"${p.userName || '-'}"`,
+        `"${p.userEmail || '-'}"`,
+        `"${p.userWhatsapp || '-'}"`,
+        `"${p.planName}"`,
+        `"${p.amountIdr}"`,
+        `"${p.status.toUpperCase()}"`,
+        `"${p.paymentMethod}"`,
+        `"${p.transferBankName || 'Yayasan'}"`,
+        `"${p.senderAccountName || '-'}"`,
+        `"${p.senderBankName || '-'}"`,
+        `"${p.fraudAnalysis?.authenticityScore || 0}%"`,
+        `"${p.verifiedByAdminName || '-'}"`,
+      ].join(',');
+      csvContent += row + '\n';
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Laporan_Transaksi_Pembayaran_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Berhasil mengunduh CSV riwayat transaksi pembayaran.');
+  };
+
+  // All Children Data
+  const allChildrenData = useMemo(() => {
+    return StorageService.getChildren();
+  }, [users]);
+
+  // Filtered Santri for Laporan
+  const filteredSantri = useMemo(() => {
+    return allChildrenData.filter((c) => {
+      if (santriSearchQuery) {
+        const q = santriSearchQuery.toLowerCase();
+        if (!c.name.toLowerCase().includes(q)) return false;
+      }
+      if (santriLevelFilter !== 'all' && c.learningLevel !== santriLevelFilter) {
+        return false;
+      }
+      if (santriProgressFilter === 'has_memorized') {
+        const blocks = StorageService.getBlockProgress(c.id);
+        if (!blocks.some((b) => b.state === 'MEMORIZED')) return false;
+      }
+      if (santriProgressFilter === 'needs_review') {
+        const ayahs = StorageService.getAyahProgress(c.id);
+        if (!ayahs.some((a) => a.needsReview)) return false;
+      }
+      if (santriProgressFilter === 'has_passed_exam') {
+        const exams = StorageService.getExamSchedules(c.id);
+        if (!exams.some((e) => e.status === 'passed')) return false;
+      }
+      return true;
+    });
+  }, [allChildrenData, santriSearchQuery, santriLevelFilter, santriProgressFilter]);
+
+  // Export Santri Progress Report CSV
+  const handleExportSantriCsv = () => {
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'ID_Santri,Nama_Santri,Usia,Jenjang,Total_Bintang,Level,Streak_Hari,Blok_Hafalan_Selesai,Ayat_Lemah_Murojaah,Nilai_Ujian_Terakhir\n';
+
+    filteredSantri.forEach((santri) => {
+      const blocks = StorageService.getBlockProgress(santri.id);
+      const memorizedCount = blocks.filter((b) => b.state === 'MEMORIZED').length;
+      const ayahs = StorageService.getAyahProgress(santri.id);
+      const weakCount = ayahs.filter((a) => a.needsReview).length;
+      const exams = StorageService.getExamSchedules(santri.id).filter((e) => e.status === 'passed');
+      const latestExam = exams.length > 0 ? `${exams[exams.length - 1].score} (${exams[exams.length - 1].grade})` : 'Belum Ujian';
+
+      const row = [
+        `"${santri.id}"`,
+        `"${santri.name}"`,
+        `"${santri.age || '-'}"`,
+        `"${santri.learningLevel}"`,
+        `"${santri.totalStars}"`,
+        `"${santri.level}"`,
+        `"${santri.streakDays}"`,
+        `"${memorizedCount}"`,
+        `"${weakCount}"`,
+        `"${latestExam}"`,
+      ].join(',');
+      csvContent += row + '\n';
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Laporan_Data_Progres_Santri_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Berhasil mengunduh CSV laporan data progres santri.');
+  };
+
+  // Financial Summary Calculation
+  const financialSummary = useMemo(() => {
+    let totalGross = 0;
+    let totalVerified = 0;
+    let totalPending = 0;
+    let totalFailed = 0;
+    const byBank: Record<string, { count: number; total: number }> = {
+      'BSI (Bank Syariah Indonesia)': { count: 0, total: 0 },
+      'BCA (Bank Central Asia)': { count: 0, total: 0 },
+      'Bank Mandiri': { count: 0, total: 0 },
+      'QRIS Dinamis Yayasan': { count: 0, total: 0 },
+      'Lainnya / Manual': { count: 0, total: 0 },
+    };
+    const byPlan: Record<string, { count: number; total: number }> = {};
+
+    payments.forEach((p) => {
+      totalGross += p.amountIdr;
+      if (p.status === 'success') {
+        totalVerified += p.amountIdr;
+      } else if (p.status === 'pending') {
+        totalPending += p.amountIdr;
+      } else if (p.status === 'failed') {
+        totalFailed += p.amountIdr;
+      }
+
+      // Bank grouping
+      let bKey = 'Lainnya / Manual';
+      if (p.transferBankName?.includes('BSI') || p.paymentMethodDetails?.includes('BSI')) bKey = 'BSI (Bank Syariah Indonesia)';
+      else if (p.transferBankName?.includes('BCA') || p.paymentMethodDetails?.includes('BCA')) bKey = 'BCA (Bank Central Asia)';
+      else if (p.transferBankName?.includes('Mandiri') || p.paymentMethodDetails?.includes('Mandiri')) bKey = 'Bank Mandiri';
+      else if (p.paymentMethod === 'qris' || p.paymentMethodDetails?.includes('QRIS')) bKey = 'QRIS Dinamis Yayasan';
+
+      if (!byBank[bKey]) byBank[bKey] = { count: 0, total: 0 };
+      byBank[bKey].count += 1;
+      if (p.status === 'success') byBank[bKey].total += p.amountIdr;
+
+      // Plan grouping
+      const planName = p.planName || 'Paket Pro';
+      if (!byPlan[planName]) byPlan[planName] = { count: 0, total: 0 };
+      byPlan[planName].count += 1;
+      if (p.status === 'success') byPlan[planName].total += p.amountIdr;
+    });
+
+    return {
+      totalGross,
+      totalVerified,
+      totalPending,
+      totalFailed,
+      byBank,
+      byPlan,
+    };
+  }, [payments]);
 
   // Floating trigger launcher if dashboard closed
   if (!isDashboardVisible) {
@@ -1714,17 +1912,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>Broadcast & Pengumuman 📢</span>
                   <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('reports_analytics')}
+                  className={`px-3.5 py-2 rounded-2xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+                    activeTab === 'reports_analytics'
+                      ? 'bg-blue-700 text-white shadow-xs'
+                      : 'text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200'
+                  }`}
+                >
+                  <BarChart3 size={15} />
+                  <span>Laporan Data & Raport Santri 📊</span>
+                </button>
               </div>
 
-              {activeTab === 'active_subscriptions' && (
-                <button
-                  onClick={handleExportCsv}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 transition-all active:scale-95"
-                >
-                  <FileSpreadsheet size={14} />
-                  <span>Ekspor CSV</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {activeTab === 'payments_tracking' && (
+                  <button
+                    onClick={handleExportPaymentsCsv}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 transition-all active:scale-95"
+                    title="Unduh seluruh data transaksi pembayaran CSV"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Ekspor CSV Pembayaran</span>
+                  </button>
+                )}
+
+                {activeTab === 'reports_analytics' && (
+                  <button
+                    onClick={handleExportSantriCsv}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 transition-all active:scale-95"
+                    title="Unduh rekapitulasi data santri CSV"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Ekspor CSV Santri</span>
+                  </button>
+                )}
+
+                {activeTab === 'active_subscriptions' && (
+                  <button
+                    onClick={handleExportCsv}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 transition-all active:scale-95"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Ekspor CSV</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* TAB CONTENTS CONTAINER */}
@@ -2862,6 +3096,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <option value="suspicious">⚠️ Mencurigakan</option>
                         <option value="confirmed_fake">⛔ Dikonfirmasi Palsu</option>
                       </select>
+
+                      <button
+                        onClick={handleExportPaymentsCsv}
+                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs shrink-0 transition-all active:scale-95"
+                        title="Unduh seluruh riwayat transaksi pembayaran ke format CSV Excel"
+                      >
+                        <FileSpreadsheet size={14} />
+                        <span>Unduh CSV</span>
+                      </button>
                     </div>
                   </div>
 
@@ -3003,6 +3246,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <Eye size={13} />
                                         <span>Periksa</span>
                                       </button>
+
+                                      {/* Cetak Kwitansi Resmi jika Sukses */}
+                                      {p.status === 'success' && (
+                                        <button
+                                          onClick={() => setReceiptModalPayment(p)}
+                                          className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                                          title="Cetak Kwitansi Pembayaran Resmi (Lunas)"
+                                        >
+                                          <Printer size={13} />
+                                          <span>Kwitansi</span>
+                                        </button>
+                                      )}
 
                                       {/* Quick Verify */}
                                       {p.status === 'pending' && (
@@ -4320,6 +4575,356 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
+              {/* ======================================================== */}
+              {/* TAB 9: LAPORAN DATA SANTRI & REKAP KEUANGAN              */}
+              {/* ======================================================== */}
+              {activeTab === 'reports_analytics' && (
+                <div className="space-y-6 animate-in fade-in duration-200">
+                  {/* Subtab Toggle Buttons */}
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setReportSubTab('santri')}
+                        className={`px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all ${
+                          reportSubTab === 'santri'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <Award size={15} />
+                        <span>Laporan Progres & Raport Santri ({filteredSantri.length})</span>
+                      </button>
+                      <button
+                        onClick={() => setReportSubTab('keuangan')}
+                        className={`px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all ${
+                          reportSubTab === 'keuangan'
+                            ? 'bg-emerald-700 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        <DollarSign size={15} />
+                        <span>Laporan Keuangan & Rekap Omset</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {reportSubTab === 'santri' ? (
+                        <button
+                          onClick={handleExportSantriCsv}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+                        >
+                          <FileSpreadsheet size={14} />
+                          <span>Unduh CSV Santri</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleExportPaymentsCsv}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all active:scale-95"
+                        >
+                          <FileSpreadsheet size={14} />
+                          <span>Unduh CSV Keuangan</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {reportSubTab === 'santri' ? (
+                    <div className="space-y-6">
+                      {/* Santri Metric Overview Cards */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Santri Terdata</span>
+                          <div className="text-2xl sm:text-3xl font-black font-heading text-blue-700">
+                            {allChildrenData.length} <span className="text-xs font-bold text-slate-400">Santri</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block">Profil santri aktif belajar</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Bintang Diraih</span>
+                          <div className="text-2xl sm:text-3xl font-black font-heading text-amber-500">
+                            {allChildrenData.reduce((acc, c) => acc + (c.totalStars || 0), 0).toLocaleString('id-ID')} <span className="text-xs font-bold text-slate-400">⭐</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block">Reward hafalan & adab harian</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Blok Hafalan Selesai</span>
+                          <div className="text-2xl sm:text-3xl font-black font-heading text-emerald-600">
+                            {allChildrenData.reduce((acc, c) => {
+                              const b = StorageService.getBlockProgress(c.id);
+                              return acc + b.filter((bl) => bl.state === 'MEMORIZED').length;
+                            }, 0)} <span className="text-xs font-bold text-slate-400">Blok Juz 30</span>
+                          </div>
+                          <span className="text-[11px] text-emerald-700 font-bold block">Status Mutqin santri</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ujian Tahfiz Lulus</span>
+                          <div className="text-2xl sm:text-3xl font-black font-heading text-indigo-700">
+                            {allChildrenData.reduce((acc, c) => {
+                              const e = StorageService.getExamSchedules(c.id);
+                              return acc + e.filter((ex) => ex.status === 'passed').length;
+                            }, 0)} <span className="text-xs font-bold text-slate-400">Kelulusan</span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block">Predikat Mumtaz & Jayyid</span>
+                        </div>
+                      </div>
+
+                      {/* Filter & Search Bar Santri */}
+                      <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
+                        <div className="relative flex-1">
+                          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Cari santri berdasarkan nama..."
+                            value={santriSearchQuery}
+                            onChange={(e) => setSantriSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 overflow-x-auto">
+                          <select
+                            value={santriLevelFilter}
+                            onChange={(e) => setSantriLevelFilter(e.target.value as any)}
+                            className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700"
+                          >
+                            <option value="all">Semua Jenjang Belajar</option>
+                            <option value="pemula">Pemula (Iqra / Juz 30)</option>
+                            <option value="menengah">Menengah (Tartil)</option>
+                            <option value="mahir">Mahir (Hafizh Cilik)</option>
+                          </select>
+
+                          <select
+                            value={santriProgressFilter}
+                            onChange={(e) => setSantriProgressFilter(e.target.value as any)}
+                            className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700"
+                          >
+                            <option value="all">Semua Status Progres</option>
+                            <option value="has_memorized">🌟 Telah Memiliki Hafalan</option>
+                            <option value="needs_review">⚠️ Butuh Murojaah (Ayat Lemah)</option>
+                            <option value="has_passed_exam">🏆 Telah Lulus Ujian Tasmi'</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Santri Progress Table */}
+                      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                                <th className="p-3.5 pl-4">Santri & Jenjang</th>
+                                <th className="p-3.5">Level & Bintang</th>
+                                <th className="p-3.5">Hafalan Juz 30</th>
+                                <th className="p-3.5">Ayat Lemah (Murojaah)</th>
+                                <th className="p-3.5">Streak Kedisiplinan</th>
+                                <th className="p-3.5">Ujian Terakhir</th>
+                                <th className="p-3.5 pr-4 text-right">Aksi Raport</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {filteredSantri.length === 0 ? (
+                                <tr>
+                                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                                    <Award size={28} className="mx-auto mb-2 text-slate-300" />
+                                    <p className="font-bold">Tidak ada data santri yang cocok dengan filter pencarian.</p>
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredSantri.map((santri) => {
+                                  const blocks = StorageService.getBlockProgress(santri.id);
+                                  const memorizedBlocks = blocks.filter((b) => b.state === 'MEMORIZED');
+                                  const ayahs = StorageService.getAyahProgress(santri.id);
+                                  const weakAyahs = ayahs.filter((a) => a.needsReview);
+                                  const exams = StorageService.getExamSchedules(santri.id).filter((e) => e.status === 'passed');
+                                  const latestExam = exams.length > 0 ? exams[exams.length - 1] : null;
+
+                                  return (
+                                    <tr key={santri.id} className="hover:bg-slate-50/80 transition-colors">
+                                      <td className="p-3.5 pl-4">
+                                        <div className="flex items-center gap-2.5">
+                                          <span className="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 flex items-center justify-center text-base">
+                                            {santri.avatar || '🌟'}
+                                          </span>
+                                          <div>
+                                            <span className="font-bold text-slate-900 block">{santri.name}</span>
+                                            <span className="text-[10px] text-slate-500">
+                                              Usia {santri.age || 7} Thn • {santri.learningLevel ? santri.learningLevel.toUpperCase() : 'PEMULA'}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </td>
+
+                                      <td className="p-3.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
+                                            Lvl {santri.level || 1}
+                                          </span>
+                                          <span className="font-bold text-slate-800 flex items-center gap-0.5">
+                                            <span>⭐</span>
+                                            <span>{santri.totalStars || 0}</span>
+                                          </span>
+                                        </div>
+                                      </td>
+
+                                      <td className="p-3.5">
+                                        <div>
+                                          <span className="font-bold text-emerald-700 block">
+                                            {memorizedBlocks.length} Blok Selesai
+                                          </span>
+                                          <span className="text-[10px] text-slate-500">
+                                            Target Total: 37 Surah Juz 30
+                                          </span>
+                                        </div>
+                                      </td>
+
+                                      <td className="p-3.5">
+                                        {weakAyahs.length > 0 ? (
+                                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold">
+                                            ⚠️ {weakAyahs.length} Ayat Perlu Review
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold">
+                                            ✅ Mutqin Lancar
+                                          </span>
+                                        )}
+                                      </td>
+
+                                      <td className="p-3.5 font-bold text-slate-700">
+                                        <span className="inline-flex items-center gap-1">
+                                          <span>🔥</span>
+                                          <span>{santri.streakDays || 1} Hari</span>
+                                        </span>
+                                      </td>
+
+                                      <td className="p-3.5">
+                                        {latestExam ? (
+                                          <div>
+                                            <span className="font-bold text-slate-900 block">
+                                              Nilai: {latestExam.score}
+                                            </span>
+                                            <span className="text-[10px] text-emerald-700 font-bold">
+                                              {latestExam.grade || 'Mumtaz'}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-[10px] text-slate-400">Belum Ujian</span>
+                                        )}
+                                      </td>
+
+                                      <td className="p-3.5 text-right pr-4">
+                                        <button
+                                          onClick={() => setSelectedSantriReport(santri)}
+                                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer shadow-2xs transition-all active:scale-95 flex items-center gap-1.5 ml-auto"
+                                        >
+                                          <FileText size={13} />
+                                          <span>Raport Santri</span>
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Subtab Keuangan & Rekapitulasi Omset */
+                    <div className="space-y-6">
+                      {/* Financial KPI Cards */}
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Omset Kotor</span>
+                          <div className="text-xl sm:text-2xl font-black font-heading text-slate-900">
+                            Rp {financialSummary.totalGross.toLocaleString('id-ID')}
+                          </div>
+                          <span className="text-[11px] text-slate-500 block">Akumulasi seluruh tagihan invoice</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Dana Masuk (Lunas)</span>
+                          <div className="text-xl sm:text-2xl font-black font-heading text-emerald-600">
+                            Rp {financialSummary.totalVerified.toLocaleString('id-ID')}
+                          </div>
+                          <span className="text-[11px] text-emerald-700 font-bold block">Terverifikasi mutasi bank yayasan</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Menunggu Verifikasi</span>
+                          <div className="text-xl sm:text-2xl font-black font-heading text-amber-600">
+                            Rp {financialSummary.totalPending.toLocaleString('id-ID')}
+                          </div>
+                          <span className="text-[11px] text-amber-700 font-bold block">Perlu verifikasi admin</span>
+                        </div>
+
+                        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Ditolak / Fiktif</span>
+                          <div className="text-xl sm:text-2xl font-black font-heading text-rose-600">
+                            Rp {financialSummary.totalFailed.toLocaleString('id-ID')}
+                          </div>
+                          <span className="text-[11px] text-rose-700 block">Transaksi dibatalkan</span>
+                        </div>
+                      </div>
+
+                      {/* Financial Distribution Grids */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Per Bank Breakdown */}
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                              <CreditCard size={16} className="text-blue-600" />
+                              <span>Rekap Penerimaan per Rekening / Metode</span>
+                            </h4>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {Object.entries(financialSummary.byBank).map(([bankName, data]) => (
+                              <div key={bankName} className="p-3 bg-slate-50 rounded-2xl flex items-center justify-between">
+                                <div>
+                                  <span className="font-bold text-slate-800 text-xs block">{bankName}</span>
+                                  <span className="text-[10px] text-slate-500">{data.count} Transaksi</span>
+                                </div>
+                                <span className="font-mono font-bold text-xs text-emerald-700">
+                                  Rp {data.total.toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Per Plan Breakdown */}
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
+                              <Crown size={16} className="text-amber-500" />
+                              <span>Rekap Pendapatan per Paket Langganan</span>
+                            </h4>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {Object.entries(financialSummary.byPlan).map(([planName, data]) => (
+                              <div key={planName} className="p-3 bg-slate-50 rounded-2xl flex items-center justify-between">
+                                <div>
+                                  <span className="font-bold text-slate-800 text-xs block">{planName}</span>
+                                  <span className="text-[10px] text-slate-500">{data.count} Pelanggan</span>
+                                </div>
+                                <span className="font-mono font-bold text-xs text-slate-900">
+                                  Rp {data.total.toLocaleString('id-ID')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           </>
         )}
@@ -4733,6 +5338,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
 
                   <div className="flex items-center gap-2">
+                    {inspectingPayment.status === 'success' && (
+                      <button
+                        onClick={() => setReceiptModalPayment(inspectingPayment)}
+                        className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Printer size={14} />
+                        <span>Cetak Kwitansi Lunas</span>
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setRejectPromptPayment(inspectingPayment);
@@ -4742,12 +5356,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     >
                       Tolak Transfer
                     </button>
-                    <button
-                      onClick={() => handleVerifyPayment(inspectingPayment.id)}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs cursor-pointer shadow-md"
-                    >
-                      Verifikasi & Aktifkan PRO
-                    </button>
+                    {inspectingPayment.status === 'pending' && (
+                      <button
+                        onClick={() => handleVerifyPayment(inspectingPayment.id)}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs cursor-pointer shadow-md"
+                      >
+                        Verifikasi & Aktifkan PRO
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5256,6 +5872,421 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* ================================================================ */}
+      {/* MODAL 9: KWITANSI RESMI BUKTI PEMBAYARAN YAYASAN (PRINTABLE)     */}
+      {/* ================================================================ */}
+      <AnimatePresence>
+        {receiptModalPayment && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+            <div className="bg-white border-2 border-slate-700 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-4 flex flex-col">
+              {/* Modal Control Bar */}
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Printer size={18} className="text-amber-400" />
+                  <h4 className="font-black text-sm">
+                    Kwitansi Bukti Pembayaran Resmi ({receiptModalPayment.invoiceNumber})
+                  </h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  {receiptModalPayment.userWhatsapp && (
+                    <a
+                      href={`https://wa.me/${receiptModalPayment.userWhatsapp.replace(/^0/, '62')}?text=${encodeURIComponent(
+                        `*KWITANSI RESMI CAHAYATAHFIZ INDONESIA*\n` +
+                        `No. Dokumen: KW/${new Date(receiptModalPayment.createdAt).getFullYear()}/${receiptModalPayment.invoiceNumber}\n\n` +
+                        `Assalamu'alaikum Ayah/Bunda ${receiptModalPayment.userName || receiptModalPayment.senderAccountName || 'Wali Santri'},\n\n` +
+                        `Alhamdulillah, pembayaran untuk *Aktivasi Paket ${receiptModalPayment.planName}* telah BERHASIL diverifikasi dan LUNAS.\n\n` +
+                        `• Nominal: Rp ${receiptModalPayment.amountIdr.toLocaleString('id-ID')}\n` +
+                        `• Metode: ${receiptModalPayment.paymentMethod.toUpperCase()} (${receiptModalPayment.transferBankName || 'Yayasan'})\n` +
+                        `• Tanggal: ${new Date(receiptModalPayment.verifiedAt || receiptModalPayment.createdAt).toLocaleDateString('id-ID')}\n` +
+                        `• Status: LUNAS & AKTIF ✓\n\n` +
+                        `Fitur Pro dan kurikulum tahfiz anak kini telah aktif penuh. Jazakumullahu khairan katsiran atas kepercayaan Ayah & Bunda.`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      title="Kirim konfirmasi lunas ke WhatsApp wali santri"
+                    >
+                      <Megaphone size={13} />
+                      <span>Kirim WA</span>
+                    </a>
+                  )}
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Printer size={13} />
+                    <span>Cetak Dokumen</span>
+                  </button>
+                  <button
+                    onClick={() => setReceiptModalPayment(null)}
+                    className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Kwitansi Sheet */}
+              <div className="p-6 sm:p-8 space-y-6 text-slate-900 bg-amber-50/20" id="official-receipt-print">
+                {/* Header Yayasan */}
+                <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-black tracking-widest uppercase text-slate-500 block">
+                      YAYASAN PENDIDIKAN ISLAM & TAHFIZ QUR'AN
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black font-heading tracking-tight text-slate-950">
+                      CAHAYATAHFIZ INDONESIA
+                    </h3>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      Pusat Pembinaan & Kurikulum Tahfiz Anak Interaktif • Jakarta, Indonesia
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-mono text-xs font-black tracking-wider inline-block">
+                      ✓ STATUS: LUNAS
+                    </span>
+                    <span className="text-[10px] text-slate-500 block mt-1 font-mono">
+                      No. KW/{new Date(receiptModalPayment.createdAt).getFullYear()}/{receiptModalPayment.invoiceNumber}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Kwitansi Body Table */}
+                <div className="space-y-3 text-xs">
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Telah Terima Dari</span>
+                    <span className="col-span-2 font-black text-slate-950 text-sm">
+                      {receiptModalPayment.userName || receiptModalPayment.senderAccountName || 'Wali Santri CahayaTahfiz'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Email & WhatsApp</span>
+                    <span className="col-span-2 font-mono font-bold text-slate-800">
+                      {receiptModalPayment.userEmail || '-'} • {receiptModalPayment.userWhatsapp || '-'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Uang Sejumlah</span>
+                    <div className="col-span-2">
+                      <span className="font-mono font-black text-lg text-emerald-800 block">
+                        Rp {receiptModalPayment.amountIdr.toLocaleString('id-ID')}
+                      </span>
+                      <span className="text-[11px] font-semibold italic text-slate-600 block mt-0.5">
+                        ( {formatTerbilangRupiah(receiptModalPayment.amountIdr)} )
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Untuk Pembayaran</span>
+                    <span className="col-span-2 font-bold text-slate-800">
+                      Aktivasi Paket {receiptModalPayment.planName} (Platform Belajar Tahfiz Anak)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Metode & Rekening</span>
+                    <span className="col-span-2 text-slate-800">
+                      {receiptModalPayment.paymentMethod.toUpperCase()} — {receiptModalPayment.transferBankName || 'Rekening Yayasan'}
+                      {receiptModalPayment.senderAccountName && ` (Pengirim: ${receiptModalPayment.senderAccountName})`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 border-b border-slate-200 pb-2">
+                    <span className="font-bold text-slate-500">Tanggal Transaksi</span>
+                    <span className="col-span-2 font-mono text-slate-800">
+                      {new Date(receiptModalPayment.verifiedAt || receiptModalPayment.createdAt).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })} WIB
+                    </span>
+                  </div>
+                </div>
+
+                {/* Stamp & Signature Section */}
+                <div className="pt-4 flex items-end justify-between">
+                  <div className="border border-slate-200 p-2.5 rounded-2xl bg-white flex items-center gap-2">
+                    <QrCode size={36} className="text-slate-800" />
+                    <div className="text-[9px] text-slate-500">
+                      <strong className="block text-slate-900">Validasi Digital</strong>
+                      <span>Terenkripsi SHA-256</span>
+                      <span className="block font-mono text-emerald-700">cahayatahfiz.id/verify</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center w-48 relative">
+                    {/* Stempel Cap Lunas */}
+                    <div className="absolute -top-3 left-6 border-2 border-dashed border-emerald-600 text-emerald-700 rounded-full w-24 h-24 flex flex-col items-center justify-center opacity-85 rotate-[-12deg] pointer-events-none">
+                      <span className="text-[8px] font-black uppercase">YAYASAN</span>
+                      <span className="text-xs font-black uppercase tracking-wider">LUNAS</span>
+                      <span className="text-[7px] font-bold">CAHAYA TAHFIZ</span>
+                    </div>
+
+                    <span className="text-[10px] text-slate-500 block mb-12">
+                      Bendahara Keuangan Yayasan
+                    </span>
+                    <div className="border-b border-slate-900 mx-auto w-36 mb-1"></div>
+                    <span className="text-[11px] font-black text-slate-900 block">
+                      {receiptModalPayment.verifiedByAdminName || 'Finance Administration'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                <span className="text-slate-500 text-[11px]">
+                  Kwitansi ini sah dan diterbitkan secara digital oleh Yayasan CahayaTahfiz Indonesia.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Printer size={13} />
+                    <span>Cetak Kwitansi</span>
+                  </button>
+                  <button
+                    onClick={() => setReceiptModalPayment(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ================================================================ */}
+      {/* MODAL 10: RAPORT PROGRES SANTRI LENGKAP (PRINTABLE RAPORT)       */}
+      {/* ================================================================ */}
+      <AnimatePresence>
+        {selectedSantriReport && (() => {
+          const blocks = StorageService.getBlockProgress(selectedSantriReport.id);
+          const memorizedBlocks = blocks.filter((b) => b.state === 'MEMORIZED');
+          const learningBlocks = blocks.filter((b) => b.state === 'LEARNING');
+          const ayahs = StorageService.getAyahProgress(selectedSantriReport.id);
+          const weakAyahs = ayahs.filter((a) => a.needsReview);
+          const exams = StorageService.getExamSchedules(selectedSantriReport.id);
+          const passedExams = exams.filter((e) => e.status === 'passed');
+          const badges = StorageService.getChildBadges(selectedSantriReport.id);
+          const sessionsCount = StorageService.getFullSessionsCount(selectedSantriReport.id);
+
+          return (
+            <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+              <div className="bg-white border-2 border-slate-700 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden my-4 flex flex-col">
+                {/* Top Control Bar */}
+                <div className="p-4 bg-gradient-to-r from-blue-900 to-indigo-950 text-white flex items-center justify-between border-b border-blue-800">
+                  <div className="flex items-center gap-2">
+                    <FileText size={18} className="text-amber-400" />
+                    <h4 className="font-black text-sm">
+                      Raport Hasil Belajar & Capaian Tahfiz: {selectedSantriReport.name}
+                    </h4>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Printer size={13} />
+                      <span>Cetak Raport</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedSantriReport(null)}
+                      className="text-slate-300 hover:text-white p-1 cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Printable Raport Sheet */}
+                <div className="p-6 sm:p-8 space-y-6 text-slate-900" id="official-raport-print">
+                  {/* Kop Lembaga */}
+                  <div className="border-b-2 border-slate-900 pb-4 text-center space-y-1">
+                    <span className="text-[10px] font-black tracking-widest uppercase text-blue-900 block">
+                      LEMBAGA PENDIDIKAN AL-QUR'AN & TAHFIZ ANAK
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black font-heading tracking-tight text-slate-950">
+                      RAPORT CAPAIAN HAFALAN & ADAB SANTRI
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Kurikulum Tahfiz Juz 30 Bertahap & Pembiasaan Karakter Islami
+                    </p>
+                  </div>
+
+                  {/* Biodata Santri Card */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Nama Santri</span>
+                      <strong className="text-sm font-black text-slate-950 block">{selectedSantriReport.name}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Usia / Jenjang</span>
+                      <strong className="text-slate-900 block">{selectedSantriReport.age || 7} Tahun • {selectedSantriReport.learningLevel.toUpperCase()}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Total Bintang & Level</span>
+                      <strong className="text-amber-600 block">⭐ {selectedSantriReport.totalStars || 0} (Level {selectedSantriReport.level || 1})</strong>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block">Kedisiplinan Streak</span>
+                      <strong className="text-rose-600 block">🔥 {selectedSantriReport.streakDays || 1} Hari Murojaah</strong>
+                    </div>
+                  </div>
+
+                  {/* Ringkasan Kemajuan Hafalan */}
+                  <div className="space-y-3">
+                    <h5 className="font-black text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5 border-b pb-1">
+                      <BookmarkCheck size={14} className="text-emerald-600" />
+                      <span>1. Capaian Hafalan Al-Qur'an (Juz 30)</span>
+                    </h5>
+
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase block">Blok Mutqin</span>
+                        <strong className="text-xl font-black text-emerald-700">{memorizedBlocks.length}</strong>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
+                        <span className="text-[10px] font-bold text-amber-800 uppercase block">Sedang Dipelajari</span>
+                        <strong className="text-xl font-black text-amber-700">{learningBlocks.length}</strong>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200">
+                        <span className="text-[10px] font-bold text-rose-800 uppercase block">Ayat Butuh Review</span>
+                        <strong className="text-xl font-black text-rose-700">{weakAyahs.length}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Riwayat Ujian Tasmi' */}
+                  <div className="space-y-3">
+                    <h5 className="font-black text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5 border-b pb-1">
+                      <Award size={14} className="text-indigo-600" />
+                      <span>2. Hasil Evaluasi Ujian & Tasmi'</span>
+                    </h5>
+
+                    {passedExams.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl text-center">
+                        Santri belum mengikuti agenda ujian tasmi' resmi.
+                      </p>
+                    ) : (
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-100 font-bold text-slate-600 text-[10px] uppercase">
+                            <tr>
+                              <th className="p-2.5 pl-3">Tanggal</th>
+                              <th className="p-2.5">Surah / Materi</th>
+                              <th className="p-2.5">Nilai & Predikat</th>
+                              <th className="p-2.5 pr-3">Catatan Tajwid</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {passedExams.map((ex) => (
+                              <tr key={ex.id}>
+                                <td className="p-2.5 pl-3 font-mono text-[11px]">{ex.date}</td>
+                                <td className="p-2.5 font-bold text-slate-800">{ex.surahRange}</td>
+                                <td className="p-2.5">
+                                  <span className="font-black text-emerald-700">{ex.score}</span>{' '}
+                                  <span className="text-[10px] text-slate-500">({ex.grade})</span>
+                                </td>
+                                <td className="p-2.5 pr-3 text-slate-600 text-[11px]">{ex.tajwidNotes || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Medali Digital & Penghargaan Prestasi */}
+                  <div className="space-y-2">
+                    <h5 className="font-black text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5 border-b pb-1">
+                      <Award size={14} className="text-amber-500" />
+                      <span>3. Medali Digital Pencapaian Sesi Hafalan ({badges.length} Terbuka • {sessionsCount} Sesi Tuntas)</span>
+                    </h5>
+
+                    {badges.length === 0 ? (
+                      <p className="text-[11px] text-slate-500 italic p-3 bg-slate-50 rounded-xl text-center">
+                        Santri sedang menyelesaikan 5 sesi latihan pertama menuju Medali Perunggu 'Hafiz Cilik'.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {badges.map((b) => (
+                          <div
+                            key={b.id}
+                            className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 flex items-center gap-2.5 text-xs"
+                          >
+                            <span className="text-2xl shrink-0">{b.icon}</span>
+                            <div className="min-w-0">
+                              <strong className="text-slate-900 block truncate font-black">{b.title}</strong>
+                              <span className="text-[10px] text-amber-800 font-semibold block truncate">
+                                Milestone Sesi ke-{b.sessionsMilestone} • {b.tier.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tanda Tangan */}
+                  <div className="pt-6 grid grid-cols-2 text-center text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-500 block mb-12">
+                        Wali Santri / Orang Tua
+                      </span>
+                      <div className="border-b border-slate-900 mx-auto w-36 mb-1"></div>
+                      <span className="text-[11px] font-bold text-slate-800">
+                        ( ........................................ )
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-500 block mb-12">
+                        Kepala Pembina Tahfiz
+                      </span>
+                      <div className="border-b border-slate-900 mx-auto w-36 mb-1"></div>
+                      <span className="text-[11px] font-black text-slate-950">
+                        Ustadz H. Ahmad Syakir, Lc.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 text-[11px]">
+                    Raport ini dapat dicetak langsung atau disimpan sebagai format PDF resmi.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Printer size={13} />
+                      <span>Cetak Raport</span>
+                    </button>
+                    <button
+                      onClick={() => setSelectedSantriReport(null)}
+                      className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold cursor-pointer"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
     </div>

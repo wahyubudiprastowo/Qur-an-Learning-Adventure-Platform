@@ -7,6 +7,7 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { NavigationTab, ChildProfile, UserAccount, MemorizationBlock, BroadcastAnnouncement } from './types';
 import { StorageService } from './services/storageService';
 import { BroadcastNoticeModal } from './components/broadcast/BroadcastNoticeModal';
+import { SantriProgressCalendarModal } from './components/calendar/SantriProgressCalendarModal';
 import { Header } from './components/common/Header';
 import { BottomNavigation } from './components/common/BottomNavigation';
 import { BerandaHome } from './components/beranda/BerandaHome';
@@ -36,6 +37,7 @@ import { StarShopModal } from './components/subscription/StarShopModal';
 import { CompanionService } from './services/companionService';
 import { GlobalAudioManager } from './services/audioService';
 import { getBlocksForSurah } from './data/blocksData';
+import { SURAHS_METADATA } from './data/surahsMetadata';
 import { FloatingSocialShareDock } from './components/common/FloatingSocialShareDock';
 import { ShareModal, SharePayload } from './components/common/ShareModal';
 import { PusatIbadahDoaModal } from './components/ibadah/PusatIbadahDoaModal';
@@ -106,6 +108,25 @@ export default function App() {
     }
     return false;
   });
+  const [showCalendarModal, setShowCalendarModal] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.toLowerCase();
+      const q = window.location.search.toLowerCase();
+      return h === '#/calendar' || h === '#calendar' || q.includes('tab=calendar');
+    }
+    return false;
+  });
+  const [calendarInitialTab, setCalendarInitialTab] = useState<'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian'>('smart_goal');
+  const [calendarOpenWizard, setCalendarOpenWizard] = useState<boolean>(false);
+
+  const handleOpenCalendar = (
+    tab: 'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian' = 'smart_goal',
+    openWizard: boolean = false
+  ) => {
+    setCalendarInitialTab(tab);
+    setCalendarOpenWizard(openWizard);
+    setShowCalendarModal(true);
+  };
 
   useEffect(() => {
     const handleUrlRoute = () => {
@@ -113,6 +134,9 @@ export default function App() {
       const q = window.location.search.toLowerCase();
       if (h === '#/admin' || h === '#admin' || q.includes('portal=admin') || q.includes('admin=true')) {
         setShowAdminPortal(true);
+      }
+      if (h === '#/calendar' || h === '#calendar' || q.includes('tab=calendar')) {
+        setShowCalendarModal(true);
       }
     };
     window.addEventListener('hashchange', handleUrlRoute);
@@ -437,6 +461,8 @@ export default function App() {
           onOpenIbadahModal={handleOpenIbadah}
           onOpenStarShop={() => setShowStarShopModal(true)}
           onAccountUpdated={(acc) => setUserAccount(acc)}
+          onOpenCalendar={() => setShowCalendarModal(true)}
+          onOpenAdminPortal={() => setShowAdminPortal(true)}
         />
 
         {/* Mode Tamu (Guest) Info Banner with 1-Tap Registration */}
@@ -588,6 +614,8 @@ export default function App() {
               onOpenPlanModal={() => setShowPlanModal(true)}
               onOpenIbadahModal={handleOpenIbadah}
               onOpenStarShop={() => setShowStarShopModal(true)}
+              onOpenCalendar={() => handleOpenCalendar('smart_goal')}
+              onOpenSmartGoalWizard={() => handleOpenCalendar('smart_goal', true)}
             />
           )}
 
@@ -602,6 +630,20 @@ export default function App() {
                     navigateTahfiz(step === 'latihan' ? 'latihan_menu' : step);
                   }}
                   onResumeLastSession={handleResumeLastSession}
+                  onOpenCalendar={() => handleOpenCalendar('smart_goal')}
+                  onOpenSmartGoalWizard={() => handleOpenCalendar('smart_goal', true)}
+                  onStartPortion={(surahNum: number) => {
+                    setLastSession((prev: any) => ({
+                      ...prev,
+                      surahNumber: surahNum,
+                      surahName:
+                        SURAHS_METADATA.find((s: any) => s.number === surahNum)?.nameLatin || prev.surahName,
+                      blockNumber: 1,
+                      startAyah: 1,
+                      endAyah: 7,
+                    }));
+                    navigateTahfiz('ziadah_config');
+                  }}
                 />
               )}
 
@@ -959,6 +1001,47 @@ export default function App() {
             }
           }}
         />
+
+        {/* Kalender Interaktif: Murojaah, Daily Task Adab, Target Custom, & Jadwal Ujian Hafalan */}
+        {activeChild && (
+          <SantriProgressCalendarModal
+            isOpen={showCalendarModal}
+            onClose={() => {
+              setShowCalendarModal(false);
+              setCalendarOpenWizard(false);
+              if (window.location.hash.toLowerCase().includes('calendar')) {
+                history.replaceState(null, '', window.location.pathname);
+              }
+            }}
+            activeChild={activeChild}
+            childrenList={childrenList}
+            onSwitchChild={handleSwitchChild}
+            initialTab={calendarInitialTab}
+            initialOpenWizard={calendarOpenWizard}
+            onNavigateToMurojaah={() => {
+              setShowCalendarModal(false);
+              setActiveTab('tahfiz');
+              navigateTahfiz('murojaah');
+            }}
+            onNavigateToZiadah={(surahNumber?: number) => {
+              setShowCalendarModal(false);
+              setCalendarOpenWizard(false);
+              setActiveTab('tahfiz');
+              if (surahNumber) {
+                setLastSession((prev: any) => ({
+                  ...prev,
+                  surahNumber,
+                  surahName:
+                    SURAHS_METADATA.find((s: any) => s.number === surahNumber)?.nameLatin || prev.surahName,
+                  blockNumber: 1,
+                  startAyah: 1,
+                  endAyah: 7,
+                }));
+              }
+              navigateTahfiz('ziadah_config');
+            }}
+          />
+        )}
       </div>
     </div>
   );

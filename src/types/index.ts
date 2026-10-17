@@ -18,6 +18,8 @@ export interface ChildProfile {
   lastPracticedAyah?: number;
   dailyTargetAyahs?: number;
   lastActiveDate: string;
+  completedFullSessionsCount?: number;
+  earnedBadges?: AchievementBadge[];
   createdAt: string;
   updatedAt: string;
 }
@@ -496,7 +498,10 @@ export type PointsEventType =
   | 'TAJWID_LESSON'
   | 'VOCABULARY'
   | 'GAME'
-  | 'ADAB_TASK';
+  | 'ADAB_TASK'
+  | 'SMART_GOAL'
+  | 'COMPLETE_SESSION'
+  | 'MEDAL_ACHIEVEMENT';
 
 export interface PointsLedgerEntry {
   id: string;
@@ -517,6 +522,19 @@ export interface Achievement {
   icon: string;
   requiredCount: number;
   category: 'hafalan' | 'streak' | 'iqra' | 'tajwid' | 'game' | 'stars';
+}
+
+export type MedalTier = 'bronze' | 'silver' | 'gold' | 'diamond' | 'master';
+
+export interface AchievementBadge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  tier: MedalTier;
+  sessionsMilestone: number;
+  unlockedAt: string;
+  category?: 'full_session' | 'surah' | 'adab';
 }
 
 export interface IqraItem {
@@ -566,6 +584,9 @@ export interface AsbabNuzulStory {
   story: string;
   moralLesson: string;
   reference: string;
+  narrator?: string;
+  authenticityGrade?: string;
+  illustrationTheme?: string;
 }
 
 export interface QuranVocabularyItem {
@@ -628,4 +649,152 @@ export interface AudioAuditFlag {
   issueCategory?: 'harakat' | 'makhraj' | 'speed' | 'waqaf' | 'other';
   notes: string;
   flaggedAt: string;
+}
+
+// =========================================================================
+// 📅 KALENDER SANTRI INTERAKTIF, ADAB, TARGET CUSTOM & UJIAN HAFALAN
+// =========================================================================
+
+export type CalendarEventType =
+  | 'murojaah'
+  | 'ziadah'
+  | 'adab_task'
+  | 'exam'
+  | 'custom_target'
+  | 'activity_recap';
+
+export interface SantriCalendarEvent {
+  id: string;
+  childId: string;
+  date: string; // 'YYYY-MM-DD'
+  time?: string; // 'HH:MM'
+  type: CalendarEventType;
+  title: string;
+  description?: string;
+  status: 'completed' | 'pending' | 'missed' | 'scheduled';
+  metadata?: {
+    surahNumber?: number;
+    surahName?: string;
+    ayahRange?: string;
+    score?: number;
+    tajwidGrade?: 'mumtaz' | 'jayyid' | 'perlu_ulang';
+    starsEarned?: number;
+    evaluatorName?: string;
+    notes?: string;
+    taskId?: string;
+    targetId?: string;
+  };
+}
+
+export interface DailyAdabTask {
+  id: string;
+  title: string;
+  description: string;
+  category: 'sholat' | 'doa' | 'akhlak' | 'kebersihan' | 'quran' | 'birrul_walidain';
+  icon: string;
+  timeRecommendation?: string; // e.g. "Subuh", "Sepanjang Hari", "Malam"
+  starsReward: number;
+  xpReward: number;
+  isCustom?: boolean; // Created by parent
+  childId?: string;
+}
+
+export interface DailyAdabLog {
+  date: string; // 'YYYY-MM-DD'
+  childId: string;
+  completedTaskIds: string[];
+  parentVerified?: boolean;
+  parentNotes?: string;
+  earnedStars?: number;
+}
+
+export interface CustomLearningTarget {
+  id: string;
+  childId: string;
+  title: string;
+  category: 'harian_ayat' | 'mingguan_surah' | 'bulanan_juz' | 'murojaah_mutqin' | 'adab_konsisten' | 'bintang_lumi';
+  targetQuantity: number;
+  currentProgress: number;
+  unit: string; // "Ayat", "Surah", "Juz", "Bintang", "Hari"
+  startDate: string; // 'YYYY-MM-DD'
+  deadlineDate: string; // 'YYYY-MM-DD'
+  rewardDescription?: string; // Hadiah dari orang tua jika target tercapai
+  isAchieved: boolean;
+  achievedAt?: string;
+  createdAt: string;
+}
+
+export interface DailyBreakdownPortion {
+  id: string;
+  date: string; // 'YYYY-MM-DD'
+  dayIndex: number; // 1 to 7
+  dayName: string; // 'Senin', 'Selasa', 'Rabu', etc.
+  type: 'ziadah' | 'murojaah' | 'tasmi_evaluasi' | 'istirahat';
+  title: string; // e.g. "Hafalan Baru: Surah An-Naba' Ayat 1-6"
+  surahNumber: number;
+  surahName: string;
+  startAyah: number;
+  endAyah: number;
+  targetAyatCount: number;
+  estimatedMinutes: number; // e.g. 15 menit
+  isCompleted: boolean;
+  completedAt?: string;
+  starsReward: number;
+  notes?: string;
+}
+
+export interface SmartWeeklyGoal {
+  id: string;
+  childId: string;
+  title: string; // e.g. "Target Sepekan: Tuntas Surah An-Naba' (40 Ayat)"
+  surahNumber: number;
+  surahName: string;
+  startAyah: number;
+  endAyah: number;
+  totalAyat: number;
+  activeDaysPerWeek: number; // 5, 6, atau 7 hari
+  restDay: 'jumat' | 'ahad' | 'sabtu' | 'none'; // Hari jeda evaluasi / istirahat
+  intensityLevel: 'santai' | 'moderat' | 'intensif'; // Santai (2-3 ayat), Moderat (4-6 ayat), Intensif (7-10 ayat)
+  startDate: string; // 'YYYY-MM-DD'
+  endDate: string; // 'YYYY-MM-DD'
+  rewardDescription: string; // Janji hadiah dari Ayah/Bunda
+  status: 'active' | 'completed' | 'paused';
+  dailyPortions: DailyBreakdownPortion[];
+  totalStarsReward: number;
+  completedAyatCount: number;
+  createdAt: string;
+}
+
+export interface TahfizExamSchedule {
+  id: string;
+  childId: string;
+  date: string; // 'YYYY-MM-DD'
+  time: string; // 'HH:MM'
+  title: string;
+  surahRange: string;
+  evaluatorType: 'ustadz' | 'orangtua' | 'lembaga';
+  evaluatorName: string;
+  status: 'scheduled' | 'passed' | 'need_repeat' | 'in_progress';
+  grade?: 'Mumtaz (Istimewa)' | 'Jayyid Jiddan (Sangat Baik)' | 'Jayyid (Baik)' | 'Maqbul (Cukup)' | 'Perlu Murojaah';
+  score?: number; // 0-100
+  tajwidNotes?: string;
+  makhrajNotes?: string;
+  kelancaranNotes?: string;
+  certificateUrl?: string;
+  remindBeforeHours?: number;
+}
+
+export interface DailyChronologicalActivity {
+  id: string;
+  timestamp: string; // ISO
+  timeFormatted: string; // "06:15"
+  type: 'murojaah' | 'ziadah' | 'iqra' | 'tajwid' | 'adab' | 'exam' | 'game' | 'mufrodat';
+  title: string;
+  description: string;
+  surahName?: string;
+  ayahCount?: number;
+  score?: number;
+  starsEarned: number;
+  hasAudioRecording?: boolean;
+  badge?: string;
 }

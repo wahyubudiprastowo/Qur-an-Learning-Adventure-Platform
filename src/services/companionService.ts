@@ -122,7 +122,7 @@ export class CompanionService {
    */
   static recordActivity(
     childId: string,
-    actionType: 'murojaah' | 'dengar' | 'ziadah' | 'hafalan' | 'iqra' | 'tajwid' | 'vocab' | 'game',
+    actionType: 'murojaah' | 'dengar' | 'ziadah' | 'hafalan' | 'iqra' | 'tajwid' | 'vocab' | 'game' | 'asbab_nuzul',
     xpEarned: number,
     starsEarned: number,
     customTitle?: string
@@ -144,8 +144,9 @@ export class CompanionService {
       companion.traits.tartil = (companion.traits.tartil || 0) + 1;
     } else if (actionType === 'iqra') {
       companion.traits.reader = (companion.traits.reader || 0) + 1;
-    } else if (actionType === 'vocab') {
+    } else if (actionType === 'vocab' || actionType === 'asbab_nuzul') {
       companion.traits.scholar = (companion.traits.scholar || 0) + 1;
+      companion.traits.reader = (companion.traits.reader || 0) + 1;
     } else if (actionType === 'game') {
       companion.traits.explorer = (companion.traits.explorer || 0) + 1;
     }
@@ -270,7 +271,7 @@ export class CompanionService {
       // Map related actions
       const isMatch =
         q.actionType === actionType ||
-        (q.id === 'quest-tajwid' && ['tajwid', 'iqra', 'vocab'].includes(actionType)) ||
+        (q.id === 'quest-tajwid' && ['tajwid', 'iqra', 'vocab', 'asbab_nuzul'].includes(actionType)) ||
         (q.id === 'quest-latihan' && ['ziadah', 'murojaah', 'hafalan'].includes(actionType)) ||
         (q.id === 'quest-dengar' && ['dengar'].includes(actionType));
 

@@ -428,7 +428,6 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               <button
                 onClick={() => {
                   setEmailConfirmationSent(true);
-                  alert(`Salinan invoice #${completedTx.invoiceNumber} telah dikirimkan ke ${payerEmail}.`);
                 }}
                 className="w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
               >

@@ -43,3 +43,37 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #08B9EF;
 }
+
+/* Print Styles for Official Receipt (Kwitansi) & Raport Santri */
+@media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide interactive controls, modals chrome, and header buttons during print */
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  #official-receipt-print,
+  #official-raport-print {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+

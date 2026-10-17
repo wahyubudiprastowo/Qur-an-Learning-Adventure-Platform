@@ -100,6 +100,7 @@ export type MissionActionType =
   | 'hafalan'
   | 'iqra'
   | 'vocab'
+  | 'asbab_nuzul'
   | 'feed'
   | 'water'
   | 'game';

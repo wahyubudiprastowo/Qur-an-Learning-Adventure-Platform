@@ -11,6 +11,7 @@ import {
   Crown,
   Moon,
   ChevronDown,
+  Calendar,
 } from 'lucide-react';
 import { ChildProfile, NavigationTab, UserAccount } from '../../types';
 import { StorageService } from '../../services/storageService';
@@ -38,6 +39,8 @@ interface HeaderProps {
   onOpenStarShop?: () => void;
   onOpenChildSwitcher?: () => void;
   onAccountUpdated?: (account: UserAccount) => void;
+  onOpenCalendar?: () => void;
+  onOpenAdminPortal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -60,6 +63,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenStarShop,
   onOpenChildSwitcher,
   onAccountUpdated,
+  onOpenCalendar,
+  onOpenAdminPortal,
 }) => {
   const [showChildMenu, setShowChildMenu] = useState<boolean>(false);
   const [showParentMenu, setShowParentMenu] = useState<boolean>(false);
@@ -179,6 +184,22 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="text-[10px] font-black text-amber-600 ml-0.5">+</span>
               </button>
 
+              {/* TOMBOL KALENDER SANTRI (Daily Adab, Rekap Kronologis & Ujian) */}
+              {onOpenCalendar && (
+                <button
+                  type="button"
+                  onClick={onOpenCalendar}
+                  aria-label="Buka Kalender & Evaluasi Santri"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-2xl bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-900 active:scale-95 transition-all shadow-2xs cursor-pointer group"
+                  title="Kalender Progres Santri (Daily Task Adab, Rekap Kronologis & Ujian Hafalan)"
+                >
+                  <Calendar size={13} className="text-teal-700 shrink-0" />
+                  <span className="hidden sm:inline text-xs font-black">
+                    Kalender
+                  </span>
+                </button>
+              )}
+
               {/* 1. TOMBOL SANTRI (Menu Khusus Anak & Ganti Santri) */}
               <button
                 type="button"
@@ -294,6 +315,8 @@ export const Header: React.FC<HeaderProps> = ({
           onAccountUpdated={(updatedAcc) => {
             if (onAccountUpdated) onAccountUpdated(updatedAcc);
           }}
+          onOpenCalendar={onOpenCalendar}
+          onOpenAdminPortal={onOpenAdminPortal}
         />
       )}
     </>
