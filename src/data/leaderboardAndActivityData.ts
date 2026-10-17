@@ -29,6 +29,48 @@ export interface LeaderboardPlayerItem {
   location?: string;
 }
 
+export interface DuelLeaderboardItem {
+  rank: number;
+  id: string;
+  name: string;
+  avatar: string;
+  schoolName: string;
+  score: number;
+  isBot: boolean;
+  isCurrentPlayer: boolean;
+  streak: number;
+  tierBadge: string;
+  status?: 'online' | 'in_match' | 'idle';
+  categorySpecialty?: string;
+  favoriteSurah?: string;
+}
+
+export interface DuelLiveMatch {
+  id: string;
+  player1Name: string;
+  player1Avatar: string;
+  player1School: string;
+  player2Name: string;
+  player2Avatar: string;
+  player2School: string;
+  winnerName: string;
+  scoreDisplay: string;
+  category: string;
+  timeAgoText: string;
+  timestamp: number;
+}
+
+export interface DuelStats {
+  duelScore: number;
+  matchesWon: number;
+  matchesLost: number;
+  matchesTotal: number;
+  winStreak: number;
+  highestStreak: number;
+  tierBadge: string;
+  lastPlayed?: number;
+}
+
 export const INITIAL_RECENT_ACTIVITIES: UserActivityItem[] = [
   {
     id: 'act-1',
@@ -266,5 +308,78 @@ export const INITIAL_LEADERBOARD_PLAYERS: LeaderboardPlayerItem[] = [
     surahCount: 5,
     streakDays: 3,
     location: 'Palembang',
+  },
+];
+
+export const INITIAL_LIVE_DUEL_MATCHES: DuelLiveMatch[] = [
+  {
+    id: 'live-1',
+    player1Name: 'Ahmad Fauzan',
+    player1Avatar: '👦',
+    player1School: 'TPQ Al-Ikhlas Bandung',
+    player2Name: 'Zaidan Al-Fatih',
+    player2Avatar: '🧒',
+    player2School: 'Kuttab Al-Fatih Jakarta',
+    winnerName: 'Ahmad Fauzan',
+    scoreDisplay: '90 - 70',
+    category: 'Sambung Ayat',
+    timeAgoText: '15 detik yang lalu',
+    timestamp: Date.now() - 15000,
+  },
+  {
+    id: 'live-2',
+    player1Name: 'Fatimah Azzahra',
+    player1Avatar: '🧕',
+    player1School: 'Kuttab Al-Fatih Jakarta',
+    player2Name: 'Maryam Salsabila',
+    player2Avatar: '👧',
+    player2School: 'Rumah Tahfiz Ar-Rahman Jogja',
+    winnerName: 'Fatimah Azzahra',
+    scoreDisplay: '100 - 80',
+    category: 'Hukum Tajwid',
+    timeAgoText: '45 detik yang lalu',
+    timestamp: Date.now() - 45000,
+  },
+  {
+    id: 'live-3',
+    player1Name: 'Kenzi Hafiz',
+    player1Avatar: '👦',
+    player1School: 'SDIT Insan Kamil Malang',
+    player2Name: 'Salwa Al-Husna',
+    player2Avatar: '🧕',
+    player2School: 'Rumah Qur\'an Semarang',
+    winnerName: 'Kenzi Hafiz',
+    scoreDisplay: '85 - 65',
+    category: 'Tebak Surah',
+    timeAgoText: '2 menit yang lalu',
+    timestamp: Date.now() - 120000,
+  },
+  {
+    id: 'live-4',
+    player1Name: 'Raihan El-Bukhari',
+    player1Avatar: '👳',
+    player1School: 'Pesantren Cilik Cirebon',
+    player2Name: 'Nadia Tartila',
+    player2Avatar: '🧕',
+    player2School: 'MI Pembangunan Surabaya',
+    winnerName: 'Raihan El-Bukhari',
+    scoreDisplay: '95 - 75',
+    category: 'Arti Kata',
+    timeAgoText: '3 menit yang lalu',
+    timestamp: Date.now() - 180000,
+  },
+  {
+    id: 'live-5',
+    player1Name: 'Aisyah Humaira',
+    player1Avatar: '🧕',
+    player1School: 'TPQ Baitul Mal Tangerang',
+    player2Name: 'Ibrahim As-Suyuthi',
+    player2Avatar: '👦',
+    player2School: 'TPQ Nurul Huda Medan',
+    winnerName: 'Aisyah Humaira',
+    scoreDisplay: '100 - 60',
+    category: 'Sambung Ayat',
+    timeAgoText: '5 menit yang lalu',
+    timestamp: Date.now() - 300000,
   },
 ];

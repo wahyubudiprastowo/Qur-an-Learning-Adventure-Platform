@@ -171,8 +171,25 @@ export const SantriDuelArena: React.FC<SantriDuelArenaProps> = ({
           });
         } catch (e) {}
 
-        // Award points if won
+        // Award points and record duel match
         const isWinner = data.winner && data.winner.name === (activeChild?.name || 'Santri');
+        const opponent = hostPlayer?.name === (activeChild?.name || 'Santri') ? guestPlayer : hostPlayer;
+        const opponentName = opponent?.name || 'Santri Sahabat';
+        const opponentAvatar = opponent?.avatar || '👦';
+        const opponentSchool = opponent?.schoolName || 'Kuttab Al-Fatih';
+        const gainedPoints = isWinner ? 50 : 15;
+
+        StorageService.recordDuelMatch(childId, {
+          won: isWinner,
+          pointsGained: gainedPoints,
+          opponentName,
+          opponentAvatar,
+          opponentSchool,
+          category: currentQuestion?.category || 'Sambung Ayat',
+          finalScoreSelf: isWinner ? 90 : 60,
+          finalScoreOpponent: isWinner ? 60 : 90,
+        });
+
         if (isWinner) {
           StorageService.recordPoints(
             childId,
@@ -182,7 +199,18 @@ export const SantriDuelArena: React.FC<SantriDuelArenaProps> = ({
             'Menang Duel Kuis Santri Real-Time 🏆'
           );
           CompanionService.recordActivity(childId, 'game', 40, 6);
+        } else {
+          StorageService.recordPoints(
+            childId,
+            'GAME',
+            15,
+            3,
+            'Partisipasi Duel Kuis Santri ⚔️'
+          );
+          CompanionService.recordActivity(childId, 'game', 15, 2);
         }
+
+        fetchLeaderboard();
       } else if (event === 'EMOTE_RECEIVED') {
         SoundEffects.playRewardSound();
         setChatEmotesReceived((prev) => [

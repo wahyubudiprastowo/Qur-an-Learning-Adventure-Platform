@@ -37,8 +37,11 @@ import { getLevelForXp, SESSION_MEDALS_CATALOG, getNextMedalMilestone } from '..
 import {
   UserActivityItem,
   LeaderboardPlayerItem,
+  DuelStats,
+  DuelLiveMatch,
   INITIAL_RECENT_ACTIVITIES,
   INITIAL_LEADERBOARD_PLAYERS,
+  INITIAL_LIVE_DUEL_MATCHES,
 } from '../data/leaderboardAndActivityData';
 import { AudioDatabaseService } from './audioDatabaseService';
 import { SURAHS_METADATA } from '../data/surahsMetadata';
@@ -86,6 +89,8 @@ const STORAGE_KEYS = {
   TAHFIZ_EXAM_SCHEDULES_PREFIX: 'cahaya_tahfiz_exam_schedules_',
   CALENDAR_EVENTS_PREFIX: 'cahaya_tahfiz_calendar_events_',
   SMART_WEEKLY_GOALS_PREFIX: 'cahaya_tahfiz_smart_goals_',
+  DUEL_STATS_PREFIX: 'cahaya_tahfiz_duel_stats_',
+  LIVE_DUEL_MATCHES: 'cahaya_tahfiz_live_duel_matches',
 };
 
 // Initial default parent and child profiles
@@ -5376,5 +5381,138 @@ export class StorageService {
     }
 
     return result;
+  }
+
+  // ==========================================
+  // DUEL KUIS SANTRI - STATS & LIVE MATCHES
+  // ==========================================
+
+  static getDuelStats(childId?: string): DuelStats {
+    const targetId = childId || this.getActiveChildId();
+    const key = `${STORAGE_KEYS.DUEL_STATS_PREFIX}${targetId}`;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {}
+    }
+    const child = this.getActiveChild();
+    const defaultScore = child ? Math.max(180, child.level * 80 + 120) : 260;
+    const initialStats: DuelStats = {
+      duelScore: defaultScore,
+      matchesWon: 4,
+      matchesLost: 1,
+      matchesTotal: 5,
+      winStreak: 3,
+      highestStreak: 5,
+      tierBadge: 'Pejuang Tahfiz',
+      lastPlayed: Date.now(),
+    };
+    localStorage.setItem(key, JSON.stringify(initialStats));
+    return initialStats;
+  }
+
+  static recordDuelMatch(
+    childId: string,
+    payload: {
+      won: boolean;
+      pointsGained: number;
+      opponentName: string;
+      opponentAvatar?: string;
+      opponentSchool?: string;
+      category?: string;
+      finalScoreSelf?: number;
+      finalScoreOpponent?: number;
+    }
+  ): DuelStats {
+    const stats = this.getDuelStats(childId);
+    stats.matchesTotal += 1;
+    if (payload.won) {
+      stats.matchesWon += 1;
+      stats.winStreak += 1;
+      if (stats.winStreak > stats.highestStreak) {
+        stats.highestStreak = stats.winStreak;
+      }
+    } else {
+      stats.matchesLost += 1;
+      stats.winStreak = 0;
+    }
+    stats.duelScore += payload.pointsGained;
+    stats.lastPlayed = Date.now();
+
+    // Determine tier badge by score
+    if (stats.duelScore >= 1000) {
+      stats.tierBadge = '👑 Sultan Tahfiz';
+    } else if (stats.duelScore >= 700) {
+      stats.tierBadge = '⚡ Jawara Tartil';
+    } else if (stats.duelScore >= 450) {
+      stats.tierBadge = '🗡️ Pendekar Hafiz';
+    } else if (stats.duelScore >= 250) {
+      stats.tierBadge = '⭐ Ksatria Mutqin';
+    } else {
+      stats.tierBadge = '🌟 Pejuang Tahfiz';
+    }
+
+    const key = `${STORAGE_KEYS.DUEL_STATS_PREFIX}${childId}`;
+    localStorage.setItem(key, JSON.stringify(stats));
+
+    // Record activity item
+    const child = this.getActiveChild();
+    const childName = child?.name || 'Santri Cilik';
+    const childAvatar = child?.avatar || '🌟';
+    const childLevel = child?.level || 1;
+
+    this.addActivity({
+      userName: childName,
+      userAvatar: childAvatar,
+      userLevel: childLevel,
+      gameId: 'santri_duel',
+      gameName: 'Duel Kuis Santri ⚔️',
+      gameIcon: '⚔️',
+      score: stats.duelScore,
+      actionText: payload.won
+        ? `menang duel sengit melawan ${payload.opponentName} (+${payload.pointsGained} poin)`
+        : `bertanding seru dalam duel kuis melawan ${payload.opponentName}`,
+      isPvp: true,
+      pvpOpponent: payload.opponentName,
+    });
+
+    // Record to live duel matches
+    this.addLiveDuelMatch({
+      id: `live-duel-${Date.now()}`,
+      player1Name: childName,
+      player1Avatar: childAvatar,
+      player1School: 'Rumah Tahfiz Al-Qur\'an',
+      player2Name: payload.opponentName,
+      player2Avatar: payload.opponentAvatar || '👦',
+      player2School: payload.opponentSchool || 'Kuttab Al-Fatih',
+      winnerName: payload.won ? childName : payload.opponentName,
+      scoreDisplay: `${payload.finalScoreSelf ?? (payload.won ? 90 : 60)} - ${payload.finalScoreOpponent ?? (payload.won ? 60 : 90)}`,
+      category: payload.category || 'Sambung Ayat',
+      timeAgoText: 'Baru saja',
+      timestamp: Date.now(),
+    });
+
+    return stats;
+  }
+
+  static getLiveDuelMatches(): DuelLiveMatch[] {
+    const raw = localStorage.getItem(STORAGE_KEYS.LIVE_DUEL_MATCHES);
+    if (raw) {
+      try {
+        const parsed: DuelLiveMatch[] = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {}
+    }
+    localStorage.setItem(STORAGE_KEYS.LIVE_DUEL_MATCHES, JSON.stringify(INITIAL_LIVE_DUEL_MATCHES));
+    return INITIAL_LIVE_DUEL_MATCHES;
+  }
+
+  static addLiveDuelMatch(match: DuelLiveMatch): void {
+    const current = this.getLiveDuelMatches();
+    const updated = [match, ...current.filter((m) => m.id !== match.id)].slice(0, 20);
+    localStorage.setItem(STORAGE_KEYS.LIVE_DUEL_MATCHES, JSON.stringify(updated));
   }
 }

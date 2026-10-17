@@ -464,6 +464,36 @@ export const WorldMapView: React.FC<WorldMapViewProps> = ({
             </div>
           </div>
 
+          {/* Quick Access to Global Duel Leaderboard */}
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-3xl p-4 text-white shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-11 h-11 rounded-2xl bg-white/20 border border-white/30 flex items-center justify-center text-2xl shrink-0">
+                🏆
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-black text-sm sm:text-base text-white">
+                    Leaderboard Global: Liga Duel Kuis Santri
+                  </h4>
+                  <span className="text-[10px] font-black uppercase bg-white text-orange-950 px-2 py-0.5 rounded-full shadow-2xs">
+                    ● Real-Time
+                  </span>
+                </div>
+                <p className="text-xs text-amber-100 font-medium">
+                  Cek posisi santri di Liga Nasional, tantang rival sepadan, dan rebut Medali Emas Pekan Ini!
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveMainTab('leaderboard')}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white hover:bg-amber-50 text-orange-950 font-heading font-black text-xs shadow-xs transition-transform active:scale-95 cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+            >
+              <span>Buka Leaderboard Global</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
           {/* Games Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {[

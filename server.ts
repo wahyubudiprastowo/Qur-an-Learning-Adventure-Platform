@@ -542,6 +542,112 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
     });
   });
 
+  // In-memory live matches feed for real-time duel spectator / activity ticker
+  const SERVER_LIVE_MATCHES: any[] = [
+    {
+      id: 'match-1',
+      player1Name: 'Ahmad Fauzan',
+      player1Avatar: '👦',
+      player1School: 'TPQ Al-Ikhlas Bandung',
+      player2Name: 'Zaidan Al-Fatih',
+      player2Avatar: '🧒',
+      player2School: 'Kuttab Al-Fatih Jakarta',
+      winnerName: 'Ahmad Fauzan',
+      scoreDisplay: '90 - 70',
+      category: 'Sambung Ayat',
+      timeAgoText: '10 detik yang lalu',
+      timestamp: Date.now() - 10000,
+    },
+    {
+      id: 'match-2',
+      player1Name: 'Fatimah Azzahra',
+      player1Avatar: '🧕',
+      player1School: 'Kuttab Al-Fatih Jakarta',
+      player2Name: 'Maryam Salsabila',
+      player2Avatar: '👧',
+      player2School: 'Rumah Tahfiz Ar-Rahman Jogja',
+      winnerName: 'Fatimah Azzahra',
+      scoreDisplay: '100 - 80',
+      category: 'Hukum Tajwid',
+      timeAgoText: '30 detik yang lalu',
+      timestamp: Date.now() - 30000,
+    },
+    {
+      id: 'match-3',
+      player1Name: 'Kenzi Hafiz',
+      player1Avatar: '👦',
+      player1School: 'SDIT Insan Kamil Malang',
+      player2Name: 'Salwa Al-Husna',
+      player2Avatar: '🧕',
+      player2School: 'Rumah Qur\'an Semarang',
+      winnerName: 'Kenzi Hafiz',
+      scoreDisplay: '85 - 65',
+      category: 'Tebak Surah',
+      timeAgoText: '1 menit yang lalu',
+      timestamp: Date.now() - 60000,
+    },
+    {
+      id: 'match-4',
+      player1Name: 'Raihan El-Bukhari',
+      player1Avatar: '👳',
+      player1School: 'Pesantren Cilik Cirebon',
+      player2Name: 'Nadia Tartila',
+      player2Avatar: '🧕',
+      player2School: 'MI Pembangunan Surabaya',
+      winnerName: 'Raihan El-Bukhari',
+      scoreDisplay: '95 - 75',
+      category: 'Arti Kata',
+      timeAgoText: '2 menit yang lalu',
+      timestamp: Date.now() - 120000,
+    },
+    {
+      id: 'match-5',
+      player1Name: 'Aisyah Humaira',
+      player1Avatar: '🧕',
+      player1School: 'TPQ Baitul Mal Tangerang',
+      player2Name: 'Ibrahim As-Suyuthi',
+      player2Avatar: '👦',
+      player2School: 'TPQ Nurul Huda Medan',
+      winnerName: 'Aisyah Humaira',
+      scoreDisplay: '100 - 60',
+      category: 'Sambung Ayat',
+      timeAgoText: '4 menit yang lalu',
+      timestamp: Date.now() - 240000,
+    },
+  ];
+
+  app.get('/api/duel/live-matches', (req, res) => {
+    res.json({
+      success: true,
+      matches: SERVER_LIVE_MATCHES.slice(0, 15),
+    });
+  });
+
+  function recordMatchToLiveFeed(room: DuelLiveRoom, winner: any) {
+    try {
+      const p1 = room.host;
+      const p2 = room.guest;
+      if (!p1) return;
+      SERVER_LIVE_MATCHES.unshift({
+        id: `match-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        player1Name: p1.name,
+        player1Avatar: p1.avatar,
+        player1School: p1.schoolName || 'Rumah Tahfiz Al-Qur\'an',
+        player2Name: p2 ? p2.name : 'Santri Sahabat',
+        player2Avatar: p2 ? p2.avatar : '👦',
+        player2School: p2?.schoolName || 'Kuttab Al-Fatih',
+        winnerName: winner ? winner.name : 'Seri',
+        scoreDisplay: `${p1.score} - ${p2?.score || 0}`,
+        category: room.category || 'Sambung Ayat',
+        timeAgoText: 'Baru saja',
+        timestamp: Date.now(),
+      });
+      if (SERVER_LIVE_MATCHES.length > 25) {
+        SERVER_LIVE_MATCHES.pop();
+      }
+    } catch (e) {}
+  }
+
   // --- WebSocket Duel Server Implementation ---
   interface DuelPlayerSession {
     ws: WebSocket | null;
@@ -868,6 +974,7 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
           if (room.host.hp <= 0 || (room.guest && room.guest.hp <= 0) || room.currentRound >= room.totalRounds - 1) {
             room.status = 'game_over';
             const winner = room.host.score > (room.guest?.score || 0) ? room.host : room.guest;
+            recordMatchToLiveFeed(room, winner);
             broadcastRoom(room, 'GAME_OVER', {
               room: getSafeRoomSnapshot(room),
               winner: winner ? { name: winner.name, avatar: winner.avatar, score: winner.score } : null,
@@ -968,6 +1075,7 @@ Kembalikan jawaban HANYA dalam format JSON terstruktur:`;
       if (player.hp <= 0 || bot.hp <= 0 || room.currentRound >= room.totalRounds - 1) {
         room.status = 'game_over';
         const winner = player.score > bot.score ? player : bot;
+        recordMatchToLiveFeed(room, winner);
         broadcastRoom(room, 'GAME_OVER', {
           room: getSafeRoomSnapshot(room),
           winner: { name: winner.name, avatar: winner.avatar, score: winner.score },
