@@ -2129,9 +2129,17 @@ export const QURAN_VOCABULARY_LIST: QuranVocabularyItem[] = [
   },
 ];
 
+// Enrich with Learning Graph node attributes (nodeId, difficulty, prereq)
+QURAN_VOCABULARY_LIST.forEach((item, idx) => {
+  item.nodeId = item.id;
+  item.difficulty = (idx < 10 ? 1 : idx < 20 ? 2 : idx < 30 ? 3 : 4) as 1 | 2 | 3 | 4 | 5;
+  item.prereq = idx === 0 ? ['iqra-jilid-1'] : [`vocab-${idx}`];
+});
+
 /**
  * Inspiring Word of the Day pool for kids
  */
 export const WORD_OF_THE_DAY_POOL: QuranVocabularyItem[] = [
   ...QURAN_VOCABULARY_LIST,
 ];
+

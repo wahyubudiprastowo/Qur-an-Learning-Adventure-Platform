@@ -29,6 +29,19 @@ import { WorldMapView } from '../companion/WorldMapView';
 import { SantriDuelArena } from './SantriDuelArena';
 import { VoiceSttModal } from '../voice/VoiceSttModal';
 import { UserAccount } from '../../types';
+import { SURAHS_METADATA } from '../../data/surahsMetadata';
+import {
+  QuestionFactory,
+  ContinueAyahQuestion,
+  ArrangeAyahQuestion,
+  MissingWordQuestion,
+  MatchingRound,
+  HijaiyahSoundQuestion,
+  AudioGuessAyahQuestion,
+  HarakatVoiceItem,
+  TajwidBasketQuestion,
+  DetectiveSurahQuestion,
+} from '../../services/questionFactory';
 
 export type GameType =
   | 'santri_duel'
@@ -138,7 +151,8 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleFinishGame = (bonusScore: number = 20) => {
     setScore((prev) => prev + bonusScore);
     const earnedXp = CompanionService.getGameXpReward(childId);
-    const earnedStars = 5;
+    const earnedStars = CompanionService.getGameStarReward(childId);
+    const today = new Date().toISOString().split('T')[0];
 
     StorageService.recordPoints(
       childId,
@@ -146,8 +160,8 @@ export const GameHub: React.FC<GameHubProps> = ({
       earnedXp,
       earnedStars,
       `Bermain game Qur'an: ${activeGame}`,
-      'game',
-      activeGame || 'game'
+      'game_session',
+      `${activeGame || 'game'}_${today}_${Date.now()}`
     );
 
     const gameTitles: Record<string, string> = {
@@ -181,561 +195,66 @@ export const GameHub: React.FC<GameHubProps> = ({
   };
 
   // -------------------------------------------------------------
-  // DATA FOR 8 GAMES
+  // DYNAMIC QUESTIONS (Urutan 4: QuestionFactory)
+  // Generated from unified Learning Graph, spaced repetition & vocabulary
   // -------------------------------------------------------------
-
-  // -------------------------------------------------------------
-  // DATA FOR 8 GAMES (Comprehensive & Deeply Audited)
-  // -------------------------------------------------------------
-
-    // 1. Sambung Ayat items (8 items with diversified answer choices)
-  const continueAyahItems = [
-    {
-      surah: 'Al-Ikhlas',
-      firstPart: 'قُلْ هُوَ اللّٰهُ',
-      options: ['الصَّمَدُ ۚ', 'اَحَدٌ ۚ', 'الْفَلَقِ ۙ', 'الرَّحِيْمِ ۙ'],
-      correctIndex: 1,
-      fullArabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ',
-      audioInfo: { surah: 112, ayah: 1 },
-      meaning: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
-    },
-    {
-      surah: 'Al-Fatihah',
-      firstPart: 'اِيَّاكَ نَعْبُدُ وَاِيَّاكَ',
-      options: ['الْمُسْتَقِيْمَ ۙ', 'الدِّيْنِ ۗ', 'نَسْتَعِيْنُ ۗ', 'الرَّحِيْمِ ۙ'],
-      correctIndex: 2,
-      fullArabic: 'اِيَّاكَ نَعْبُدُ وَاِيَّاكَ نَسْتَعِيْنُ ۗ',
-      audioInfo: { surah: 1, ayah: 5 },
-      meaning: 'Hanya kepada Engkaulah kami menyembah dan hanya kepada Engkaulah kami memohon pertolongan.',
-    },
-    {
-      surah: 'An-Nas',
-      firstPart: 'مِنْ شَرِّ الْوَسْوَاسِ',
-      options: ['النَّاسِ ۙ', 'الْفَلَقِ ۙ', 'الْعَصْرِ ۙ', 'الْخَنَّاسِ ۙ'],
-      correctIndex: 3,
-      fullArabic: 'مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۙ',
-      audioInfo: { surah: 114, ayah: 4 },
-      meaning: 'Dari kejahatan (bisikan) setan yang bersembunyi.',
-    },
-    {
-      surah: 'Al-Falaq',
-      firstPart: 'قُلْ اَعُوْذُ بِرَبِّ',
-      options: ['الْفَلَقِ ۙ', 'النَّاسِ ۙ', 'الْعَالَمِيْنَ ۙ', 'الصَّمَدِ ۙ'],
-      correctIndex: 0,
-      fullArabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ',
-      audioInfo: { surah: 113, ayah: 1 },
-      meaning: 'Katakanlah, Aku berlindung kepada Tuhan yang menguasai subuh (fajar).',
-    },
-    {
-      surah: 'Al-Kausar',
-      firstPart: 'اِنَّآ اَعْطَيْنٰكَ',
-      options: ['الْاَبْتَرَ ۗ', 'الْكَوْثَرَ ۗ', 'الْفَتْحَ ۗ', 'الْخَيْرَ ۗ'],
-      correctIndex: 1,
-      fullArabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ',
-      audioInfo: { surah: 108, ayah: 1 },
-      meaning: 'Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak.',
-    },
-    {
-      surah: 'Al-Asr',
-      firstPart: 'وَالْعَصْرِ ۙ',
-      options: ['فَصَلِّ لِرَبِّكَ وَانْحَرْ ۗ', 'مَلِكِ النَّاسِ ۙ', 'اِنَّ الْاِنْسَانَ لَفِيْ خُسْرٍ ۙ', 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ'],
-      correctIndex: 2,
-      fullArabic: 'وَالْعَصْرِ ۙ اِنَّ الْاِنْسَانَ لَفِيْ خُسْرٍ ۙ',
-      audioInfo: { surah: 103, ayah: 1 },
-      meaning: 'Demi masa, sungguh manusia berada dalam kerugian.',
-    },
-    {
-      surah: 'Al-Kafirun',
-      firstPart: 'قُلْ يٰٓاَيُّهَا',
-      options: ['النَّاسُ ۙ', 'الْمُؤْمِنُوْنَ ۙ', 'الصَّابِرُوْنَ ۙ', 'الْكٰفِرُوْنَ ۙ'],
-      correctIndex: 3,
-      fullArabic: 'قُلْ يٰٓاَيُّهَا الْكٰفِرُوْنَ ۙ',
-      audioInfo: { surah: 109, ayah: 1 },
-      meaning: 'Katakanlah (Muhammad), Wahai orang-orang kafir!',
-    },
-    {
-      surah: 'Al-Maun',
-      firstPart: 'اَرَءَيْتَ الَّذِيْ يُكَذِّبُ',
-      options: ['بِالدِّيْنِ ۗ', 'بِالصَّلٰوةِ ۗ', 'بِالْقُرْاٰنِ ۗ', 'بِالْحَقِّ ۗ'],
-      correctIndex: 0,
-      fullArabic: 'اَرَءَيْتَ الَّذِيْ يُكَذِّبُ بِالدِّيْنِ ۗ',
-      audioInfo: { surah: 107, ayah: 1 },
-      meaning: 'Tahukah kamu (orang) yang mendustakan agama?',
-    },
-  ];
-
-  // 2. Susun Ayat items (6 items)
-  const arrangeAyahItems = [
-    {
-      surah: 'Al-Fatihah Ayat 2',
-      correctWords: ['اَلْحَمْدُ', 'لِلّٰهِ', 'رَبِّ', 'الْعٰلَمِيْنَ ۙ'],
-      scrambledWords: ['رَبِّ', 'الْعٰلَمِيْنَ ۙ', 'اَلْحَمْدُ', 'لِلّٰهِ'],
-      fullArabic: 'اَلْحَمْدُ لِلّٰهِ رَبِّ الْعٰلَمِيْنَ ۙ',
-      audioInfo: { surah: 1, ayah: 2 },
-      meaning: 'Segala puji bagi Allah, Tuhan seluruh alam.',
-    },
-    {
-      surah: 'Al-Kausar Ayat 1',
-      correctWords: ['اِنَّآ', 'اَعْطَيْنٰكَ', 'الْكَوْثَرَ ۗ'],
-      scrambledWords: ['الْكَوْثَرَ ۗ', 'اِنَّآ', 'اَعْطَيْنٰكَ'],
-      fullArabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ',
-      audioInfo: { surah: 108, ayah: 1 },
-      meaning: 'Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak.',
-    },
-    {
-      surah: 'Al-Ikhlas Ayat 1',
-      correctWords: ['قُلْ', 'هُوَ', 'اللّٰهُ', 'اَحَدٌ ۚ'],
-      scrambledWords: ['اَحَدٌ ۚ', 'اللّٰهُ', 'قُلْ', 'هُوَ'],
-      fullArabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ',
-      audioInfo: { surah: 112, ayah: 1 },
-      meaning: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
-    },
-    {
-      surah: 'Al-Falaq Ayat 1',
-      correctWords: ['قُلْ', 'اَعُوْذُ', 'بِرَبِّ', 'الْفَلَقِ ۙ'],
-      scrambledWords: ['الْفَلَقِ ۙ', 'قُلْ', 'بِرَبِّ', 'اَعُوْذُ'],
-      fullArabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ',
-      audioInfo: { surah: 113, ayah: 1 },
-      meaning: 'Katakanlah, Aku berlindung kepada Tuhan yang menguasai subuh.',
-    },
-    {
-      surah: 'An-Nas Ayat 1',
-      correctWords: ['قُلْ', 'اَعُوْذُ', 'بِرَبِّ', 'النَّاسِ ۙ'],
-      scrambledWords: ['النَّاسِ ۙ', 'بِرَبِّ', 'قُلْ', 'اَعُوْذُ'],
-      fullArabic: 'قُلْ اَعُوْذُ بِرَبِّ النَّاسِ ۙ',
-      audioInfo: { surah: 114, ayah: 1 },
-      meaning: 'Katakanlah, Aku berlindung kepada Tuhannya manusia.',
-    },
-    {
-      surah: 'Al-Ikhlas Ayat 2',
-      correctWords: ['اَللّٰهُ', 'الصَّمَدُ ۚ'],
-      scrambledWords: ['الصَّمَدُ ۚ', 'اَللّٰهُ'],
-      fullArabic: 'اَللّٰهُ الصَّمَدُ ۚ',
-      audioInfo: { surah: 112, ayah: 2 },
-      meaning: 'Allah tempat meminta segala sesuatu.',
-    },
-  ];
-
-    // 3. Kata Hilang items (6 items with varied answer positions)
-  const missingWordItems = [
-    {
-      surah: 'Al-Ikhlas Ayat 2',
-      prompt: 'اَللّٰهُ [ ... ]',
-      missingWord: 'الصَّمَدُ ۚ',
-      options: ['الْاَحَدُ ۚ', 'الصَّمَدُ ۚ', 'الرَّحْمٰنُ ۚ', 'الْعَلِيْمُ ۚ'],
-      correctIndex: 1,
-      fullArabic: 'اَللّٰهُ الصَّمَدُ ۚ',
-      audioInfo: { surah: 112, ayah: 2 },
-      hint: 'Artinya: Allah tempat meminta segala sesuatu.',
-    },
-    {
-      surah: 'Quraisy Ayat 3',
-      prompt: 'فَلْيَعْبُدُوْا رَبَّ هٰذَا [ ... ]',
-      missingWord: 'الْبَيْتِ ۙ',
-      options: ['الْبَلَدِ ۙ', 'الْقَوْمِ ۙ', 'الْبَيْتِ ۙ', 'النَّاسِ ۙ'],
-      correctIndex: 2,
-      fullArabic: 'فَلْيَعْبُدُوْا رَبَّ هٰذَا الْبَيْتِ ۙ',
-      audioInfo: { surah: 106, ayah: 3 },
-      hint: 'Artinya: Maka hendaklah mereka menyembah Tuhan (pemilik) rumah ini (Ka‘bah).',
-    },
-    {
-      surah: 'Al-Fatihah Ayat 1',
-      prompt: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ [ ... ]',
-      missingWord: 'الرَّحِيْمِ ۙ',
-      options: ['الرَّحِيْمِ ۙ', 'الْعَلِيْمِ ۙ', 'الْحَكِيْمِ ۙ', 'الْقَدِيْرِ ۙ'],
-      correctIndex: 0,
-      fullArabic: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ ۙ',
-      audioInfo: { surah: 1, ayah: 1 },
-      hint: 'Artinya: Yang Maha Pengasih, Maha Penyayang.',
-    },
-    {
-      surah: 'Al-Falaq Ayat 2',
-      prompt: 'مِنْ شَرِّ مَا [ ... ]',
-      missingWord: 'خَلَقَ ۙ',
-      options: ['وَقَبَ ۙ', 'حَسَدَ ۙ', 'عَقَدَ ۙ', 'خَلَقَ ۙ'],
-      correctIndex: 3,
-      fullArabic: 'مِنْ شَرِّ مَا خَلَقَ ۙ',
-      audioInfo: { surah: 113, ayah: 2 },
-      hint: 'Artinya: Dari kejahatan (makhluk) yang Dia ciptakan.',
-    },
-    {
-      surah: 'Al-Maun Ayat 2',
-      prompt: 'فَذٰلِكَ الَّذِيْ يَدُعُّ [ ... ]',
-      missingWord: 'الْيَتِيْمَ ۙ',
-      options: ['الْمِسْكِيْنَ ۙ', 'الْيَتِيْمَ ۙ', 'الْغَرِيْبَ ۙ', 'الْفَقِيْرَ ۙ'],
-      correctIndex: 1,
-      fullArabic: 'فَذٰلِكَ الَّذِيْ يَدُعُّ الْيَتِيْمَ ۙ',
-      audioInfo: { surah: 107, ayah: 2 },
-      hint: 'Artinya: Maka itulah orang yang menghardik anak yatim.',
-    },
-    {
-      surah: 'An-Nas Ayat 2',
-      prompt: 'مَلِكِ [ ... ]',
-      missingWord: 'النَّاسِ ۙ',
-      options: ['الْخَنَّاسِ ۙ', 'الْفَلَقِ ۙ', 'النَّاسِ ۙ', 'الْكَوْثَرِ ۙ'],
-      correctIndex: 2,
-      fullArabic: 'مَلِكِ النَّاسِ ۙ',
-      audioInfo: { surah: 114, ayah: 2 },
-      hint: 'Artinya: Raja manusia.',
-    },
-  ];
-
-  // 4. Cocokkan Kata & Arti progressive rounds
-  const matchingRounds = [
-    {
-      title: 'Level 1: Kosakata Pokok Al-Qur\'an',
-      pairs: [
-        { id: 0, arabic: 'رَبِّ', meaning: 'Tuhan Pemelihara', translit: 'Rabbi' },
-        { id: 1, arabic: 'الصِّرَاطَ', meaning: 'Jalan yang Lurus', translit: 'Ash-Shiraath' },
-        { id: 2, arabic: 'الْفَلَقِ', meaning: 'Waktu Subuh / Fajar', translit: 'Al-Falaq' },
-        { id: 3, arabic: 'النَّاسِ', meaning: 'Manusia', translit: 'An-Naas' },
-      ],
-    },
-    {
-      title: 'Level 2: Makna Nama Surah Populer',
-      pairs: [
-        { id: 0, arabic: 'الْإِخْلَاصُ', meaning: 'Kemurnian Keesaan Allah', translit: 'Al-Ikhlas' },
-        { id: 1, arabic: 'الْكَوْثَرُ', meaning: 'Nikmat yang Melimpah', translit: 'Al-Kausar' },
-        { id: 2, arabic: 'الْفِيلُ', meaning: 'Pasukan Bergajah', translit: 'Al-Fil' },
-        { id: 3, arabic: 'الْعَصْرُ', meaning: 'Demi Waktu Masa', translit: 'Al-\'Asr' },
-      ],
-    },
-    {
-      title: 'Level 3: Kalimat Thayyibah Sehari-hari',
-      pairs: [
-        { id: 0, arabic: 'سُبْحَانَ اللّٰهِ', meaning: 'Maha Suci Allah', translit: 'Subhanallah' },
-        { id: 1, arabic: 'اَلْحَمْدُ لِلّٰهِ', meaning: 'Segala Puji Bagi Allah', translit: 'Alhamdulillah' },
-        { id: 2, arabic: 'اَللّٰهُ اَكْبَرُ', meaning: 'Allah Maha Besar', translit: 'Allahu Akbar' },
-        { id: 3, arabic: 'أَسْتَغْفِرُ اللّٰهَ', meaning: 'Aku Mohon Ampun Pada Allah', translit: 'Astaghfirullah' },
-      ],
-    },
-  ];
-
-  // Active matching round
+  const [continueAyahItems, setContinueAyahItems] = useState<ContinueAyahQuestion[]>(() =>
+    QuestionFactory.generateContinueAyahQuestions(childId)
+  );
+  const [arrangeAyahItems, setArrangeAyahItems] = useState<ArrangeAyahQuestion[]>(() =>
+    QuestionFactory.generateArrangeAyahItems(childId)
+  );
+  const [missingWordItems, setMissingWordItems] = useState<MissingWordQuestion[]>(() =>
+    QuestionFactory.generateMissingWordQuestions(childId)
+  );
+  const [matchingRounds, setMatchingRounds] = useState<MatchingRound[]>(() =>
+    QuestionFactory.generateArabicMatchingRounds(childId)
+  );
   const [matchingRoundIndex, setMatchingRoundIndex] = useState<number>(0);
   const currentMatchingSet = matchingRounds[matchingRoundIndex] || matchingRounds[0];
-  const matchingPairs = currentMatchingSet.pairs;
+  const matchingPairs = currentMatchingSet?.pairs || [];
 
-    // 5. Tebak Suara Huruf items (8 items with varied positions and rich makhraj guidance)
-  const hijaiyahSoundItems = [
-    {
-      letter: 'بَ',
-      letterName: 'Ba (ب)',
-      makhrajHint: 'Bibir tertutup rapat lalu dibuka ringan (Asy-Syafatain).',
-      soundPrompt: 'Dengarkan suara huruf: "Ba"',
-      options: [
-        { letter: 'ت', name: 'Ta', correct: false },
-        { letter: 'ب', name: 'Ba', correct: true },
-        { letter: 'ث', name: 'Tsa', correct: false },
-        { letter: 'ن', name: 'Nun', correct: false },
-      ],
-    },
-    {
-      letter: 'جَ',
-      letterName: 'Ja / Jim (ج)',
-      makhrajHint: 'Tengah lidah menempel ke langit-langit mulut (Wasathul Lisan).',
-      soundPrompt: 'Dengarkan suara huruf: "Ja"',
-      options: [
-        { letter: 'ح', name: 'Ha', correct: false },
-        { letter: 'خ', name: 'Kha', correct: false },
-        { letter: 'ج', name: 'Jim', correct: true },
-        { letter: 'د', name: 'Dal', correct: false },
-      ],
-    },
-    {
-      letter: 'قَ',
-      letterName: 'Qa / Qaf (ق)',
-      makhrajHint: 'Pangkal lidah paling belakang menempel langit-langit lunak (Aqshal Lisan).',
-      soundPrompt: 'Dengarkan suara huruf: "Qa"',
-      options: [
-        { letter: 'ق', name: 'Qaf', correct: true },
-        { letter: 'ف', name: 'Fa', correct: false },
-        { letter: 'ك', name: 'Kaf', correct: false },
-        { letter: 'غ', name: 'Ghain', correct: false },
-      ],
-    },
-    {
-      letter: 'خَ',
-      letterName: 'Kha (خ)',
-      makhrajHint: 'Tenggorokan bagian paling atas dekat anak lidah (Adnal Halq).',
-      soundPrompt: 'Dengarkan suara huruf: "Kha"',
-      options: [
-        { letter: 'ح', name: 'Ha', correct: false },
-        { letter: 'ج', name: 'Jim', correct: false },
-        { letter: 'ع', name: 'Ain', correct: false },
-        { letter: 'خ', name: 'Kha', correct: true },
-      ],
-    },
-    {
-      letter: 'عَ',
-      letterName: 'Ain (ع)',
-      makhrajHint: 'Tengah-tengah rongga tenggorokan (Wasathul Halq).',
-      soundPrompt: 'Dengarkan suara huruf: "Ain"',
-      options: [
-        { letter: 'ع', name: 'Ain', correct: true },
-        { letter: 'ء', name: 'Hamzah', correct: false },
-        { letter: 'غ', name: 'Ghain', correct: false },
-        { letter: 'هـ', name: 'Ha', correct: false },
-      ],
-    },
-    {
-      letter: 'صَ',
-      letterName: 'Sha / Shad (ص)',
-      makhrajHint: 'Ujung lidah di atas gigi seri bawah, tebal berdesis shafir.',
-      soundPrompt: 'Dengarkan suara huruf: "Sha"',
-      options: [
-        { letter: 'س', name: 'Sin', correct: false },
-        { letter: 'ص', name: 'Shad', correct: true },
-        { letter: 'ش', name: 'Syin', correct: false },
-        { letter: 'ض', name: 'Dhad', correct: false },
-      ],
-    },
-    {
-      letter: 'ضَ',
-      letterName: 'Dha / Dhad (ض)',
-      makhrajHint: 'Tepi lidah menyentuh gigi geraham atas (Hafatul Lisan).',
-      soundPrompt: 'Dengarkan suara huruf: "Dha"',
-      options: [
-        { letter: 'ظ', name: 'Zha', correct: false },
-        { letter: 'ط', name: 'Tha', correct: false },
-        { letter: 'ض', name: 'Dhad', correct: true },
-        { letter: 'د', name: 'Dal', correct: false },
-      ],
-    },
-    {
-      letter: 'ثَ',
-      letterName: 'Tsa (ث)',
-      makhrajHint: 'Ujung lidah keluar sedikit mengenai ujung gigi seri atas (Tharaful Lisan).',
-      soundPrompt: 'Dengarkan suara huruf: "Tsa"',
-      options: [
-        { letter: 'س', name: 'Sin', correct: false },
-        { letter: 'ش', name: 'Syin', correct: false },
-        { letter: 'ت', name: 'Ta', correct: false },
-        { letter: 'ث', name: 'Tsa', correct: true },
-      ],
-    },
-  ];
+  const [hijaiyahSoundItems, setHijaiyahSoundItems] = useState<HijaiyahSoundQuestion[]>(() =>
+    QuestionFactory.generateHijaiyahSoundItems(childId)
+  );
+  const [audioToAyahData, setAudioToAyahData] = useState(() =>
+    QuestionFactory.generateAudioToAyahItems(childId)
+  );
+  const audioGuessAyahItems = audioToAyahData.listenGuess;
+  const harakatVoiceItems = audioToAyahData.harakatVoice;
 
-    // 6. Dengar & Pilih Ayat items (Mode A: Qari Audio to Ayah Matcher)
-  const audioGuessAyahItems = [
-    {
-      surahName: 'Al-Ikhlas Ayat 1',
-      audioInfo: { surah: 112, ayah: 1 },
-      promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
-      options: [
-        { arabic: 'اَللّٰهُ الصَّمَدُ ۚ', latin: 'Allāhuṣ-ṣamad', isCorrect: false },
-        { arabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ', latin: 'Qul huwallāhu aḥad', isCorrect: true },
-        { arabic: 'لَمْ يَلِدْ وَلَمْ يُوْلَدْ ۙ', latin: 'Lam yalid wa lam yūlad', isCorrect: false },
-      ],
-      meaning: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
-    },
-    {
-      surahName: 'Al-Falaq Ayat 1',
-      audioInfo: { surah: 113, ayah: 1 },
-      promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
-      options: [
-        { arabic: 'مِنْ شَرِّ مَا خَلَقَ ۙ', latin: 'Min syarri mā khalaq', isCorrect: false },
-        { arabic: 'وَمِنْ شَرِّ غَاسِقٍ اِذَا وَقَبَ ۙ', latin: 'Wa min syarri gāsiqin iżā waqab', isCorrect: false },
-        { arabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ', latin: 'Qul a‘ūżu birabbil-falaq', isCorrect: true },
-      ],
-      meaning: 'Katakanlah, Aku berlindung kepada Tuhan yang menguasai subuh (fajar).',
-    },
-    {
-      surahName: 'An-Nas Ayat 1',
-      audioInfo: { surah: 114, ayah: 1 },
-      promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
-      options: [
-        { arabic: 'قُلْ اَعُوْذُ بِرَبِّ النَّاسِ ۙ', latin: 'Qul a‘ūżu birabbin-nās', isCorrect: true },
-        { arabic: 'مَلِكِ النَّاسِ ۙ', latin: 'Malikin-nās', isCorrect: false },
-        { arabic: 'اِلٰهِ النَّاسِ ۙ', latin: 'Ilāhin-nās', isCorrect: false },
-      ],
-      meaning: 'Katakanlah, Aku berlindung kepada Tuhannya manusia.',
-    },
-    {
-      surahName: 'Al-Kausar Ayat 1',
-      audioInfo: { surah: 108, ayah: 1 },
-      promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
-      options: [
-        { arabic: 'فَصَلِّ لِرَبِّكَ وَانْحَرْ ۗ', latin: 'Faṣalli lirabbika wan-ḥar', isCorrect: false },
-        { arabic: 'اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ', latin: 'Innā a‘ṭainākal-kauṡar', isCorrect: true },
-        { arabic: 'اِنَّ شَانِئَكَ هُوَ الْاَبْتَرُ ࣖ', latin: 'Inna syāni\'aka huwal-abtar', isCorrect: false },
-      ],
-      meaning: 'Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak.',
-    },
-    {
-      surahName: 'Al-Fatihah Ayat 1',
-      audioInfo: { surah: 1, ayah: 1 },
-      promptText: 'Dengarkan lantunan Syaikh Qari lalu pilih ayat yang tepat:',
-      options: [
-        { arabic: 'اَلْحَمْدُ لِلّٰهِ رَبِّ الْعٰلَمِيْنَ ۙ', latin: 'Al-ḥamdu lillāhi rabbil-‘ālamīn', isCorrect: false },
-        { arabic: 'الرَّحْمٰنِ الرَّحِيْمِ ۙ', latin: 'Ar-raḥmānir-raḥīm', isCorrect: false },
-        { arabic: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ ۙ', latin: 'Bismillāhir-raḥmānir-raḥīm', isCorrect: true },
-      ],
-      meaning: 'Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.',
-    },
-  ];
+  const [tajwidBasketItems, setTajwidBasketItems] = useState<TajwidBasketQuestion[]>(() =>
+    QuestionFactory.generateTajwidClassificationItems(childId)
+  );
+  const [detectiveSurahItems, setDetectiveSurahItems] = useState<DetectiveSurahQuestion[]>(() =>
+    QuestionFactory.generateGuessSurahItems()
+  );
 
-  // Mode B: Harakat Hilang & Setoran Suara items
-  const harakatVoiceItems = [
-    {
-      surahName: 'Al-Ikhlas Ayat 1',
-      fullArabic: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ',
-      transliteration: 'Qul huwallāhu aḥad',
-      meaning: 'Katakanlah (Muhammad), "Dialah Allah, Yang Maha Esa."',
-      audioInfo: { surah: 112, ayah: 1 },
-      keyRules: ['Qul: Dammah di Qaf & Sukun di Lam', 'Huwal-laah: Fathah di Wawu', 'Ahad: Fathah & Tanwin'],
-    },
-    {
-      surahName: 'Al-Falaq Ayat 1',
-      fullArabic: 'قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ',
-      transliteration: 'Qul a‘ūżu birabbil-falaq',
-      meaning: 'Katakanlah, "Aku berlindung kepada Tuhan yang menguasai subuh (fajar)."',
-      audioInfo: { surah: 113, ayah: 1 },
-      keyRules: ['A‘uudzu: Fathah di Hamzah, Dammah Mad di ‘Ain', 'Bi-rabbi: Kasrah di Ba & Tasydid Kasrah di Ra'],
-    },
-    {
-      surahName: 'An-Nas Ayat 1',
-      fullArabic: 'قُلْ اَعُوْذُ بِرَبِّ النَّاسِ ۙ',
-      transliteration: 'Qul a‘ūżu birabbin-nās',
-      meaning: 'Katakanlah, "Aku berlindung kepada Tuhannya manusia."',
-      audioInfo: { surah: 114, ayah: 1 },
-      keyRules: ['Bin-naas: Idgham Syamsiyah & Ghunnah di Nun bertasydid'],
-    },
-  ];
-
-  // 7. Klasifikasi Tajwid items (8 items)
-  const tajwidBasketItems = [
-    {
-      arabicText: 'مِنْ شَرِّ',
-      question: 'Manakah hukum bacaan Nun Sukun pada kata di atas?',
-      buckets: [
-        { id: 'ikhfa', label: 'Ikhfa Haqiqi (Samar & Dengung)', isCorrect: true },
-        { id: 'izhar', label: 'Izhar Halqi (Jelas Tanpa Dengung)', isCorrect: false },
-      ],
-      explanation: 'Nun sukun bertemu huruf Syin (ش) dibaca samar disertai dengung 2 harakat (Ikhfa Haqiqi).',
-    },
-    {
-      arabicText: 'مَنْ اٰمَنَ',
-      question: 'Manakah hukum bacaan Nun Sukun pada kalimat di atas?',
-      buckets: [
-        { id: 'ikhfa', label: 'Ikhfa Haqiqi (Samar)', isCorrect: false },
-        { id: 'izhar', label: 'Izhar Halqi (Jelas & Terang)', isCorrect: true },
-      ],
-      explanation: 'Nun sukun bertemu huruf Hamzah/Alif (ء) dibaca jelas dan tegas tanpa dengung (Izhar Halqi).',
-    },
-    {
-      arabicText: 'مِنْ بَعْدِ',
-      question: 'Manakah hukum bacaan Nun Sukun pada kata di atas?',
-      buckets: [
-        { id: 'iqlab', label: 'Iqlab (Berubah Bunyi Mim)', isCorrect: true },
-        { id: 'idgham', label: 'Idgham Bighunnah', isCorrect: false },
-      ],
-      explanation: 'Nun sukun bertemu huruf Ba (ب) dibaca Iqlab, suaranya berubah menjadi bunyi Mim samar disertai dengung.',
-    },
-    {
-      arabicText: 'مَنْ يَّقُوْلُ',
-      question: 'Manakah hukum bacaan Nun Sukun pada ayat di atas?',
-      buckets: [
-        { id: 'idgham_bi', label: 'Idgham Bighunnah (Masuk & Dengung)', isCorrect: true },
-        { id: 'idgham_bila', label: 'Idgham Bilaghunnah (Tanpa Dengung)', isCorrect: false },
-      ],
-      explanation: 'Nun sukun bertemu huruf Ya (ي) adalah Idgham Bighunnah, dileburkan disertai dengung 2 harakat.',
-    },
-    {
-      arabicText: 'مِنْ رَّبِّهِمْ',
-      question: 'Manakah hukum bacaan Nun Sukun pada kata di atas?',
-      buckets: [
-        { id: 'idgham_bi', label: 'Idgham Bighunnah (Dengung)', isCorrect: false },
-        { id: 'idgham_bila', label: 'Idgham Bilaghunnah (Tanpa Dengung)', isCorrect: true },
-      ],
-      explanation: 'Nun sukun bertemu huruf Ra (ر) adalah Idgham Bilaghunnah, dileburkan sempurna tanpa dengung.',
-    },
-    {
-      arabicText: 'تَرْمِيْهِمْ بِحِجَارَةٍ',
-      question: 'Manakah hukum bacaan Mim Sukun pada kata di atas?',
-      buckets: [
-        { id: 'ikhfa_syafawi', label: 'Ikhfa Syafawi (Samar di Bibir)', isCorrect: true },
-        { id: 'izhar_syafawi', label: 'Izhar Syafawi (Jelas di Bibir)', isCorrect: false },
-      ],
-      explanation: 'Mim sukun bertemu huruf Ba (ب) adalah Ikhfa Syafawi, dibaca samar di kedua bibir disertai dengung.',
-    },
-    {
-      arabicText: 'قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ',
-      question: 'Hukum bacaan huruf Dal di akhir ayat saat berhenti (waqaf)?',
-      buckets: [
-        { id: 'qalqalah_kubra', label: 'Qalqalah Kubra (Pantulan Besar)', isCorrect: true },
-        { id: 'qalqalah_sugra', label: 'Qalqalah Sugra (Pantulan Kecil)', isCorrect: false },
-      ],
-      explanation: 'Huruf Dal yang diwaqafkan di akhir ayat dibaca memantul tebal dan jelas (Qalqalah Kubra).',
-    },
-    {
-      arabicText: 'يَجْعَلْ كَيْدَهُمْ',
-      question: 'Hukum bacaan huruf Jim Sukun (جْ) di tengah kata di atas?',
-      buckets: [
-        { id: 'qalqalah_kubra', label: 'Qalqalah Kubra (Besar)', isCorrect: false },
-        { id: 'qalqalah_sugra', label: 'Qalqalah Sugra (Pantulan Ringan)', isCorrect: true },
-      ],
-      explanation: 'Huruf Jim sukun asli di tengah kata dibaca memantul ringan (Qalqalah Sugra).',
-    },
-  ];
-
-    // 8. Detektif Surah items (6 items with progressive clues and randomized options)
-  const detectiveSurahItems = [
-    {
-      clue1: 'Surah ini terdiri dari 5 ayat dan tergolong Makkiyah.',
-      clue2: 'Menceritakan kehancuran tentara bergajah yang dipimpin Raja Abrahah.',
-      clue3: 'Ayat pertama diawali dengan: "اَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ..."',
-      options: ['Quraisy', 'Al-Fil (Gajah)', 'Al-Kafirun', 'Al-Maun'],
-      correctIndex: 1,
-      surahName: 'Al-Fil',
-      audioInfo: { surah: 105, ayah: 1 },
-    },
-    {
-      clue1: 'Surah ini memiliki 3 ayat dan merupakan surah terpendek dalam Al-Qur\'an.',
-      clue2: 'Menyebutkan telaga nikmat yang melimpah dan perintah shalat serta berkurban.',
-      clue3: 'Ayat pertama berbunyi: "اِنَّآ اَعْطَيْنٰكَ الْكَوْثَرَ ۗ"',
-      options: ['An-Nasr', 'Al-Ikhlas', 'Al-Kausar', 'Al-Asr'],
-      correctIndex: 2,
-      surahName: 'Al-Kausar',
-      audioInfo: { surah: 108, ayah: 1 },
-    },
-    {
-      clue1: 'Surah ini bernilai sepertiga Al-Qur\'an karena menegaskan keesaan Allah yang mutlak.',
-      clue2: 'Hanya terdiri dari 4 ayat dan sering dibaca bersama Al-Mu\'awwidzatain.',
-      clue3: 'Ayat pertama berbunyi: "قُلْ هُوَ اللّٰهُ اَحَدٌ ۚ"',
-      options: ['Al-Falaq', 'An-Nas', 'Al-Fatihah', 'Al-Ikhlas'],
-      correctIndex: 3,
-      surahName: 'Al-Ikhlas',
-      audioInfo: { surah: 112, ayah: 1 },
-    },
-    {
-      clue1: 'Surah ini mengajarkan memohon perlindungan dari kejahatan malam dan sihir tiupan tali.',
-      clue2: 'Arti namanya adalah "Waktu Subuh" dan terdiri dari 5 ayat.',
-      clue3: 'Ayat pertamanya berbunyi: "قُلْ اَعُوْذُ بِرَبِّ الْفَلَقِ ۙ"',
-      options: ['Al-Falaq', 'An-Nas', 'Al-Kafirun', 'Al-Lahab'],
-      correctIndex: 0,
-      surahName: 'Al-Falaq',
-      audioInfo: { surah: 113, ayah: 1 },
-    },
-    {
-      clue1: 'Surah penutup urutan ke-114 dalam mushaf Al-Qur\'an.',
-      clue2: 'Memohon perlindungan dari bisikan setan penggoda yang bersembunyi (al-waswas al-khannas).',
-      clue3: 'Ayat pertamanya: "قُلْ اَعُوْذُ بِرَبِّ النَّاسِ ۙ"',
-      options: ['Al-Falaq', 'An-Nas', 'Al-Ikhlas', 'Al-Kafirun'],
-      correctIndex: 1,
-      surahName: 'An-Nas',
-      audioInfo: { surah: 114, ayah: 1 },
-    },
-    {
-      clue1: 'Surah ini menegur orang yang menghardik anak yatim dan enggan menolong fakir miskin.',
-      clue2: 'Memperingatkan celakanya orang yang lalai dalam shalatnya dan riya\' (ingin dipuji).',
-      clue3: 'Ayat pertamanya: "اَرَءَيْتَ الَّذِيْ يُكَذِّبُ بِالدِّيْنِ ۗ"',
-      options: ['Al-Kafirun', 'Al-Asr', 'Al-Maun', 'Al-Qari\'ah'],
-      correctIndex: 2,
-      surahName: 'Al-Maun',
-      audioInfo: { surah: 107, ayah: 1 },
-    },
-  ];
+  const renderEmptyGameState = (title: string, desc: string) => (
+    <div className="bg-white rounded-3xl border-2 border-dashed border-[#C9E1ED] p-8 text-center space-y-4 max-w-md mx-auto my-6 shadow-sm animate-in fade-in">
+      <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center text-3xl mx-auto shadow-xs">
+        📖
+      </div>
+      <div className="space-y-1.5">
+        <h3 className="text-base font-black text-[#164C68] font-heading">
+          {title}
+        </h3>
+        <p className="text-xs text-[#8C9BA7] leading-relaxed font-medium">
+          {desc}
+        </p>
+      </div>
+      <button
+        onClick={() => {
+          setActiveGame(null);
+          onNavigateToLand?.('tahfiz');
+        }}
+        className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+      >
+        <span>Pilih Surah untuk Dihafal</span>
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  );
 
   // Start selected game
   const handleStartGame = (gameId: GameType) => {
@@ -775,12 +294,36 @@ export const GameHub: React.FC<GameHubProps> = ({
     setSurahGuessSelected(null);
     setSurahGuessFeedback(null);
 
-    // Init Susun Ayat
-    if (gameId === 'arrange_ayah') {
-      const item = arrangeAyahItems[0];
-      setPlacedWords([]);
-      setAvailableWords([...item.scrambledWords]);
-      setArrangeFeedback(null);
+    // Dynamically regenerate calibrated questions for chosen game
+    if (gameId === 'continue_ayah') {
+      const items = QuestionFactory.generateContinueAyahQuestions(childId);
+      setContinueAyahItems(items);
+    } else if (gameId === 'arrange_ayah') {
+      const items = QuestionFactory.generateArrangeAyahItems(childId);
+      setArrangeAyahItems(items);
+      if (items.length > 0) {
+        setPlacedWords([]);
+        setAvailableWords([...items[0].scrambledWords]);
+        setArrangeFeedback(null);
+      }
+    } else if (gameId === 'missing_word') {
+      const items = QuestionFactory.generateMissingWordQuestions(childId);
+      setMissingWordItems(items);
+    } else if (gameId === 'arabic_matching') {
+      const rounds = QuestionFactory.generateArabicMatchingRounds(childId);
+      setMatchingRounds(rounds);
+    } else if (gameId === 'hijaiyah_sound') {
+      const items = QuestionFactory.generateHijaiyahSoundItems(childId);
+      setHijaiyahSoundItems(items);
+    } else if (gameId === 'audio_to_ayah') {
+      const data = QuestionFactory.generateAudioToAyahItems(childId);
+      setAudioToAyahData(data);
+    } else if (gameId === 'tajwid_class') {
+      const items = QuestionFactory.generateTajwidClassificationItems(childId);
+      setTajwidBasketItems(items);
+    } else if (gameId === 'guess_surah') {
+      const items = QuestionFactory.generateGuessSurahItems();
+      setDetectiveSurahItems(items);
     }
   };
 
@@ -840,7 +383,16 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleSelectSambung = (idx: number, item: any) => {
     if (sambungFeedback) return;
     setSambungSelected(idx);
-    if (idx === item.correctIndex) {
+    const isCorrect = idx === item.correctIndex;
+
+    // Write back to unified curriculum graph
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
+    if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
       setSambungFeedback('correct');
@@ -887,6 +439,13 @@ export const GameHub: React.FC<GameHubProps> = ({
 
   const handleCheckArrangement = (item: any) => {
     const isCorrect = placedWords.join(' ') === item.correctWords.join(' ');
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
     if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
@@ -904,7 +463,15 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleSelectMissing = (idx: number, item: any) => {
     if (missingFeedback) return;
     setMissingSelected(idx);
-    if (idx === item.correctIndex) {
+    const isCorrect = idx === item.correctIndex;
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
+    if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
       setMissingFeedback('correct');
@@ -937,6 +504,13 @@ export const GameHub: React.FC<GameHubProps> = ({
         setSelectedArabicIndex(null);
         setSelectedMeaningIndex(null);
         triggerPopConfetti();
+
+        if (currentMatchingSet?.nodeId && childId) {
+          StorageService.updateNodeMastery(childId, currentMatchingSet.nodeId, {
+            score: 100,
+          });
+        }
+
         if (nextSet.size === matchingPairs.length) {
           if (matchingRoundIndex < matchingRounds.length - 1) {
             setTimeout(() => {
@@ -977,6 +551,13 @@ export const GameHub: React.FC<GameHubProps> = ({
         setSelectedArabicIndex(null);
         setSelectedMeaningIndex(null);
         triggerPopConfetti();
+
+        if (currentMatchingSet?.nodeId && childId) {
+          StorageService.updateNodeMastery(childId, currentMatchingSet.nodeId, {
+            score: 100,
+          });
+        }
+
         if (nextSet.size === matchingPairs.length) {
           if (matchingRoundIndex < matchingRounds.length - 1) {
             setTimeout(() => {
@@ -1007,6 +588,13 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (audioGuessFeedback) return;
     setAudioGuessSelected(optIdx);
     const chosen = item.options[optIdx];
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: chosen.isCorrect ? 100 : 0,
+      });
+    }
+
     if (chosen.isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
@@ -1023,7 +611,15 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleSelectHijaiyah = (idx: number, item: any) => {
     if (hijaiyahFeedback) return;
     setHijaiyahSelected(idx);
-    if (item.options[idx].correct) {
+    const isCorrect = item.options[idx].correct;
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
+    if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
       setHijaiyahFeedback('correct');
@@ -1061,6 +657,12 @@ export const GameHub: React.FC<GameHubProps> = ({
       setScore((s) => s + 25);
       triggerPopConfetti();
 
+      if (item.nodeId && childId) {
+        StorageService.updateNodeMastery(childId, item.nodeId, {
+          score: 100,
+        });
+      }
+
       // Play audio confirmation
       playQariAudio(item.audioInfo.surah, item.audioInfo.ayah);
     }
@@ -1071,7 +673,15 @@ export const GameHub: React.FC<GameHubProps> = ({
     if (tajwidFeedback) return;
     setSelectedTajwidBucket(bucketId);
     const chosen = item.buckets.find((b: any) => b.id === bucketId);
-    if (chosen?.isCorrect) {
+    const isCorrect = chosen?.isCorrect ?? false;
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
+    if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
       setTajwidFeedback('correct');
@@ -1087,7 +697,15 @@ export const GameHub: React.FC<GameHubProps> = ({
   const handleSelectSurahGuess = (idx: number, item: any) => {
     if (surahGuessFeedback) return;
     setSurahGuessSelected(idx);
-    if (idx === item.correctIndex) {
+    const isCorrect = idx === item.correctIndex;
+
+    if (item.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, item.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
+    if (isCorrect) {
       SoundEffects.playCorrectSound();
       SoundEffects.playRewardSound();
       setSurahGuessFeedback('correct');
@@ -1145,6 +763,12 @@ export const GameHub: React.FC<GameHubProps> = ({
 
         {/* 1. SAMBUNG AYAT (Verse Connector) */}
         {activeGame === 'continue_ayah' && (
+          continueAyahItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Blok Hafalan Aktif',
+              'Game Sambung Ayat men-drill hafalan aktifmu. Yuk pilih surah yang ingin kamu hafal terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1152,6 +776,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>Soal {currentQuestionIndex + 1} dari {continueAyahItems.length}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {continueAyahItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{continueAyahItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               Pilih potongan ayat untuk menyambung surah {continueAyahItems[currentQuestionIndex].surah}:
@@ -1236,10 +868,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 2. SUSUN AYAT (Interactive Puzzle Arrange) */}
         {activeGame === 'arrange_ayah' && (
+          arrangeAyahItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Susun Ayat',
+              'Game Susun Ayat melatih urutan hafalanmu. Yuk pilih surah untuk dihafal terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1247,6 +886,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>{arrangeAyahItems[currentQuestionIndex].surah}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {arrangeAyahItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{arrangeAyahItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               Ketuk kata-kata di bawah untuk menyusun urutan ayat yang benar:
@@ -1365,10 +1012,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 3. KATA YANG HILANG (Missing Word Detective) */}
         {activeGame === 'missing_word' && (
+          missingWordItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Kata Hilang',
+              'Game Kata Hilang men-drill ingatan spaced repetition hafalanmu. Yuk pilih surah untuk dihafal terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1376,6 +1030,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>{missingWordItems[currentQuestionIndex].surah}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {missingWordItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{missingWordItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               Isi kata yang hilang pada ayat berikut:
@@ -1453,10 +1115,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 4. COCOKKAN KATA & ARTI (2-Column Memory Matcher) */}
         {activeGame === 'arabic_matching' && (
+          matchingPairs.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Cocokkan Kata',
+              'Game ini melatih kosakata dan nama surah Al-Qur\'an. Yuk mulai materi belajar terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1466,6 +1135,14 @@ export const GameHub: React.FC<GameHubProps> = ({
                 {matchedPairs.size} dari {matchingPairs.length} Terpasang
               </span>
             </div>
+
+            {/* Source Label Badge */}
+            {currentMatchingSet?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{currentMatchingSet.sourceLabel}</span>
+              </div>
+            )}
 
             <p className="text-xs text-[#8C9BA7] font-semibold text-center">
               Ketuk satu kata Arab di kolom kiri, lalu ketuk arti Indonesianya di kolom kanan!
@@ -1543,10 +1220,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             </div>
           </div>
+          )
         )}
 
         {/* 5. TEBAK SUARA HURUF (Hijaiyah Phonics Lab) */}
         {activeGame === 'hijaiyah_sound' && (
+          hijaiyahSoundItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Suara Hijaiyah',
+              'Game ini melatih makharijul huruf dari materi Iqra. Yuk mulai bacaan Iqra terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1554,6 +1238,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>Soal {currentQuestionIndex + 1} dari {hijaiyahSoundItems.length}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {hijaiyahSoundItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{hijaiyahSoundItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               Dengarkan lantunan makhraj lalu pilih huruf hijaiyah yang benar:
@@ -1633,10 +1325,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 6. DENGAR & PILIH AYAT / TANTANGAN HARAKAT HILANG */}
         {activeGame === 'audio_to_ayah' && (
+          (audioToAyahMode === 'listen_guess' ? audioGuessAyahItems : harakatVoiceItems).length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Audio Ayat',
+              'Game ini melatih ketajaman menyimak bacaan tartil Qari. Yuk pilih surah Juz 30 terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             {/* Top Switcher: Mode A vs Mode B */}
             <div className="flex items-center justify-between text-xs text-[#8C9BA7] flex-wrap gap-2">
@@ -1682,6 +1381,16 @@ export const GameHub: React.FC<GameHubProps> = ({
                 {audioToAyahMode === 'listen_guess'
                   ? audioGuessAyahItems.length
                   : harakatVoiceItems.length}
+              </span>
+            </div>
+
+            {/* Source Label Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+              <Sparkles size={12} className="text-emerald-600" />
+              <span>
+                {audioToAyahMode === 'listen_guess'
+                  ? audioGuessAyahItems[currentQuestionIndex]?.sourceLabel || 'Dari: Juz 30 Audio Tartil'
+                  : harakatVoiceItems[currentQuestionIndex]?.sourceLabel || 'Dari: Juz 30 Tartil & Tajwid'}
               </span>
             </div>
 
@@ -1938,10 +1647,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 7. KLASIFIKASI TAJWID (Basket Sorter) */}
         {activeGame === 'tajwid_class' && (
+          tajwidBasketItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Tajwid Aktif',
+              'Game Klasifikasi Tajwid melatih hukum bacaan yang sedang kamu pelajari. Yuk buka materi Tajwid terlebih dahulu!'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -1949,6 +1665,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>Soal {currentQuestionIndex + 1} dari {tajwidBasketItems.length}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {tajwidBasketItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{tajwidBasketItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               {tajwidBasketItems[currentQuestionIndex].question}
@@ -2020,10 +1744,17 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* 8. DETEKTIF SURAH (Clue Guessing) */}
         {activeGame === 'guess_surah' && (
+          detectiveSurahItems.length === 0 ? (
+            renderEmptyGameState(
+              'Belum Ada Materi Detektif Surah',
+              'Game Detektif Surah mengambil informasi dari 114 Surah Al-Qur\'an.'
+            )
+          ) : (
           <div className="bg-white border-2 border-[#C9E1ED] rounded-3xl p-5 shadow-sm space-y-4 text-center">
             <div className="flex items-center justify-between text-xs text-[#8C9BA7]">
               <span className="font-heading font-extrabold text-[#164C68] flex items-center gap-1.5">
@@ -2031,6 +1762,14 @@ export const GameHub: React.FC<GameHubProps> = ({
               </span>
               <span>Soal {currentQuestionIndex + 1} dari {detectiveSurahItems.length}</span>
             </div>
+
+            {/* Source Label Badge */}
+            {detectiveSurahItems[currentQuestionIndex]?.sourceLabel && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                <Sparkles size={12} className="text-emerald-600" />
+                <span>{detectiveSurahItems[currentQuestionIndex].sourceLabel}</span>
+              </div>
+            )}
 
             <h3 className="text-base font-extrabold text-[#164C68] font-heading">
               Buka petunjuk rahasia dan tebak nama surahnya:
@@ -2119,6 +1858,7 @@ export const GameHub: React.FC<GameHubProps> = ({
               </div>
             )}
           </div>
+          )
         )}
 
         {/* Celebration Modal */}

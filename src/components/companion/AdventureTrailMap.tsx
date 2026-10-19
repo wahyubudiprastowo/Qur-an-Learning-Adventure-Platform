@@ -16,9 +16,10 @@ import {
   VolumeX,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { ChildProfile } from '../../types';
+import { ChildProfile, LearningGraph, LearningNode } from '../../types';
 import { CompanionData, WorldLand, StageConfig } from '../../types/companion';
 import { WORLD_LANDS, getStageForXp } from '../../data/companionData';
+import { StorageService } from '../../services/storageService';
 import { CompanionSprite } from './CompanionSprite';
 import { WorldLandVisual } from './WorldLandVisuals';
 import { RewardStarVisual, RewardOrbVisual } from './ObjectVisuals';
@@ -102,12 +103,39 @@ const TRAIL_POINTS: TrailPoint[] = [
   { id: 'story_camp', landIndex: 9, x: 190, y: 55, biomeTheme: 'Puncak Mahkota', stars: 3 },
 ];
 
+// Map each island of the Adventure Map directly to unified Learning Graph nodes
+export const LAND_NODE_MAPPING: Record<number, string[]> = {
+  0: ['hafalan-block-1-1', 'hafalan-block-1-2', 'iqra-letter-alif-ba'],
+  1: ['hafalan-block-114-1', 'hafalan-block-114-2', 'hafalan-block-113-1'],
+  2: ['hafalan-block-112-1', 'hafalan-block-111-1', 'hafalan-block-111-2'],
+  3: ['tajwid-makharij', 'tajwid-qalqalah'],
+  4: ['iqra-jilid-1', 'iqra-jilid-2', 'iqra-jilid-3'],
+  5: ['tajwid-izhar', 'tajwid-idgham-bighunnah', 'tajwid-idgham-bilaghunnah', 'tajwid-iqlab', 'tajwid-ikhfa'],
+  6: ['iqra-jilid-4', 'iqra-jilid-5', 'iqra-jilid-6'],
+  7: ['vocab-level-1-milestone', 'vocab-level-2-milestone', 'vocab-1', 'vocab-2', 'vocab-3'],
+  8: ['tafsir-1-1', 'tafsir-112-1', 'tafsir-114-1'],
+  9: ['hafalan-block-67-1', 'hafalan-block-18-1'],
+};
+
 export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
   child,
   companion,
   onNavigateToLand,
   onSelectLandModal,
 }) => {
+  // Real-time Learning Graph State for the active child
+  const [learningGraph, setLearningGraph] = useState<LearningGraph>(() =>
+    StorageService.getLearningGraph(child.id)
+  );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setLearningGraph(StorageService.getLearningGraph(child.id));
+    };
+    window.addEventListener('cahaya_tahfiz_graph_updated', handleUpdate);
+    return () => window.removeEventListener('cahaya_tahfiz_graph_updated', handleUpdate);
+  }, [child.id]);
+
   // Highest unlocked level index based on child's current level
   const highestUnlockedIndex = Math.max(
     0,
@@ -125,6 +153,26 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
   const activeLand = WORLD_LANDS[activeLevelIdx];
   const activePoint = TRAIL_POINTS[activeLevelIdx];
   const isLandLocked = child.level < activeLand.levelRequired;
+
+  // Real Learning Graph nodes for currently focused land
+  const activeLandNodeIds = LAND_NODE_MAPPING[activeLevelIdx] || [];
+  const activeLandNodes = activeLandNodeIds
+    .map((id) => learningGraph.nodes[id])
+    .filter(Boolean) as LearningNode[];
+
+  const landMasteredCount = activeLandNodes.filter(
+    (n) => learningGraph.userProgress[n.nodeId]?.status === 'mastered'
+  ).length;
+
+  const landMasteryPct =
+    activeLandNodes.length > 0
+      ? Math.round(
+          activeLandNodes.reduce(
+            (acc, n) => acc + (learningGraph.userProgress[n.nodeId]?.mastery || 0),
+            0
+          ) / activeLandNodes.length
+        )
+      : 0;
 
   // Trigger celebration confetti
   const triggerCelebration = () => {
@@ -298,6 +346,19 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
             <CompanionSprite species={companion.species || 'lumi'} stage={stageConfig.id} mood="content" size={20} />
             <span>Posisiku</span>
           </button>
+        </div>
+
+        {/* Real-time Learning Graph Sync Bar */}
+        <div className="relative z-20 mx-3 sm:mx-4 -mt-1 mb-2 p-2.5 bg-white/95 backdrop-blur-md rounded-xl border border-[#C9E1ED] shadow-xs flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-extrabold text-[#164C68]">
+              Kurikulum Graph: <span className="text-emerald-600 font-black">{learningGraph.stats.masteredNodes}</span> Tuntas • <span className="text-cyan-600 font-black">{learningGraph.stats.inProgressNodes}</span> Aktif • <span className="text-amber-600 font-black">{learningGraph.stats.dueForReviewCount}</span> Review
+            </span>
+          </div>
+          <span className="text-[10px] font-black bg-[#EEF8FF] px-2 py-0.5 rounded-full text-[#08B9EF] border border-cyan-100">
+            {learningGraph.stats.overallMasteryPct}% Terkuasai
+          </span>
         </div>
 
         {/* --- ADVENTURE TRAIL SVG CANVAS (380 x 1320 coordinate space) --- */}
@@ -703,6 +764,85 @@ export const AdventureTrailMap: React.FC<AdventureTrailMapProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Unified Learning Graph Nodes for this Land */}
+          {activeLandNodes.length > 0 && (
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-extrabold text-[#164C68] flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-[#08B9EF]" />
+                  Kurikulum Graph ({landMasteredCount}/{activeLandNodes.length} Node)
+                </span>
+                <span className="font-black text-[#08B9EF]">{landMasteryPct}% Terkuasai</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-[#08B9EF] to-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${landMasteryPct}%` }}
+                />
+              </div>
+
+              {/* Node Chips */}
+              <div className="space-y-1.5 pt-1">
+                {activeLandNodes.map((node) => {
+                  const state = learningGraph.userProgress[node.nodeId];
+                  const isMastered = state?.status === 'mastered';
+                  const isAvailable = state?.status === 'available' || state?.status === 'in_progress';
+
+                  return (
+                    <div
+                      key={node.nodeId}
+                      className="p-2 bg-white border border-slate-200 rounded-xl flex items-center justify-between gap-2 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs shrink-0">
+                          {isMastered ? '✅' : isAvailable ? '📖' : '🔒'}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#164C68] truncate">{node.title}</p>
+                          <p className="text-[10px] text-slate-500 truncate">{node.subtitle || node.category}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            isMastered
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : isAvailable
+                              ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {isMastered ? '100%' : `${state?.mastery || 0}%`}
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (!isAvailable && !isMastered) {
+                              setToastMessage(`🔒 Selesaikan prasyarat materi untuk membuka ${node.title}`);
+                              setTimeout(() => setToastMessage(null), 3000);
+                              return;
+                            }
+                            StorageService.updateNodeMastery(child.id, node.nodeId, {
+                              score: 90,
+                              completed: true,
+                            });
+                            triggerCelebration();
+                          }}
+                          title="Latihan / Taklukkan Node"
+                          className="px-2 py-1 text-[10px] font-bold bg-[#EEF8FF] hover:bg-cyan-100 text-[#08B9EF] rounded-lg transition-all cursor-pointer active:scale-95"
+                        >
+                          Drill ⚡
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Action Button */}
           <div className="pt-1">

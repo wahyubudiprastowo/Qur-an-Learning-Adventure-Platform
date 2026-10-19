@@ -295,6 +295,9 @@ export interface MemorizationBlock {
   startAyah: number;
   endAyah: number;
   name: string;
+  nodeId?: string;
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+  prereq?: string[];
 }
 
 export interface ChildBlockProgress {
@@ -546,16 +549,33 @@ export interface IqraItem {
   harakat: string;
   soundExample: string;
   description: string;
+  nodeId?: string;
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+  prereq?: string[];
 }
 
 export interface TajwidTopic {
   id: string;
-  category: 'Nun Mati & Tanwin' | 'Mim Mati' | 'Mad' | 'Qalqalah' | 'Makharijul Huruf';
+  category:
+    | 'Nun Mati & Tanwin'
+    | 'Mim Mati'
+    | 'Mim Sukun'
+    | 'Mad'
+    | 'Hukum Mad'
+    | 'Qalqalah'
+    | 'Makharijul Huruf'
+    | 'Ghunnah'
+    | 'Waqaf & Ibtida'
+    | 'Sifat Huruf'
+    | string;
   name: string;
   arabicName: string;
   meaning: string;
   explanation: string;
   letters: string[];
+  nodeId?: string;
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+  prereq?: string[];
   examples: {
     surahName: string;
     ayahNumber: number;
@@ -596,6 +616,9 @@ export interface QuranVocabularyItem {
   meaningId: string;
   rootWord: string;
   occurrencesInQuran: number;
+  nodeId?: string;
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+  prereq?: string[];
   sampleAyah: {
     surahNumber: number;
     ayahNumber: number;
@@ -798,3 +821,73 @@ export interface DailyChronologicalActivity {
   hasAudioRecording?: boolean;
   badge?: string;
 }
+
+// ==========================================
+// LEARNING GRAPH DATA MODEL (URUTAN 1)
+// Satu Model Data untuk Tiga Pilar (Materi, Game, UI)
+// ==========================================
+
+export type LearningNodeKind =
+  | 'iqra_page'
+  | 'iqra_letter'
+  | 'tajwid_topic'
+  | 'vocab_word'
+  | 'hafalan_block'
+  | 'tafsir_ayah';
+
+export interface LearningNode {
+  nodeId: string;
+  kind: LearningNodeKind;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  prereq: string[];
+  surah?: number;
+  ayah?: number;
+  ayahEnd?: number;
+  bookNumber?: number; // 1 to 6 for Iqra
+  pageNumber?: number; // page number in Iqra
+  topicId?: string;
+  category?: string;
+  arabic?: string;
+  transliteration?: string;
+  translation?: string;
+  audioExample?: string;
+  tags?: string[];
+  xpReward?: number;
+  starsReward?: number;
+}
+
+export type LearningNodeStatus = 'locked' | 'available' | 'in_progress' | 'mastered';
+
+export interface NodeMasteryState {
+  nodeId: string;
+  mastery: number; // 0 - 100
+  status: LearningNodeStatus;
+  timesPracticed: number;
+  lastPracticedAt?: string;
+  nextReviewDate?: string; // YYYY-MM-DD for Spaced Repetition
+  srIntervalDays?: number; // current interval in days
+  easeFactor?: number;     // SM-2 algorithm ease factor (default: 2.5)
+  consecutiveSuccess?: number;
+  highestScore?: number;
+}
+
+export interface LearningGraphStats {
+  totalNodes: number;
+  masteredNodes: number;
+  inProgressNodes: number;
+  availableNodes: number;
+  lockedNodes: number;
+  overallMasteryPct: number;
+  dueForReviewCount: number;
+  byKind: Record<LearningNodeKind, { total: number; mastered: number; inProgress: number }>;
+}
+
+export interface LearningGraph {
+  nodes: Record<string, LearningNode>;
+  userProgress: Record<string, NodeMasteryState>;
+  stats: LearningGraphStats;
+}
+

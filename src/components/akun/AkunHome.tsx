@@ -244,7 +244,7 @@ export const AkunHome: React.FC<AkunHomeProps> = ({
                   {StorageService.getAccountTier(userAccount) === 'pro'
                     ? 'Akses 30 Juz penuh, deteksi suara AI tanpa batas, & Rapor PDF'
                     : StorageService.getAccountTier(userAccount) === 'free'
-                    ? (userAccount.email || 'Cloud Aktif • 37 Surah Juz 30 & Kuota AI Harian')
+                    ? (userAccount.email || 'Cloud Aktif • 22 Surah Juz 30 & Iqra 1 Penuh')
                     : 'Fitur terbatas (3 surah & uji suara). Progres belum tersimpan di cloud.'}
                 </p>
               </div>

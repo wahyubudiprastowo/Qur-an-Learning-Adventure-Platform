@@ -8,6 +8,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
+import { PLAN_LIMITS } from '../../data/planFeatures';
+
 interface GuestRestrictionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,7 +23,7 @@ export const GuestRestrictionModal: React.FC<GuestRestrictionModalProps> = ({
   isOpen,
   onClose,
   title = 'Buka Seluruh Fitur dengan Akun Gratis',
-  description = 'Saat ini kamu berada di Mode Tamu. Yuk daftar gratis dalam 5 detik untuk membuka seluruh 37 Surah Juz 30 & menyimpan hafalanmu selamanya di cloud!',
+  description = `Saat ini kamu berada di Mode Tamu. Yuk daftar gratis dalam 5 detik untuk membuka ${PLAN_LIMITS.FREE_SURAHS} Surah Juz 30 (Ad-Duha s/d An-Nas) & ${PLAN_LIMITS.IQRA_FREE_PAGES} halaman Iqra 1 serta menyimpan hafalanmu selamanya di cloud!`,
   featureName = 'Fitur Ini Memerlukan Akun Terdaftar',
   onOpenAuth,
 }) => {
@@ -68,7 +70,9 @@ export const GuestRestrictionModal: React.FC<GuestRestrictionModalProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
-            <span>Buka 32 halaman penuh Iqra 1 & 22 Surah Juz 30 (Gratis Penuh)</span>
+            <span>
+              Buka {PLAN_LIMITS.IQRA_FREE_PAGES} halaman penuh Iqra 1 & {PLAN_LIMITS.FREE_SURAHS} Surah Juz 30 (Gratis Penuh)
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />

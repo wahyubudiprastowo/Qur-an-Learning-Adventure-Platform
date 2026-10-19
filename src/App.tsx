@@ -241,8 +241,20 @@ export default function App() {
     setTahfizSubView(subView);
   };
 
+  const [tafsirTarget, setTafsirTarget] = useState<{ surahNumber?: number; ayahNumber?: number } | null>(null);
+
+  const handleOpenTafsir = (surahNumber?: number, ayahNumber?: number) => {
+    GlobalAudioManager.stopAll();
+    setActiveTab('alquran');
+    setTafsirTarget(surahNumber ? { surahNumber, ayahNumber } : null);
+    setAlQuranSubView('tafsir');
+  };
+
   const navigateAlQuran = (subView: AlQuranSubmodule) => {
     GlobalAudioManager.stopAll();
+    if (subView !== 'tafsir') {
+      setTafsirTarget(null);
+    }
     setAlQuranSubView(subView);
   };
 
@@ -471,7 +483,7 @@ export default function App() {
             <div className="flex items-center gap-2 truncate">
               <span className="text-sm shrink-0">✨</span>
               <span className="truncate">
-                <strong className="underline decoration-amber-200">Mode Tamu:</strong> Coba langsung fitur dasar! Daftar gratis via Gmail / WhatsApp untuk simpan hafalan & buka seluruh 37 Surah Juz 30.
+                <strong className="underline decoration-amber-200">Mode Tamu:</strong> Coba langsung fitur dasar! Daftar gratis via Gmail / WhatsApp untuk simpan hafalan & buka 22 Surah Juz 30 serta Iqra 1 penuh.
               </span>
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -757,13 +769,29 @@ export default function App() {
                 <TajwidModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
               )}
               {alQuranSubView === 'tilawah' && (
-                <TilawahModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
+                <TilawahModule
+                  childId={activeChild.id}
+                  onBack={() => navigateAlQuran(null)}
+                  onOpenTafsir={(surah, ayah) => handleOpenTafsir(surah, ayah)}
+                />
               )}
               {alQuranSubView === 'bahasa' && (
-                <BahasaQuranModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
+                <BahasaQuranModule
+                  childId={activeChild.id}
+                  onBack={() => navigateAlQuran(null)}
+                  onOpenTafsir={(surah, ayah) => handleOpenTafsir(surah, ayah)}
+                />
               )}
               {alQuranSubView === 'tafsir' && (
-                <TafsirModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />
+                <TafsirModule
+                  childId={activeChild.id}
+                  onBack={() => {
+                    setTafsirTarget(null);
+                    navigateAlQuran(null);
+                  }}
+                  initialSurahNumber={tafsirTarget?.surahNumber}
+                  initialAyahNumber={tafsirTarget?.ayahNumber}
+                />
               )}
               {alQuranSubView === 'asbab' && (
                 <AsbabNuzulModule childId={activeChild.id} onBack={() => navigateAlQuran(null)} />

@@ -14,6 +14,9 @@ import {
   Sparkles,
   AlertCircle,
   ArrowLeft,
+  ShieldCheck,
+  Award,
+  HelpCircle,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
@@ -21,9 +24,10 @@ import { getBlocksForSurah } from '../../data/blocksData';
 import { getSurahAyahs } from '../../data/quranData';
 import { RECITERS } from '../../data/recitersData';
 import { QuranAudioPlayer, PlaybackState, GlobalAudioManager } from '../../services/audioService';
+import { VoiceSttService, VoiceEvaluationResult } from '../../services/voiceSttService';
 import { RECALL_MODES, RecallMode, getDeterministicHiddenIndices } from '../../services/murojaahHiding';
 import { StorageService } from '../../services/storageService';
-import { AyahData, MemorizationBlock } from '../../types';
+import { AyahData, MemorizationBlock, BlockState } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { Button } from '../common/Button';
 import { RewardModal } from '../common/RewardModal';
@@ -66,7 +70,17 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
   const [voiceHarakatRevealed, setVoiceHarakatRevealed] = useState<boolean>(false);
   const [voiceShowCorrection, setVoiceShowCorrection] = useState<boolean>(false);
   const [voiceSuccess, setVoiceSuccess] = useState<boolean | null>(null);
+  const [voiceEvaluationResult, setVoiceEvaluationResult] = useState<VoiceEvaluationResult | null>(null);
+  const [voiceFeedbackMsg, setVoiceFeedbackMsg] = useState<string | null>(null);
+  const [hasVoiceSetoranPassed, setHasVoiceSetoranPassed] = useState<boolean>(false);
+  const [isParentConfirmed, setIsParentConfirmed] = useState<boolean>(false);
+  const [earnedStars, setEarnedStars] = useState<number>(2);
+  const [earnedXp, setEarnedXp] = useState<number>(10);
+  const [rewardBreakdown, setRewardBreakdown] = useState<any[]>([]);
+
   const voiceIntervalRef = useRef<any>(null);
+  const recognitionRef = useRef<any>(null);
+  const liveTranscriptRef = useRef<string>('');
 
   const triggerPopConfetti = () => {
     try {
@@ -251,22 +265,72 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
   const handleFinishMurojaah = () => {
     playerRef.current?.pause();
 
-    // Mark as reviewed
-    StorageService.setBlockState(childId, selectedSurahNumber, activeBlock.blockNumber, 'MEMORIZED');
+    // Check existing block mastery
+    const existingBlocks = StorageService.getBlockProgress(childId);
+    const existingBlock = existingBlocks.find(
+      (b) => b.surahNumber === selectedSurahNumber && b.blockNumber === activeBlock.blockNumber
+    );
+    const isAlreadyMemorized = existingBlock?.state === 'MEMORIZED';
+
+    // Status penguasaan hanya berubah lewat evaluasi nyata:
+    // 1. Setoran Ustadz AI ≥ 70%, ATAU
+    // 2. Konfirmasi orang tua/ustadz (lisan tanpa mic), ATAU
+    // 3. Sudah pernah berstatus MEMORIZED sebelumnya
+    const isEvaluated = hasVoiceSetoranPassed || isParentConfirmed || isAlreadyMemorized;
+    const nextState: BlockState = isEvaluated ? 'MEMORIZED' : 'LEARNING';
+
+    StorageService.setBlockState(childId, selectedSurahNumber, activeBlock.blockNumber, nextState);
     StorageService.incrementBlockRepeat(childId, selectedSurahNumber, activeBlock.blockNumber);
 
+    // Calculate honest performance-gated rewards
+    const xp = isEvaluated ? 25 : 10;
+    const stars = isEvaluated ? 4 : 2;
+    setEarnedXp(xp);
+    setEarnedStars(stars);
+
+    const breakdown = isEvaluated
+      ? [
+          {
+            label: hasVoiceSetoranPassed
+              ? `Setoran AI (${voiceEvaluationResult?.accuracyScore || 85}%)`
+              : isParentConfirmed
+              ? 'Konfirmasi Orang Tua'
+              : 'Status Lancar Terjaga',
+            value: 'Lulus Evaluasi',
+            type: 'accuracy' as const,
+          },
+          { label: 'Tingkat Ingatan', value: recallMode, type: 'bonus' as const },
+        ]
+      : [
+          { label: 'Latihan Mandiri', value: '+1 Pengulangan', type: 'bonus' as const },
+          { label: 'Status Lancar', value: 'Perlu Uji Lisan', type: 'speed' as const },
+        ];
+    setRewardBreakdown(breakdown);
+
+    const today = new Date().toISOString().split('T')[0];
     StorageService.recordPoints(
       childId,
       'MUROJAAH',
-      20,
-      4,
-      `Muroja'ah ${activeBlock.name} Surah ${surahMeta.nameLatin} (${recallMode})`,
+      xp,
+      stars,
+      `Muroja'ah ${activeBlock.name} Surah ${surahMeta.nameLatin} (${isEvaluated ? 'Lancar Teruji' : 'Latihan'})`,
       'murojaah',
-      activeBlock.id
+      `${childId}_${selectedSurahNumber}_${activeBlock.blockNumber}_${today}`
     );
 
+    if (isEvaluated) {
+      StorageService.updateNodeMastery(
+        childId,
+        `hafalan-block-${selectedSurahNumber}-${activeBlock.blockNumber}`,
+        {
+          score: voiceEvaluationResult?.accuracyScore || 85,
+          completed: true,
+        }
+      );
+    }
+
     // Record activity in Companion service for Hafiz trait and quest progression
-    CompanionService.recordActivity(childId, 'murojaah', 20, 4);
+    CompanionService.recordActivity(childId, 'murojaah', xp, stars);
     CompanionService.onSurahCompleted(childId, surahMeta.nameLatin);
     setCompanionPulseTrigger((prev) => prev + 1);
 
@@ -525,6 +589,30 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
                   setVoiceSuccess(null);
                   setVoiceShowCorrection(false);
                   setVoiceHarakatRevealed(false);
+                  setVoiceFeedbackMsg(null);
+                  liveTranscriptRef.current = '';
+
+                  // Start STT if supported
+                  if (VoiceSttService.isSupported()) {
+                    try {
+                      const rec = VoiceSttService.createRecognition(
+                        (transcript) => {
+                          liveTranscriptRef.current = transcript;
+                        },
+                        (err) => {
+                          console.warn('STT in Murojaah:', err);
+                        },
+                        () => {},
+                        'ar-SA'
+                      );
+                      if (rec) {
+                        recognitionRef.current = rec;
+                        rec.start();
+                      }
+                    } catch (e) {
+                      console.warn('STT start error:', e);
+                    }
+                  }
 
                   voiceIntervalRef.current = setInterval(() => {
                     setVoiceTimer((t) => t + 1);
@@ -532,12 +620,47 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
                 } else {
                   setVoiceIsRecording(false);
                   if (voiceIntervalRef.current) clearInterval(voiceIntervalRef.current);
+                  if (recognitionRef.current) {
+                    try {
+                      recognitionRef.current.stop();
+                    } catch {}
+                    recognitionRef.current = null;
+                  }
 
-                  // Recitation completed: trigger pop animation and reveal full Harakat!
-                  setVoiceHarakatRevealed(true);
-                  setVoiceSuccess(true);
-                  triggerPopConfetti();
-                  // Audio reference can be listened via "Dengar Suara Qari" button below without interrupting Harakat reveal
+                  // Strict evaluation: no instant free pass
+                  if (voiceTimer < 2) {
+                    setVoiceFeedbackMsg('Lantunan terlalu singkat (kurang dari 2 detik). Silakan lantunkan ayat secara lengkap ya!');
+                    setVoiceSuccess(false);
+                    return;
+                  }
+
+                  const spoken = liveTranscriptRef.current.trim();
+                  if (spoken && currentAyah) {
+                    const evalResult = VoiceSttService.evaluateRecitation(currentAyah.arabicText, spoken);
+                    setVoiceEvaluationResult(evalResult);
+                    if (evalResult.accuracyScore >= 70) {
+                      setVoiceHarakatRevealed(true);
+                      setVoiceSuccess(true);
+                      setHasVoiceSetoranPassed(true);
+                      setVoiceFeedbackMsg(null);
+                      triggerPopConfetti();
+                    } else {
+                      setVoiceSuccess(false);
+                      setVoiceShowCorrection(true);
+                      setVoiceFeedbackMsg(`Akurasi lantunan: ${evalResult.accuracyScore}%. Latihan lagi makhraj dan harakatnya ya santri!`);
+                    }
+                  } else {
+                    // STT transcript empty:
+                    if (voiceTimer >= 3) {
+                      setVoiceHarakatRevealed(true);
+                      setVoiceSuccess(true);
+                      setVoiceFeedbackMsg('Lantunan tersimpan. Minta Orang Tua/Ustadz centang konfirmasi lisan di bawah untuk mengesahkan status lancar!');
+                      triggerPopConfetti();
+                    } else {
+                      setVoiceSuccess(false);
+                      setVoiceFeedbackMsg('Suara belum terdeteksi. Silakan dekatkan mikrofon atau baca dengan lebih jelas.');
+                    }
+                  }
                 }
               }}
               className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-3xl shadow-xl transition-all cursor-pointer ${
@@ -554,6 +677,14 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
                 ? `Merekam Setoran... (${voiceTimer} dtk) • Ketuk jika selesai`
                 : 'Ketuk Mikrofon untuk Setoran'}
             </span>
+
+            {voiceFeedbackMsg && (
+              <p className={`text-xs font-bold px-3 py-1.5 rounded-xl text-center max-w-sm ${
+                voiceSuccess ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'
+              }`}>
+                {voiceFeedbackMsg}
+              </p>
+            )}
           </div>
 
           {/* Success / Correction Bar */}
@@ -683,6 +814,51 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
         </div>
       </div>
 
+      {/* Honest Verification Gating Panel */}
+      <div className="p-3.5 bg-white border border-[#C9E1ED] rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              hasVoiceSetoranPassed || isParentConfirmed
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-slate-100 text-slate-500'
+            }`}
+          >
+            {hasVoiceSetoranPassed || isParentConfirmed ? (
+              <ShieldCheck size={20} />
+            ) : (
+              <Award size={20} />
+            )}
+          </div>
+          <div className="text-left">
+            <span className="text-xs font-black text-[#164C68] block">
+              {hasVoiceSetoranPassed
+                ? 'Setoran Suara AI Lulus (≥70%)'
+                : isParentConfirmed
+                ? 'Dikonfirmasi Orang Tua / Ustadz'
+                : 'Status: Latihan Mandiri (Perlu Uji Lisan)'}
+            </span>
+            <span className="text-[11px] text-[#8C9BA7]">
+              {hasVoiceSetoranPassed || isParentConfirmed
+                ? 'Memenuhi syarat sah penguasaan blok (MEMORIZED).'
+                : 'Centang jika disimak lisan oleh Ayah/Bunda tanpa mic.'}
+            </span>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 hover:bg-slate-100 p-2 rounded-xl border border-slate-200 transition-colors">
+          <input
+            type="checkbox"
+            checked={isParentConfirmed}
+            onChange={(e) => setIsParentConfirmed(e.target.checked)}
+            className="w-4 h-4 rounded text-[#08B9EF] focus:ring-[#08B9EF]"
+          />
+          <span className="text-xs font-bold text-[#164C68] whitespace-nowrap">
+            Konfirmasi Ortu
+          </span>
+        </label>
+      </div>
+
       {/* Complete Murojaah Button */}
       <Button
         variant="purple"
@@ -694,14 +870,20 @@ export const MurojaahModule: React.FC<MurojaahModuleProps> = ({
         Selesai Muroja'ah Blok Ini
       </Button>
 
-      {/* Celebratory Reward Modal */}
+      {/* Celebratory Reward Modal with honest performance breakdown */}
       <RewardModal
         isOpen={rewardModalOpen}
         onClose={() => setRewardModalOpen(false)}
-        title="Muroja'ah Berhasil!"
-        message={`Hebat! Kamu telah mereview ${activeBlock.name} Surah ${surahMeta.nameLatin}.`}
-        starsEarned={4}
-        xpEarned={20}
+        title={earnedStars >= 4 ? "Muroja'ah Tuntas & Lancar!" : "Latihan Muroja'ah Dicatat!"}
+        message={
+          earnedStars >= 4
+            ? `Masya Allah! Kamu telah menuntaskan review teruji untuk ${activeBlock.name} Surah ${surahMeta.nameLatin}.`
+            : `Alhamdulillah! Pengulangan bertambah untuk ${activeBlock.name}. Uji setoran suara atau konfirmasi orang tua untuk meraih bintang penuh!`
+        }
+        sourceNodeTitle={`${surahMeta.nameLatin} ${activeBlock.name}`}
+        starsEarned={earnedStars}
+        xpEarned={earnedXp}
+        breakdownItems={rewardBreakdown}
         nextLabel="Selesai"
         onNext={() => {
           setRewardModalOpen(false);

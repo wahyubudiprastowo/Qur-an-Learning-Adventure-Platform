@@ -35,6 +35,7 @@ import { StorageService } from '../../services/storageService';
 import { CompanionService } from '../../services/companionService';
 import { globalDuelSocket, DuelPlayer } from '../../services/duelWebSocketService';
 import { DUEL_QUESTIONS_CATALOG, DuelQuestion } from '../../data/duelQuestionsData';
+import { QuestionFactory } from '../../services/questionFactory';
 import { Button } from '../common/Button';
 
 interface SantriDuelArenaProps {
@@ -91,8 +92,14 @@ export const SantriDuelArena: React.FC<SantriDuelArenaProps> = ({
   // Match State
   const [currentRound, setCurrentRound] = useState<number>(0);
   const [totalRounds, setTotalRounds] = useState<number>(5);
-  const [currentQuestion, setCurrentQuestion] = useState<DuelQuestion>(DUEL_QUESTIONS_CATALOG[0]);
-  const [questionsList, setQuestionsList] = useState<DuelQuestion[]>(DUEL_QUESTIONS_CATALOG.slice(0, 5));
+  const [questionsList, setQuestionsList] = useState<DuelQuestion[]>(() => {
+    const adaptive = QuestionFactory.generateAdaptiveQuizForChild(childId, 5);
+    return adaptive.questions.length > 0 ? adaptive.questions : DUEL_QUESTIONS_CATALOG.slice(0, 5);
+  });
+  const [currentQuestion, setCurrentQuestion] = useState<DuelQuestion>(() => {
+    const adaptive = QuestionFactory.generateAdaptiveQuizForChild(childId, 5);
+    return adaptive.questions[0] || DUEL_QUESTIONS_CATALOG[0];
+  });
   const [timeLeft, setTimeLeft] = useState<number>(10);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [roundFeedback, setRoundFeedback] = useState<'hit' | 'miss' | null>(null);
@@ -147,6 +154,14 @@ export const SantriDuelArena: React.FC<SantriDuelArenaProps> = ({
           setAttackAnimation(data.attackerName === (activeChild?.name || 'Santri') ? 'player_attack' : 'enemy_attack');
         } else {
           SoundEffects.playWrongSound();
+        }
+
+        // Write back to learning graph on each duel round
+        const targetNode = currentQuestion?.nodeId || (currentQuestion?.id?.startsWith('q-node-') ? currentQuestion.id.replace('q-node-', '') : null);
+        if (targetNode && childId) {
+          StorageService.updateNodeMastery(childId, targetNode, {
+            score: data.isCorrect ? 100 : 0,
+          });
         }
       } else if (event === 'NEXT_ROUND') {
         setCurrentRound(data.currentRound);
@@ -208,6 +223,15 @@ export const SantriDuelArena: React.FC<SantriDuelArenaProps> = ({
             'Partisipasi Duel Kuis Santri ⚔️'
           );
           CompanionService.recordActivity(childId, 'game', 15, 2);
+        }
+
+        // Update Learning Graph mastery for drilled node
+        const targetFinalNode = currentQuestion?.nodeId || (currentQuestion?.id?.startsWith('q-node-') ? currentQuestion.id.replace('q-node-', '') : null);
+        if (targetFinalNode) {
+          StorageService.updateNodeMastery(childId, targetFinalNode, {
+            score: isWinner ? 95 : 65,
+            completed: isWinner,
+          });
         }
 
         fetchLeaderboard();

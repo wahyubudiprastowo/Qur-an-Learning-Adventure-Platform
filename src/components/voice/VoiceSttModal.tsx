@@ -165,12 +165,19 @@ export const VoiceSttModal: React.FC<VoiceSttModalProps> = ({
     clearInterval(audioPulseInterval.current);
     setAudioLevel(0);
 
-    // Evaluate transcript if available, or simulate fallback for testing
-    const textToEvaluate = liveTranscript.trim() || targetAyah.arabic;
+    // Evaluate transcript if available, no fake fallback!
+    const textToEvaluate = liveTranscript.trim();
+    if (!textToEvaluate) {
+      setSttError('Belum ada suara yang terdengar. Silakan dekatkan mikrofon ke lisan dan baca kembali dengan jelas ya santri cerdas!');
+      setEvaluation(null);
+      SoundEffects.playWrongSound();
+      return;
+    }
+
     const result = VoiceSttService.evaluateRecitation(targetAyah.arabic, textToEvaluate);
     setEvaluation(result);
 
-    if (result.accuracyScore >= 75) {
+    if (result.accuracyScore >= 70) {
       SoundEffects.playFanfareSound();
       try {
         confetti({
@@ -181,15 +188,23 @@ export const VoiceSttModal: React.FC<VoiceSttModalProps> = ({
         });
       } catch (e) {}
 
-      // Award XP & Stars
+      // Honest performance-gated reward
+      const accuracyPct = result.accuracyScore;
+      const starsEarned = accuracyPct >= 90 ? 5 : accuracyPct >= 80 ? 4 : 3;
+      const xpEarned = accuracyPct >= 90 ? 30 : accuracyPct >= 80 ? 25 : 20;
+
+      // Award XP & Stars with deduplication per day
+      const today = new Date().toISOString().split('T')[0];
       StorageService.recordPoints(
         childId,
         'PRACTICE_AYAH',
-        30,
-        5,
-        `Setoran Suara AI: Surah ${targetAyah.surahName} (${result.gradeTitle})`
+        xpEarned,
+        starsEarned,
+        `Setoran Suara AI: Surah ${targetAyah.surahName} (${result.gradeTitle})`,
+        'voice_stt',
+        `${childId}_${targetAyah.surahName}_ayah_${targetAyah.ayahNum}_${today}`
       );
-      CompanionService.recordActivity(childId, 'hafalan', 25, 4);
+      CompanionService.recordActivity(childId, 'hafalan', xpEarned, starsEarned);
     } else {
       SoundEffects.playWrongSound();
     }

@@ -18,6 +18,9 @@ export interface IqraBookPage {
   focusLetters: string[];
   headerPreview?: { arabic: string; latin: string };
   rows: IqraRow[];
+  nodeId?: string;
+  difficulty?: 1 | 2 | 3 | 4 | 5;
+  prereq?: string[];
 }
 
 export const IQRA_1_PAGES: IqraBookPage[] = [

@@ -21,6 +21,7 @@ import { IQRA_3_PAGES } from '../../data/iqraBook3Data';
 import { IQRA_4_PAGES } from '../../data/iqraBook4Data';
 import { IQRA_5_PAGES } from '../../data/iqraBook5Data';
 import { IQRA_6_PAGES } from '../../data/iqraBook6Data';
+import { StorageService } from '../../services/storageService';
 
 export type GameMode = 'flash' | 'mystery' | 'puzzle' | 'tajwid';
 
@@ -42,6 +43,8 @@ interface QuestionItem {
   correctIndex: number;
   explanation?: string;
   puzzleParts?: string[]; // For word assemble game
+  nodeId: string;
+  sourceLabel: string;
 }
 
 export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
@@ -49,6 +52,7 @@ export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
   onClose,
   activeJilid,
   pageNumber,
+  childId,
   onEarnReward,
   speakArabic,
 }) => {
@@ -164,11 +168,13 @@ export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
         options: allOptions,
         correctIndex: correctIdx,
         puzzleParts,
+        nodeId: `iqra-page-${activeJilid}-${pageNumber}`,
+        sourceLabel: `Dari: Iqra' Jilid ${activeJilid} · Halaman ${pageNumber}`,
       });
     }
 
     return generated;
-  }, [questionPool, activeMode, activeJilid]);
+  }, [questionPool, activeMode, activeJilid, pageNumber]);
 
   const currentQ = questions[currentRound] || questions[0];
 
@@ -219,6 +225,13 @@ export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
       setStreak(0);
     }
 
+    // Write back to unified curriculum graph
+    if (currentQ.nodeId && childId) {
+      StorageService.updateNodeMastery(childId, currentQ.nodeId, {
+        score: isCorrect ? 100 : 0,
+      });
+    }
+
     // Auto advance after short pause
     setTimeout(() => {
       if (currentRound + 1 < questions.length) {
@@ -260,6 +273,13 @@ export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
         } catch {}
       } else {
         setStreak(0);
+      }
+
+      // Write back to graph
+      if (currentQ.nodeId && childId) {
+        StorageService.updateNodeMastery(childId, currentQ.nodeId, {
+          score: isCorrect ? 100 : 0,
+        });
       }
 
       setTimeout(() => {
@@ -393,7 +413,13 @@ export const IqraMilestoneGameModal: React.FC<IqraMilestoneGameModalProps> = ({
 
                 {/* Question Prompt Box */}
                 {currentQ && (
-                  <div className="text-center space-y-3 py-1">
+                  <div className="text-center space-y-2 py-1">
+                    {currentQ.sourceLabel && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200 shadow-xs">
+                        <Sparkles size={12} className="text-emerald-600" />
+                        <span>{currentQ.sourceLabel}</span>
+                      </div>
+                    )}
                     <div className="text-xs sm:text-sm font-bold text-slate-600">
                       {currentQ.prompt}
                     </div>

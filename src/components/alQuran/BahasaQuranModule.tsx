@@ -28,6 +28,7 @@ import {
   FileText,
   Filter,
   AlertTriangle,
+  Lightbulb,
 } from 'lucide-react';
 import {
   QURAN_VOCABULARY_LIST,
@@ -47,11 +48,16 @@ import { AyahData, MufrodatDailyTracker, QuranVocabularyItem, MufrodatMasterySta
 interface BahasaQuranModuleProps {
   childId: string;
   onBack: () => void;
+  onOpenTafsir?: (surahNumber: number, ayahNumber: number) => void;
 }
 
 type MainTab = 'ayat' | 'jenjang' | 'kuis' | 'kamus';
 
-export const BahasaQuranModule: React.FC<BahasaQuranModuleProps> = ({ childId, onBack }) => {
+export const BahasaQuranModule: React.FC<BahasaQuranModuleProps> = ({
+  childId,
+  onBack,
+  onOpenTafsir,
+}) => {
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<MainTab>('ayat');
 
@@ -786,13 +792,25 @@ export const BahasaQuranModule: React.FC<BahasaQuranModuleProps> = ({ childId, o
                   </span>
                 </span>
 
-                <button
-                  onClick={() => handlePlayVoice(currentAyahData.arabicText)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-[#08B9EF] hover:text-[#0695c2] px-2.5 py-1 rounded-xl bg-[#EEF8FF] border border-[#C9E1ED]"
-                >
-                  <Volume2 size={14} />
-                  <span>Dengar Ayat</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {onOpenTafsir && (
+                    <button
+                      onClick={() => onOpenTafsir(selectedSurahNumber, selectedAyahNumber)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 cursor-pointer shadow-2xs transition-all"
+                      title="Buka Tafsir & Hikmah Lengkap Ayat Ini"
+                    >
+                      <Lightbulb size={13} className="text-amber-600" />
+                      <span>Tafsir Ayat</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handlePlayVoice(currentAyahData.arabicText)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-[#08B9EF] hover:text-[#0695c2] px-2.5 py-1 rounded-xl bg-[#EEF8FF] border border-[#C9E1ED] cursor-pointer"
+                  >
+                    <Volume2 size={14} />
+                    <span>Dengar Ayat</span>
+                  </button>
+                </div>
               </div>
 
               {/* Arabic Verse Full Text */}

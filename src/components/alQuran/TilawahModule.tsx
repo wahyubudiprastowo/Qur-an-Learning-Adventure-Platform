@@ -8,10 +8,15 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
+  VolumeX,
   ArrowLeft,
   ChevronRight,
   Repeat,
   RotateCcw,
+  Lightbulb,
+  Sparkles,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
 import { SURAHS_METADATA } from '../../data/surahsMetadata';
 import { getSurahAyahs } from '../../data/quranData';
@@ -19,13 +24,20 @@ import { RECITERS, getAyahAudioUrl, getAyahAudioFallbackUrl } from '../../data/r
 import { AyahData, SurahMetadata } from '../../types';
 import { ArabicText } from '../common/ArabicText';
 import { GlobalAudioManager } from '../../services/audioService';
+import { SoundEffects } from '../../services/soundEffects';
+import { TafsirService, AyahTafsirItem } from '../../services/tafsirService';
 
 interface TilawahModuleProps {
   childId: string;
   onBack: () => void;
+  onOpenTafsir?: (surahNumber: number, ayahNumber: number) => void;
 }
 
-export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack }) => {
+export const TilawahModule: React.FC<TilawahModuleProps> = ({
+  childId,
+  onBack,
+  onOpenTafsir,
+}) => {
   // If null -> surah list; if set -> reading view
   const [activeSurah, setActiveSurah] = useState<SurahMetadata | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -40,6 +52,16 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xl'>('large');
   const [bookmarkedAyah, setBookmarkedAyah] = useState<number | null>(null);
   const [playMode, setPlayMode] = useState<'single' | 'continuous'>('continuous');
+
+  // Ayah Tafsir Modal State
+  const [activeTafsirModal, setActiveTafsirModal] = useState<{
+    surahNumber: number;
+    ayahNumber: number;
+    surahName: string;
+    data?: AyahTafsirItem;
+    isLoading: boolean;
+  } | null>(null);
+  const [isNarratingTafsir, setIsNarratingTafsir] = useState<boolean>(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -219,6 +241,51 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
     handlePlayAyah(target, false, true);
   };
 
+  const handleOpenAyahTafsir = (surahNumber: number, ayahNumber: number) => {
+    const sMeta = SURAHS_METADATA.find((s) => s.number === surahNumber);
+    setActiveTafsirModal({
+      surahNumber,
+      ayahNumber,
+      surahName: sMeta?.nameLatin || `Surah ${surahNumber}`,
+      isLoading: true,
+    });
+
+    TafsirService.getAyahTafsir(surahNumber, ayahNumber)
+      .then((data) => {
+        setActiveTafsirModal((prev) => {
+          if (!prev || prev.surahNumber !== surahNumber || prev.ayahNumber !== ayahNumber) return prev;
+          return {
+            ...prev,
+            data: data || undefined,
+            isLoading: false,
+          };
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to load ayah tafsir:', err);
+        setActiveTafsirModal((prev) => (prev ? { ...prev, isLoading: false } : null));
+      });
+  };
+
+  const handleToggleNarrateAyahTafsir = (
+    tafsirText: string,
+    hikmahText: string,
+    surahName: string,
+    ayahNum: number
+  ) => {
+    if (isNarratingTafsir) {
+      SoundEffects.stopSpeaking();
+      setIsNarratingTafsir(false);
+    } else {
+      handleStopAudio();
+      const narrative = `Tafsir Surah ${surahName} ayat ke ${ayahNum}. Makna dan penjelasan: ${tafsirText}. Hikmah untuk adik-adik santri: ${hikmahText}`;
+      const started = SoundEffects.speakIndonesian(narrative, () => {
+        setIsNarratingTafsir(false);
+      });
+      setIsNarratingTafsir(started);
+    }
+  };
+
   // --- Render 1: Mushaf Reader View ---
   if (activeSurah) {
     return (
@@ -382,15 +449,27 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
                       )}
                     </div>
 
-                    <button
-                      onClick={() => setBookmarkedAyah(isBookmarked ? null : ayah.ayahNumber)}
-                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                        isBookmarked ? 'text-[#08B9EF]' : 'text-[#8C9BA7] hover:text-[#164C68]'
-                      }`}
-                      title="Tandai Bacaan Terakhir"
-                    >
-                      <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {/* Tafsir Ayat Action Button */}
+                      <button
+                        onClick={() => handleOpenAyahTafsir(activeSurah.number, ayah.ayahNumber)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                        title="Pelajari Makna & Tafsir Ayat Ini"
+                      >
+                        <Lightbulb size={13} className="text-amber-600" />
+                        <span>Tafsir Ayat</span>
+                      </button>
+
+                      <button
+                        onClick={() => setBookmarkedAyah(isBookmarked ? null : ayah.ayahNumber)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          isBookmarked ? 'text-[#08B9EF]' : 'text-[#8C9BA7] hover:text-[#164C68]'
+                        }`}
+                        title="Tandai Bacaan Terakhir"
+                      >
+                        <Bookmark size={18} className={isBookmarked ? 'fill-current' : ''} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Authentic Quran Text with Ayah Marker */}
@@ -460,6 +539,135 @@ export const TilawahModule: React.FC<TilawahModuleProps> = ({ childId, onBack })
               >
                 <SkipForward size={14} />
               </button>
+            </div>
+          </div>
+        )}
+        {/* Ayah Tafsir Modal Sheet */}
+        {activeTafsirModal && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl border-2 border-amber-300 w-full max-w-lg max-h-[85vh] overflow-y-auto p-5 sm:p-6 shadow-2xl space-y-4 animate-in slide-in-from-bottom-4">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                    <Lightbulb size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#164C68] font-heading">
+                      Tafsir Surah {activeTafsirModal.surahName} : Ayat {activeTafsirModal.ayahNumber}
+                    </h3>
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <ShieldCheck size={11} /> Rujukan Resmi Kemenag RI
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    SoundEffects.stopSpeaking();
+                    setIsNarratingTafsir(false);
+                    setActiveTafsirModal(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {activeTafsirModal.isLoading ? (
+                <div className="py-12 text-center space-y-2">
+                  <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-xs font-bold text-[#8C9BA7]">Memuat tafsir Kemenag RI...</p>
+                </div>
+              ) : activeTafsirModal.data ? (
+                <div className="space-y-3.5">
+                  {/* Arabic Text */}
+                  {activeTafsirModal.data.arabicText && (
+                    <div className="p-3 bg-amber-50/40 rounded-2xl border border-amber-200">
+                      <ArabicText
+                        arabicText={activeTafsirModal.data.arabicText}
+                        ayahNumber={activeTafsirModal.ayahNumber}
+                        fontSize="large"
+                      />
+                    </div>
+                  )}
+
+                  {/* Translation */}
+                  {activeTafsirModal.data.translation && (
+                    <div className="p-3 bg-[#EEF8FF] rounded-2xl border border-[#C9E1ED]">
+                      <span className="text-[10px] font-bold text-[#8C9BA7] uppercase tracking-wider block mb-0.5">
+                        TERJEMAHAN
+                      </span>
+                      <p className="text-xs text-[#164C68] font-medium leading-relaxed">
+                        "{activeTafsirModal.data.translation}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Tafsir Ringkas */}
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                      <Lightbulb size={14} className="text-amber-600" />
+                      <span>MAKNA & TAFSIR RINGKAS</span>
+                    </span>
+                    <p className="text-xs text-[#164C68] font-medium leading-relaxed bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200">
+                      {activeTafsirModal.data.tafsirRingkas}
+                    </p>
+                  </div>
+
+                  {/* Hikmah untuk Santri */}
+                  <div className="space-y-1 bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200">
+                    <span className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                      <Sparkles size={14} className="text-emerald-600" />
+                      <span>🌱 HIKMAH UNTUK SANTRI</span>
+                    </span>
+                    <p className="text-xs text-emerald-950 font-semibold leading-relaxed">
+                      {activeTafsirModal.data.hikmahAnak}
+                    </p>
+                  </div>
+
+                  {/* Action Buttons: Dengar Tafsir & Buka Modul Tafsir */}
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleNarrateAyahTafsir(
+                          activeTafsirModal.data!.tafsirRingkas,
+                          activeTafsirModal.data!.hikmahAnak,
+                          activeTafsirModal.surahName,
+                          activeTafsirModal.ayahNumber
+                        )
+                      }
+                      className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                        isNarratingTafsir
+                          ? 'bg-rose-500 text-white animate-pulse font-black'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      }`}
+                    >
+                      {isNarratingTafsir ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                      <span>{isNarratingTafsir ? 'Stop Penjelasan' : 'Dengar Tafsir 🔊'}</span>
+                    </button>
+
+                    {onOpenTafsir && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          SoundEffects.stopSpeaking();
+                          setIsNarratingTafsir(false);
+                          const sNum = activeTafsirModal.surahNumber;
+                          const aNum = activeTafsirModal.ayahNumber;
+                          setActiveTafsirModal(null);
+                          onOpenTafsir(sNum, aNum);
+                        }}
+                        className="py-2.5 px-3 rounded-xl text-xs font-bold bg-[#08B9EF] hover:bg-[#07a6d7] text-white flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <span>Halaman Penuh</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

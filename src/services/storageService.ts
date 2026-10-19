@@ -32,6 +32,12 @@ import {
   DailyBreakdownPortion,
   SmartWeeklyGoal,
   AchievementBadge,
+  LearningNode,
+  LearningNodeKind,
+  LearningNodeStatus,
+  NodeMasteryState,
+  LearningGraph,
+  LearningGraphStats,
 } from '../types';
 import { getLevelForXp, SESSION_MEDALS_CATALOG, getNextMedalMilestone } from '../data/levelsAndAchievements';
 import {
@@ -45,6 +51,14 @@ import {
 } from '../data/leaderboardAndActivityData';
 import { AudioDatabaseService } from './audioDatabaseService';
 import { SURAHS_METADATA } from '../data/surahsMetadata';
+import {
+  ALL_LEARNING_NODES_MAP,
+  ALL_LEARNING_NODES_LIST,
+  getLearningNode,
+  getNodesByKind,
+  getPrerequisiteNodes,
+  getDependentNodes,
+} from '../data/learningGraphData';
 
 const STORAGE_KEYS = {
   USER_ACCOUNT: 'cahaya_tahfiz_user_account',
@@ -91,6 +105,7 @@ const STORAGE_KEYS = {
   SMART_WEEKLY_GOALS_PREFIX: 'cahaya_tahfiz_smart_goals_',
   DUEL_STATS_PREFIX: 'cahaya_tahfiz_duel_stats_',
   LIVE_DUEL_MATCHES: 'cahaya_tahfiz_live_duel_matches',
+  LEARNING_GRAPH_PROGRESS_PREFIX: 'cahaya_tahfiz_graph_progress_',
 };
 
 // Initial default parent and child profiles
@@ -3226,13 +3241,82 @@ export class StorageService {
     referenceId?: string
   ): PointsLedgerEntry {
     const ledger = this.getLedger(childId);
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Dedup check for non-repeatable rewards (e.g. iqra page, tajwid topic, specific milestone game)
+    if (referenceType && referenceId) {
+      const alreadyEarned = ledger.some(
+        (e) => e.referenceType === referenceType && e.referenceId === referenceId
+      );
+      if (alreadyEarned) {
+        // Dedup hit! Return a zero-value receipt without inflating XP or ledger
+        return {
+          id: `ledg-dedup-${Date.now()}`,
+          childId,
+          eventType,
+          points: 0,
+          stars: 0,
+          description: `${description} (Sudah tercatat)`,
+          referenceType,
+          referenceId,
+          createdAt: new Date().toISOString(),
+        };
+      }
+    }
+
+    // 2. Daily Caps per eventType to prevent farming/botting
+    const DAILY_CAPS: Partial<Record<PointsEventType, { maxXp: number; maxStars: number }>> = {
+      GAME: { maxXp: 100, maxStars: 15 },
+      IQRA_LESSON: { maxXp: 120, maxStars: 20 },
+      TAJWID_LESSON: { maxXp: 120, maxStars: 20 },
+      VOCABULARY: { maxXp: 100, maxStars: 15 },
+      ADAB_TASK: { maxXp: 50, maxStars: 10 },
+      MUROJAAH: { maxXp: 150, maxStars: 25 },
+      PRACTICE_AYAH: { maxXp: 150, maxStars: 25 },
+      COMPLETE_SESSION: { maxXp: 150, maxStars: 25 },
+    };
+
+    const cap = DAILY_CAPS[eventType];
+    let actualPoints = Math.max(0, points);
+    let actualStars = Math.max(0, stars);
+
+    if (cap) {
+      const todayEntries = ledger.filter(
+        (e) => e.eventType === eventType && e.createdAt.startsWith(today)
+      );
+      const earnedTodayXp = todayEntries.reduce((acc, e) => acc + (e.points || 0), 0);
+      const earnedTodayStars = todayEntries.reduce((acc, e) => acc + (e.stars || 0), 0);
+
+      const remainingXp = Math.max(0, cap.maxXp - earnedTodayXp);
+      const remainingStars = Math.max(0, cap.maxStars - earnedTodayStars);
+
+      actualPoints = Math.min(actualPoints, remainingXp);
+      actualStars = Math.min(actualStars, remainingStars);
+    }
+
+    // If both zero due to cap, return capped receipt
+    if (actualPoints === 0 && actualStars === 0 && (points > 0 || stars > 0)) {
+      return {
+        id: `ledg-capped-${Date.now()}`,
+        childId,
+        eventType,
+        points: 0,
+        stars: 0,
+        description: `${description} (Batas harian tercapai)`,
+        referenceType,
+        referenceId,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
     const entry: PointsLedgerEntry = {
       id: `ledg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       childId,
       eventType,
-      points,
-      stars,
-      description,
+      points: actualPoints,
+      stars: actualStars,
+      description:
+        actualPoints < points ? `${description} (Sebagian batas harian)` : description,
       referenceType,
       referenceId,
       createdAt: new Date().toISOString(),
@@ -3241,16 +3325,18 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.LEDGER_PREFIX + childId, JSON.stringify(ledger));
 
     // Update child profile total XP & Stars
-    const child = this.getActiveChild();
-    if (child.id === childId) {
-      const newXp = child.totalXp + points;
-      const newStars = child.totalStars + stars;
-      const lvlConfig = getLevelForXp(newXp);
-      this.updateChild(childId, {
-        totalXp: newXp,
-        totalStars: newStars,
-        level: lvlConfig.level,
-      });
+    if (actualPoints > 0 || actualStars > 0) {
+      const child = this.getActiveChild();
+      if (child.id === childId) {
+        const newXp = child.totalXp + actualPoints;
+        const newStars = child.totalStars + actualStars;
+        const lvlConfig = getLevelForXp(newXp);
+        this.updateChild(childId, {
+          totalXp: newXp,
+          totalStars: newStars,
+          level: lvlConfig.level,
+        });
+      }
     }
 
     return entry;
@@ -5515,4 +5601,270 @@ export class StorageService {
     const updated = [match, ...current.filter((m) => m.id !== match.id)].slice(0, 20);
     localStorage.setItem(STORAGE_KEYS.LIVE_DUEL_MATCHES, JSON.stringify(updated));
   }
+
+  // ==========================================
+  // LEARNING GRAPH ENGINE (URUTAN 1)
+  // Satu Model Data untuk Tiga Pilar
+  // ==========================================
+
+  static getLearningGraph(childId?: string): LearningGraph {
+    const targetId = childId || this.getActiveChildId();
+    const storageKey = STORAGE_KEYS.LEARNING_GRAPH_PROGRESS_PREFIX + targetId;
+    let savedProgress: Record<string, NodeMasteryState> = {};
+
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        savedProgress = JSON.parse(raw);
+      }
+    } catch (e) {
+      console.warn('Error reading learning graph progress:', e);
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const evaluatedProgress: Record<string, NodeMasteryState> = { ...savedProgress };
+
+    // Pass 1: Ensure state object exists for every node
+    ALL_LEARNING_NODES_LIST.forEach((node) => {
+      if (!evaluatedProgress[node.nodeId]) {
+        // Initial defaults
+        const isDefaultMastered = node.nodeId === 'iqra-letter-alif-ba'; // baseline starter
+        evaluatedProgress[node.nodeId] = {
+          nodeId: node.nodeId,
+          mastery: isDefaultMastered ? 100 : 0,
+          status: isDefaultMastered ? 'mastered' : 'locked',
+          timesPracticed: isDefaultMastered ? 1 : 0,
+          lastPracticedAt: isDefaultMastered ? todayStr : undefined,
+          easeFactor: 2.5,
+          srIntervalDays: 1,
+          consecutiveSuccess: isDefaultMastered ? 1 : 0,
+          highestScore: isDefaultMastered ? 100 : 0,
+        };
+      }
+    });
+
+    // Pass 2: Evaluate dynamic lock / available / mastered status based on prereqs
+    let totalMastered = 0;
+    let totalInProgress = 0;
+    let totalAvailable = 0;
+    let totalLocked = 0;
+    let sumMastery = 0;
+    let dueReviewCount = 0;
+
+    const byKind: Record<LearningNodeKind, { total: number; mastered: number; inProgress: number }> = {
+      iqra_page: { total: 0, mastered: 0, inProgress: 0 },
+      iqra_letter: { total: 0, mastered: 0, inProgress: 0 },
+      tajwid_topic: { total: 0, mastered: 0, inProgress: 0 },
+      vocab_word: { total: 0, mastered: 0, inProgress: 0 },
+      hafalan_block: { total: 0, mastered: 0, inProgress: 0 },
+      tafsir_ayah: { total: 0, mastered: 0, inProgress: 0 },
+    };
+
+    ALL_LEARNING_NODES_LIST.forEach((node) => {
+      const state = evaluatedProgress[node.nodeId];
+      byKind[node.kind].total++;
+
+      // Check prereqs
+      const prereqsMet =
+        node.prereq.length === 0 ||
+        node.prereq.every((prereqId) => {
+          const pState = evaluatedProgress[prereqId];
+          return pState && (pState.mastery >= 70 || pState.status === 'mastered');
+        });
+
+      if (state.mastery >= 70) {
+        state.status = 'mastered';
+        totalMastered++;
+        byKind[node.kind].mastered++;
+      } else if (state.mastery > 0) {
+        state.status = 'in_progress';
+        totalInProgress++;
+        byKind[node.kind].inProgress++;
+      } else if (prereqsMet) {
+        state.status = 'available';
+        totalAvailable++;
+      } else {
+        state.status = 'locked';
+        totalLocked++;
+      }
+
+      sumMastery += state.mastery;
+
+      if (state.nextReviewDate && state.nextReviewDate <= todayStr && state.mastery > 0) {
+        dueReviewCount++;
+      }
+    });
+
+    const totalCount = ALL_LEARNING_NODES_LIST.length || 1;
+    const overallMasteryPct = Math.round(sumMastery / totalCount);
+
+    const stats: LearningGraphStats = {
+      totalNodes: totalCount,
+      masteredNodes: totalMastered,
+      inProgressNodes: totalInProgress,
+      availableNodes: totalAvailable,
+      lockedNodes: totalLocked,
+      overallMasteryPct,
+      dueForReviewCount: dueReviewCount,
+      byKind,
+    };
+
+    return {
+      nodes: ALL_LEARNING_NODES_MAP,
+      userProgress: evaluatedProgress,
+      stats,
+    };
+  }
+
+  static getNodeMastery(childId: string | undefined, nodeId: string): NodeMasteryState | undefined {
+    const graph = this.getLearningGraph(childId);
+    return graph.userProgress[nodeId];
+  }
+
+  static updateNodeMastery(
+    childId: string | undefined,
+    nodeId: string,
+    params: {
+      score?: number;
+      deltaMastery?: number;
+      completed?: boolean;
+      timeSpentSeconds?: number;
+    }
+  ): NodeMasteryState {
+    const targetId = childId || this.getActiveChildId();
+    const node = ALL_LEARNING_NODES_MAP[nodeId];
+    if (!node) {
+      console.warn(`Learning node not found for nodeId: ${nodeId}`);
+      return {
+        nodeId,
+        mastery: 0,
+        status: 'locked',
+        timesPracticed: 0,
+      };
+    }
+
+    const storageKey = STORAGE_KEYS.LEARNING_GRAPH_PROGRESS_PREFIX + targetId;
+    let savedProgress: Record<string, NodeMasteryState> = {};
+
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) savedProgress = JSON.parse(raw);
+    } catch {}
+
+    const currentState = savedProgress[nodeId] || {
+      nodeId,
+      mastery: 0,
+      status: 'available',
+      timesPracticed: 0,
+      easeFactor: 2.5,
+      srIntervalDays: 1,
+      consecutiveSuccess: 0,
+      highestScore: 0,
+    };
+
+    const previousMastery = currentState.mastery;
+    let newMastery = currentState.mastery;
+
+    if (params.score !== undefined) {
+      // Score-based mastery update (e.g. 0-100 from quiz, duel, or recitation)
+      const weight = currentState.timesPracticed === 0 ? 1 : 0.6;
+      newMastery = Math.min(100, Math.round(newMastery * (1 - weight) + params.score * weight));
+    } else if (params.deltaMastery !== undefined) {
+      newMastery = Math.min(100, Math.max(0, newMastery + params.deltaMastery));
+    } else if (params.completed) {
+      newMastery = Math.max(newMastery, 85);
+    }
+
+    const timesPracticed = (currentState.timesPracticed || 0) + 1;
+    const highestScore = Math.max(currentState.highestScore || 0, params.score || 0);
+
+    // Spaced Repetition (SM-2) Interval Calculation
+    const isSuccess = (params.score ?? newMastery) >= 70;
+    const consecutiveSuccess = isSuccess ? (currentState.consecutiveSuccess || 0) + 1 : 0;
+    let easeFactor = currentState.easeFactor || 2.5;
+
+    if (params.score !== undefined) {
+      const quality = Math.min(5, Math.max(0, Math.round(params.score / 20))); // 0 to 5
+      easeFactor = Math.max(1.3, easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)));
+    }
+
+    let intervalDays = 1;
+    if (consecutiveSuccess === 1) {
+      intervalDays = 1;
+    } else if (consecutiveSuccess === 2) {
+      intervalDays = 3;
+    } else if (consecutiveSuccess === 3) {
+      intervalDays = 7;
+    } else if (consecutiveSuccess >= 4) {
+      intervalDays = Math.min(90, Math.round((currentState.srIntervalDays || 7) * easeFactor));
+    }
+
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + intervalDays);
+    const nextReviewDate = nextDate.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const updatedState: NodeMasteryState = {
+      nodeId,
+      mastery: newMastery,
+      status: newMastery >= 70 ? 'mastered' : 'in_progress',
+      timesPracticed,
+      lastPracticedAt: todayStr,
+      nextReviewDate,
+      srIntervalDays: intervalDays,
+      easeFactor: Math.round(easeFactor * 100) / 100,
+      consecutiveSuccess,
+      highestScore,
+    };
+
+    savedProgress[nodeId] = updatedState;
+    localStorage.setItem(storageKey, JSON.stringify(savedProgress));
+
+    // Award XP and Stars if newly mastered
+    if (previousMastery < 70 && newMastery >= 70) {
+      const xp = node.xpReward || 50;
+      const stars = node.starsReward || 5;
+      this.recordPoints(
+        targetId,
+        'COMPLETE_SESSION',
+        xp,
+        stars,
+        `Tuntas Belajar Node: ${node.title}`,
+        'learning_node',
+        node.nodeId
+      );
+    }
+
+    // Trigger global update event for reactive components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('cahaya_tahfiz_graph_updated', {
+          detail: { childId: targetId, nodeId, updatedState },
+        })
+      );
+    }
+
+    return updatedState;
+  }
+
+  static getDueReviewNodes(childId?: string): LearningNode[] {
+    const graph = this.getLearningGraph(childId);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return Object.values(graph.nodes).filter((node) => {
+      const state = graph.userProgress[node.nodeId];
+      return state && state.nextReviewDate && state.nextReviewDate <= todayStr && state.mastery > 0;
+    });
+  }
+
+  static getAvailableNodes(childId?: string, kind?: LearningNodeKind): LearningNode[] {
+    const graph = this.getLearningGraph(childId);
+
+    return Object.values(graph.nodes).filter((node) => {
+      if (kind && node.kind !== kind) return false;
+      const state = graph.userProgress[node.nodeId];
+      return state && (state.status === 'available' || state.status === 'in_progress');
+    });
+  }
 }
+

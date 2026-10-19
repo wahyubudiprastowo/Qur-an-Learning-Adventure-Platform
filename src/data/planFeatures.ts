@@ -8,31 +8,40 @@ export interface PlanFeatureItem {
   isProHighlight?: boolean;
 }
 
+export const PLAN_LIMITS = {
+  GUEST_SURAHS: 4, // Al-Fatihah, Al-Ikhlas, Al-Falaq, An-Nas
+  FREE_SURAHS: 22, // 60% Juz 30 (22 Surah: Ad-Duha s/d An-Nas) + Al-Fatihah
+  FREE_GAMES: 5, // 5 Game Pilihan (Lebah Ejaan, Susun Ayat, Dengar Ayat, Duel Santri, Voice STT)
+  IQRA_FREE_PAGES: 32, // Iqra Jilid 1 Penuh (32 Halaman)
+  PRO_SURAHS: 114, // 30 Juz Penuh (114 Surah)
+  PRO_GAMES: 8, // Semua 8 Arena Game
+};
+
 export const PLAN_FEATURES: PlanFeatureItem[] = [
   {
     id: 'iqra_coverage',
-    category: 'Materi Iqra\' & Huruf Hijaiyah',
-    name: 'Buku Panduan Iqra\' 1-6',
-    description: 'Akses jilid buku Iqra\' standar untuk belajar membaca Al-Qur\'an dari dasar',
-    freeValue: 'Iqra\' Jilid 1 Penuh (32 Halaman)',
-    proValue: 'Iqra\' Jilid 1 sampai 6 Lengkap',
+    category: "Materi Iqra' & Huruf Hijaiyah",
+    name: "Buku Panduan Iqra' 1-6",
+    description: "Akses jilid buku Iqra' standar untuk belajar membaca Al-Qur'an dari dasar",
+    freeValue: `Iqra' Jilid 1 Penuh (${PLAN_LIMITS.IQRA_FREE_PAGES} Halaman)`,
+    proValue: "Iqra' Jilid 1 sampai 6 Lengkap",
     isProHighlight: true,
   },
   {
     id: 'surah_coverage',
-    category: 'Materi & Hafalan Al-Qur\'an',
-    name: 'Hafalan Tahfiz & Muroja\'ah',
+    category: "Materi & Hafalan Al-Qur'an",
+    name: "Hafalan Tahfiz & Muroja'ah",
     description: 'Jumlah surah dan ayat yang dapat diakses untuk setoran dan hafalan mandiri',
-    freeValue: '60% Juz 30 (22 Surah: Ad-Duha s/d An-Nas)',
-    proValue: '30 Juz Penuh (114 Surah Al-Qur\'an)',
+    freeValue: `60% Juz 30 (${PLAN_LIMITS.FREE_SURAHS} Surah: Ad-Duha s/d An-Nas) + Al-Fatihah`,
+    proValue: `30 Juz Penuh (${PLAN_LIMITS.PRO_SURAHS} Surah Al-Qur'an)`,
     isProHighlight: true,
   },
   {
     id: 'quran_reading',
-    category: 'Materi & Hafalan Al-Qur\'an',
-    name: 'Mushaf Al-Qur\'an & Tilawah',
-    description: 'Membaca dan menyimak lantunan tartil ayat suci Al-Qur\'an',
-    freeValue: 'Full 30 Juz (114 Surah Lengkap)',
+    category: "Materi & Hafalan Al-Qur'an",
+    name: "Mushaf Al-Qur'an & Tilawah",
+    description: "Membaca dan menyimak lantunan tartil ayat suci Al-Qur'an",
+    freeValue: `Full 30 Juz (${PLAN_LIMITS.PRO_SURAHS} Surah Lengkap)`,
     proValue: 'Full 30 Juz + Audio HD Berbagai Qari',
   },
   {
@@ -40,8 +49,8 @@ export const PLAN_FEATURES: PlanFeatureItem[] = [
     category: 'Arena Belajar & Game Edukasi',
     name: 'Mini-Game Islami Interaktif',
     description: 'Permainan edukatif asah otak hafalan dan makhraj anak',
-    freeValue: '3 Game Edukasi Pilihan',
-    proValue: 'Semua 8 Arena Game Lengkap',
+    freeValue: `${PLAN_LIMITS.FREE_GAMES} Game Edukasi Pilihan (Termasuk Duel & Suara)`,
+    proValue: `Semua ${PLAN_LIMITS.PRO_GAMES} Arena Game Lengkap`,
     isProHighlight: true,
   },
   {

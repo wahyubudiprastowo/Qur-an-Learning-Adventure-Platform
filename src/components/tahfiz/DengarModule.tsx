@@ -56,6 +56,7 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
   const [progressInfo, setProgressInfo] = useState<AudioProgressInfo | null>(null);
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [companionPulseTrigger, setCompanionPulseTrigger] = useState<number>(0);
+  const [hasListenedAudio, setHasListenedAudio] = useState<boolean>(false);
 
   const activeChildId = StorageService.getActiveChildId();
   const companion = CompanionService.getCompanionData(activeChildId);
@@ -105,7 +106,12 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
     const player = new QuranAudioPlayer();
     playerRef.current = player;
 
-    player.onStateChange = (state) => setPlaybackState(state);
+    player.onStateChange = (state) => {
+      setPlaybackState(state);
+      if (state === 'PLAYING') {
+        setHasListenedAudio(true);
+      }
+    };
     player.onProgressUpdate = (info) => {
       setProgressInfo(info);
       const curr = currentAyahRef.current;
@@ -497,7 +503,19 @@ export const DengarModule: React.FC<DengarModuleProps> = ({
         fullWidth
         onClick={() => {
           playerRef.current?.pause();
-          CompanionService.recordActivity(activeChildId, 'dengar', 15, 3);
+          if (hasListenedAudio) {
+            const today = new Date().toISOString().split('T')[0];
+            StorageService.recordPoints(
+              activeChildId,
+              'PRACTICE_AYAH',
+              10,
+              2,
+              `Mendengarkan Tartil ${surahMeta.nameLatin} ${activeBlock.name}`,
+              'dengar_block',
+              `${activeChildId}_${selectedSurahNumber}_${activeBlock.blockNumber}_${today}`
+            );
+            CompanionService.recordActivity(activeChildId, 'dengar', 10, 2);
+          }
           onProceedToLatihan(selectedSurahNumber, activeBlock.blockNumber);
         }}
         icon={<CheckCircle size={20} />}

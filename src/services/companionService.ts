@@ -279,13 +279,16 @@ export class CompanionService {
         q.current = Math.min(q.target, q.current + amount);
         if (q.current >= q.target) {
           q.completed = true;
-          // Award quest bonus to child points
+          const today = new Date().toISOString().split('T')[0];
+          // Award quest bonus to child points with dedup
           StorageService.recordPoints(
             childId,
             'PRACTICE_AYAH',
             q.xpReward,
             q.starReward,
-            `Menyelesaikan Misi Harian: ${q.title}`
+            `Menyelesaikan Misi Harian: ${q.title}`,
+            'daily_quest',
+            `${childId}_${today}_${q.id}`
           );
 
           // Maintain pet's happiness and growth state directly
@@ -593,7 +596,16 @@ export class CompanionService {
     companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
 
-    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 5, 1, `Menyucikan & merawat ${companion.name}`);
+    const today = new Date().toISOString().split('T')[0];
+    StorageService.recordPoints(
+      childId,
+      'PRACTICE_AYAH',
+      5,
+      1,
+      `Menyucikan & merawat ${companion.name}`,
+      'companion_clean',
+      `${childId}_${today}`
+    );
     return { success: true, message };
   }
 
@@ -702,7 +714,16 @@ export class CompanionService {
     companion.mood = this.computeMood(companion);
     this.saveCompanionData(companion);
 
-    StorageService.recordPoints(childId, 'PRACTICE_AYAH', 15, 2, 'Menyiram Kebun Belajar Mingguan');
+    const today = new Date().toISOString().split('T')[0];
+    StorageService.recordPoints(
+      childId,
+      'PRACTICE_AYAH',
+      15,
+      2,
+      'Menyiram Kebun Belajar Mingguan',
+      'garden_water',
+      `${childId}_${today}`
+    );
     return {
       success: true,
       bloomed: !alreadyBloomed,
@@ -805,6 +826,21 @@ export class CompanionService {
     if (playedCount < 3) return 10;
     if (playedCount < 6) return 5;
     return 0; // Pure fun, no farming
+  }
+
+  /**
+   * Diminishing Stars for mini games to match XP diminishing pattern
+   * First 3 games = 3 Stars, next 3 = 1 Star, after = 0 Stars (daily cap enforced)
+   */
+  static getGameStarReward(childId: string): number {
+    const today = new Date().toISOString().split('T')[0];
+    const key = `${GAME_COUNT_PREFIX}${childId}_${today}`;
+    // Read count without double incrementing if called with getGameXpReward
+    const playedCount = Math.max(0, Number(localStorage.getItem(key) || 1) - 1);
+
+    if (playedCount < 3) return 3;
+    if (playedCount < 6) return 1;
+    return 0; // Honest reward economy
   }
 
   /**

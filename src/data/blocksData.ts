@@ -19,9 +19,32 @@ export const MEMORIZATION_BLOCKS: Record<number, MemorizationBlock[]> = {
     { id: '18-9', surahNumber: 18, blockNumber: 9, startAyah: 22, endAyah: 22, name: 'Blok 9 (Ayat 22)' },
     { id: '18-10', surahNumber: 18, blockNumber: 10, startAyah: 23, endAyah: 24, name: 'Blok 10 (Ayat 23–24)' },
     { id: '18-11', surahNumber: 18, blockNumber: 11, startAyah: 25, endAyah: 25, name: 'Blok 11 (Ayat 25)' },
-    { id: '18-12', surahNumber: 18, blockNumber: 12, startAyah: 25, endAyah: 26, name: 'Blok 12 (Ayat 25–26)' },
+    { id: '18-12', surahNumber: 18, blockNumber: 12, startAyah: 26, endAyah: 26, name: 'Blok 12 (Ayat 26)' },
     { id: '18-13', surahNumber: 18, blockNumber: 13, startAyah: 27, endAyah: 28, name: 'Blok 13 (Ayat 27–28)' },
     { id: '18-14', surahNumber: 18, blockNumber: 14, startAyah: 29, endAyah: 31, name: 'Blok 14 (Ayat 29–31)' },
+    { id: '18-15', surahNumber: 18, blockNumber: 15, startAyah: 32, endAyah: 34, name: 'Blok 15 (Ayat 32–34)' },
+    { id: '18-16', surahNumber: 18, blockNumber: 16, startAyah: 35, endAyah: 37, name: 'Blok 16 (Ayat 35–37)' },
+    { id: '18-17', surahNumber: 18, blockNumber: 17, startAyah: 38, endAyah: 40, name: 'Blok 17 (Ayat 38–40)' },
+    { id: '18-18', surahNumber: 18, blockNumber: 18, startAyah: 41, endAyah: 43, name: 'Blok 18 (Ayat 41–43)' },
+    { id: '18-19', surahNumber: 18, blockNumber: 19, startAyah: 44, endAyah: 46, name: 'Blok 19 (Ayat 44–46)' },
+    { id: '18-20', surahNumber: 18, blockNumber: 20, startAyah: 47, endAyah: 49, name: 'Blok 20 (Ayat 47–49)' },
+    { id: '18-21', surahNumber: 18, blockNumber: 21, startAyah: 50, endAyah: 52, name: 'Blok 21 (Ayat 50–52)' },
+    { id: '18-22', surahNumber: 18, blockNumber: 22, startAyah: 53, endAyah: 55, name: 'Blok 22 (Ayat 53–55)' },
+    { id: '18-23', surahNumber: 18, blockNumber: 23, startAyah: 56, endAyah: 58, name: 'Blok 23 (Ayat 56–58)' },
+    { id: '18-24', surahNumber: 18, blockNumber: 24, startAyah: 59, endAyah: 61, name: 'Blok 24 (Ayat 59–61)' },
+    { id: '18-25', surahNumber: 18, blockNumber: 25, startAyah: 62, endAyah: 64, name: 'Blok 25 (Ayat 62–64)' },
+    { id: '18-26', surahNumber: 18, blockNumber: 26, startAyah: 65, endAyah: 68, name: 'Blok 26 (Ayat 65–68)' },
+    { id: '18-27', surahNumber: 18, blockNumber: 27, startAyah: 69, endAyah: 72, name: 'Blok 27 (Ayat 69–72)' },
+    { id: '18-28', surahNumber: 18, blockNumber: 28, startAyah: 73, endAyah: 76, name: 'Blok 28 (Ayat 73–76)' },
+    { id: '18-29', surahNumber: 18, blockNumber: 29, startAyah: 77, endAyah: 80, name: 'Blok 29 (Ayat 77–80)' },
+    { id: '18-30', surahNumber: 18, blockNumber: 30, startAyah: 81, endAyah: 83, name: 'Blok 30 (Ayat 81–83)' },
+    { id: '18-31', surahNumber: 18, blockNumber: 31, startAyah: 84, endAyah: 87, name: 'Blok 31 (Ayat 84–87)' },
+    { id: '18-32', surahNumber: 18, blockNumber: 32, startAyah: 88, endAyah: 91, name: 'Blok 32 (Ayat 88–91)' },
+    { id: '18-33', surahNumber: 18, blockNumber: 33, startAyah: 92, endAyah: 95, name: 'Blok 33 (Ayat 92–95)' },
+    { id: '18-34', surahNumber: 18, blockNumber: 34, startAyah: 96, endAyah: 99, name: 'Blok 34 (Ayat 96–99)' },
+    { id: '18-35', surahNumber: 18, blockNumber: 35, startAyah: 100, endAyah: 103, name: 'Blok 35 (Ayat 100–103)' },
+    { id: '18-36', surahNumber: 18, blockNumber: 36, startAyah: 104, endAyah: 106, name: 'Blok 36 (Ayat 104–106)' },
+    { id: '18-37', surahNumber: 18, blockNumber: 37, startAyah: 107, endAyah: 110, name: 'Blok 37 (Ayat 107–110)' },
   ],
   // An-Nas (6 ayahs)
   114: [
@@ -146,8 +169,18 @@ export const MEMORIZATION_BLOCKS: Record<number, MemorizationBlock[]> = {
  * Deterministically retrieves or generates memorization blocks for any surah
  */
 export function getBlocksForSurah(surahNumber: number, ayahCount: number): MemorizationBlock[] {
-  if (MEMORIZATION_BLOCKS[surahNumber]) {
-    return MEMORIZATION_BLOCKS[surahNumber];
+  const existing = MEMORIZATION_BLOCKS[surahNumber];
+  if (existing) {
+    return existing.map((b, idx) => ({
+      ...b,
+      nodeId: b.nodeId || `hafalan-block-${b.id}`,
+      difficulty: b.difficulty || (surahNumber === 1 ? 1 : surahNumber >= 111 ? 1 : surahNumber >= 105 ? 2 : surahNumber >= 97 ? 3 : surahNumber >= 93 ? 4 : 5),
+      prereq: b.prereq || (surahNumber === 1 && idx === 0
+        ? ['vocab-1', 'vocab-2', 'vocab-3', 'iqra-jilid-1', 'tajwid-makharij']
+        : idx > 0
+        ? [`hafalan-block-${existing[idx - 1].id}`]
+        : ['hafalan-block-1-2']),
+    }));
   }
 
   // Generates clean 3-4 ayah blocks for any of the other surahs
@@ -158,8 +191,13 @@ export function getBlocksForSurah(surahNumber: number, ayahCount: number): Memor
 
   while (currentStart <= ayahCount) {
     const end = Math.min(currentStart + chunkSize - 1, ayahCount);
+    const blockId = `${surahNumber}-${blockNum}`;
+    const prevBlockId = blockNum > 1 ? `${surahNumber}-${blockNum - 1}` : undefined;
     blocks.push({
-      id: `${surahNumber}-${blockNum}`,
+      id: blockId,
+      nodeId: `hafalan-block-${blockId}`,
+      difficulty: surahNumber >= 100 ? 2 : surahNumber >= 78 ? 3 : 4,
+      prereq: prevBlockId ? [`hafalan-block-${prevBlockId}`] : ['hafalan-block-1-2'],
       surahNumber,
       blockNumber: blockNum,
       startAyah: currentStart,

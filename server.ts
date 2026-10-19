@@ -83,6 +83,37 @@ async function startServer() {
     }
   });
 
+  // In-memory cache for official Kemenag RI Tafsir
+  const tafsirCache = new Map<number, any>();
+
+  // Official Kemenag RI Tafsir Proxy & Cache Route (All 114 Surahs)
+  app.get('/api/tafsir/:surahNumber', async (req, res) => {
+    try {
+      const surahNum = parseInt(req.params.surahNumber, 10);
+      if (isNaN(surahNum) || surahNum < 1 || surahNum > 114) {
+        return res.status(400).json({ error: 'Nomor surah harus antara 1 dan 114' });
+      }
+
+      if (tafsirCache.has(surahNum)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.json(tafsirCache.get(surahNum));
+      }
+
+      const upstream = await fetch(`https://equran.id/api/v2/tafsir/${surahNum}`);
+      if (upstream.ok) {
+        const data = await upstream.json();
+        tafsirCache.set(surahNum, data);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.json(data);
+      }
+
+      return res.status(502).json({ error: 'Gagal memuat tafsir Kemenag RI dari server upstream' });
+    } catch (err: any) {
+      console.error('[Tafsir Proxy Error]', err);
+      res.status(500).json({ error: err.message || 'Internal tafsir proxy error' });
+    }
+  });
+
   // Smart AI Recitation Correction Endpoint (Multimodal & Tahfiz Engine)
   app.post('/api/ai-correction', async (req, res) => {
     try {

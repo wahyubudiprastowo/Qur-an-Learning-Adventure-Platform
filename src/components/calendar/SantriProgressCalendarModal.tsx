@@ -43,6 +43,9 @@ import {
   DailyChronologicalActivity,
   DailyBreakdownPortion,
   SmartWeeklyGoal,
+  LearningGraph,
+  LearningNode,
+  LearningNodeKind,
 } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { NotificationService } from '../../services/notificationService';
@@ -57,7 +60,7 @@ interface SantriProgressCalendarModalProps {
   onSwitchChild?: (childId: string) => void;
   onNavigateToMurojaah?: () => void;
   onNavigateToZiadah?: (surahNumber?: number) => void;
-  initialTab?: 'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian';
+  initialTab?: 'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian' | 'learning_graph';
   initialOpenWizard?: boolean;
 }
 
@@ -97,8 +100,28 @@ export const SantriProgressCalendarModal: React.FC<SantriProgressCalendarModalPr
     today.toISOString().split('T')[0]
   );
 
-  // Active Tab inside Day Drawer: 'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian'
-  const [activeTab, setActiveTab] = useState<'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian'>('smart_goal');
+  // Active Tab inside Day Drawer: 'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian' | 'learning_graph'
+  const [activeTab, setActiveTab] = useState<'smart_goal' | 'rekap' | 'adab' | 'target' | 'ujian' | 'learning_graph'>('smart_goal');
+
+  // Real-time Learning Graph State
+  const [learningGraph, setLearningGraph] = useState<LearningGraph>(() =>
+    activeChild?.id ? StorageService.getLearningGraph(activeChild.id) : StorageService.getLearningGraph()
+  );
+  const [graphFilterKind, setGraphFilterKind] = useState<'all' | LearningNodeKind>('all');
+  const [graphSearchQuery, setGraphSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (activeChild?.id) {
+      setLearningGraph(StorageService.getLearningGraph(activeChild.id));
+    }
+    const handleGraphUpdate = () => {
+      if (activeChild?.id) {
+        setLearningGraph(StorageService.getLearningGraph(activeChild.id));
+      }
+    };
+    window.addEventListener('cahaya_tahfiz_graph_updated', handleGraphUpdate);
+    return () => window.removeEventListener('cahaya_tahfiz_graph_updated', handleGraphUpdate);
+  }, [activeChild?.id]);
 
   // Live Data State
   const [smartGoal, setSmartGoal] = useState<SmartWeeklyGoal | null>(() =>
@@ -923,8 +946,8 @@ export const SantriProgressCalendarModal: React.FC<SantriProgressCalendarModalPr
                 );
               })()}
 
-              {/* 5 SUB TABS */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1">
+              {/* 6 SUB TABS */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5 pt-1">
                 <button
                   onClick={() => setActiveTab('smart_goal')}
                   className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -935,6 +958,18 @@ export const SantriProgressCalendarModal: React.FC<SantriProgressCalendarModalPr
                 >
                   <Target size={13} className="text-amber-800" />
                   <span>Smart Goal</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('learning_graph')}
+                  className={`py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    activeTab === 'learning_graph'
+                      ? 'bg-gradient-to-r from-cyan-600 to-[#164C68] text-white shadow-md ring-2 ring-cyan-300'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <Sparkles size={13} className="text-cyan-400" />
+                  <span>Graph (SR)</span>
                 </button>
 
                 <button
@@ -1575,6 +1610,341 @@ export const SantriProgressCalendarModal: React.FC<SantriProgressCalendarModalPr
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ===================================================================== */}
+            {/* TAB 5: LEARNING GRAPH & SPACED REPETITION (URUTAN 1)                  */}
+            {/* ===================================================================== */}
+            {activeTab === 'learning_graph' && (
+              <div className="space-y-4 flex-1">
+                {/* Header Banner */}
+                <div className="p-4 rounded-3xl bg-gradient-to-r from-cyan-600 via-[#164C68] to-indigo-900 text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-white/20 text-cyan-200 uppercase tracking-wider inline-flex items-center gap-1">
+                      <Sparkles size={11} /> Universal Learning Graph
+                    </span>
+                    <h4 className="text-base font-black font-heading">
+                      Kurikulum Graf & Spaced Repetition (SR)
+                    </h4>
+                    <p className="text-xs text-cyan-100 font-medium">
+                      Satu model data kurikulum utuh yang menghubungkan materi, game, dan kalender santri.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-2.5 rounded-2xl border border-white/10 shrink-0">
+                    <div className="text-center px-2">
+                      <span className="text-[10px] text-cyan-200 block font-bold">Total Mastery</span>
+                      <span className="text-lg font-black text-white font-heading">
+                        {learningGraph.stats.overallMasteryPct}%
+                      </span>
+                    </div>
+                    <div className="w-px h-8 bg-white/20" />
+                    <div className="text-center px-2">
+                      <span className="text-[10px] text-cyan-200 block font-bold">Node Tuntas</span>
+                      <span className="text-lg font-black text-emerald-300 font-heading">
+                        {learningGraph.stats.masteredNodes}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4 KPI Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                      Total Node
+                    </span>
+                    <span className="text-xl font-black text-[#164C68] font-heading mt-0.5 block">
+                      {learningGraph.stats.totalNodes}
+                    </span>
+                    <span className="text-[10px] text-slate-500">Iqra, Tajwid, Vocab, Blok</span>
+                  </div>
+
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">
+                      Mastered (≥70%)
+                    </span>
+                    <span className="text-xl font-black text-emerald-700 font-heading mt-0.5 block">
+                      {learningGraph.stats.masteredNodes}
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold">
+                      {Math.round((learningGraph.stats.masteredNodes / Math.max(1, learningGraph.stats.totalNodes)) * 100)}% dari Kurikulum
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-cyan-50/70 border border-cyan-200 rounded-2xl shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-cyan-700 block">
+                      Sedang Aktif
+                    </span>
+                    <span className="text-xl font-black text-cyan-700 font-heading mt-0.5 block">
+                      {learningGraph.stats.inProgressNodes}
+                    </span>
+                    <span className="text-[10px] text-cyan-600 font-bold">
+                      {learningGraph.stats.availableNodes} Node Siap Dibuka
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+                      Jadwal Review (SR)
+                    </span>
+                    <span className="text-xl font-black text-amber-800 font-heading mt-0.5 block">
+                      {learningGraph.stats.dueForReviewCount}
+                    </span>
+                    <span className="text-[10px] text-amber-700 font-bold">Perlu Murojaah Hari Ini</span>
+                  </div>
+                </div>
+
+                {/* Spaced Repetition Due Review Banner */}
+                {learningGraph.stats.dueForReviewCount > 0 && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                        <Flame size={14} className="text-amber-600 animate-pulse" />
+                        Antrean Spaced Repetition Hari Ini ({learningGraph.stats.dueForReviewCount} Node)
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-700">Mencegah Hafalan Luntur</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {Object.values(learningGraph.nodes)
+                        .filter((n) => {
+                          const s = learningGraph.userProgress[n.nodeId];
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          return s && s.nextReviewDate && s.nextReviewDate <= todayStr && s.mastery > 0;
+                        })
+                        .slice(0, 4)
+                        .map((node) => (
+                          <div
+                            key={node.nodeId}
+                            className="p-2.5 bg-white rounded-xl border border-amber-200 flex items-center justify-between gap-2 shadow-2xs"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-900 truncate">{node.title}</p>
+                              <p className="text-[10px] text-amber-700 font-medium truncate">{node.subtitle || node.category}</p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                StorageService.updateNodeMastery(activeChild.id, node.nodeId, {
+                                  score: 95,
+                                  completed: true,
+                                });
+                                confetti({ particleCount: 25, spread: 60 });
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-black bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg transition-all cursor-pointer active:scale-95 shrink-0"
+                            >
+                              Review 🔁
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Filter and Search Bar */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    {/* Kind Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                      {[
+                        { id: 'all', label: 'Semua Node' },
+                        { id: 'hafalan_block', label: 'Hafalan Blok' },
+                        { id: 'iqra_page', label: 'Iqra (182 Hal)' },
+                        { id: 'tajwid_topic', label: 'Tajwid (12 Topik)' },
+                        { id: 'vocab_word', label: 'Mufrodat (424 Kata)' },
+                        { id: 'tafsir_ayah', label: 'Tafsir' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setGraphFilterKind(item.id as any)}
+                          className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer text-xs ${
+                            graphFilterKind === item.id
+                              ? 'bg-[#164C68] text-white shadow-xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search Input */}
+                    <input
+                      type="text"
+                      placeholder="Cari materi / surah / topik..."
+                      value={graphSearchQuery}
+                      onChange={(e) => setGraphSearchQuery(e.target.value)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-cyan-500 sm:w-48"
+                    />
+                  </div>
+                </div>
+
+                {/* Node Grid */}
+                {(() => {
+                  const filteredNodes = Object.values(learningGraph.nodes).filter((node) => {
+                    if (graphFilterKind !== 'all' && node.kind !== graphFilterKind) return false;
+                    if (graphSearchQuery.trim()) {
+                      const q = graphSearchQuery.toLowerCase();
+                      const matchTitle = node.title.toLowerCase().includes(q);
+                      const matchSub = node.subtitle?.toLowerCase().includes(q);
+                      const matchCat = node.category?.toLowerCase().includes(q);
+                      const matchArab = node.arabic?.toLowerCase().includes(q);
+                      if (!matchTitle && !matchSub && !matchCat && !matchArab) return false;
+                    }
+                    return true;
+                  });
+
+                  if (filteredNodes.length === 0) {
+                    return (
+                      <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-3xl space-y-1">
+                        <span className="text-3xl">🔍</span>
+                        <p className="text-xs font-bold text-slate-700">Tidak ada node kurikulum yang cocok</p>
+                        <p className="text-[11px] text-slate-500">Coba ubah kata kunci atau kategori filter</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-[460px] overflow-y-auto pr-1">
+                      {filteredNodes.slice(0, 40).map((node) => {
+                        const state = learningGraph.userProgress[node.nodeId];
+                        const isMastered = state?.status === 'mastered';
+                        const isAvailable = state?.status === 'available' || state?.status === 'in_progress';
+                        const isLocked = state?.status === 'locked';
+
+                        return (
+                          <div
+                            key={node.nodeId}
+                            className={`p-3.5 rounded-2xl border transition-all ${
+                              isMastered
+                                ? 'bg-white border-emerald-200 shadow-2xs hover:border-emerald-300'
+                                : isAvailable
+                                ? 'bg-white border-cyan-200 shadow-2xs hover:border-cyan-300'
+                                : 'bg-slate-50/70 border-slate-200 opacity-75'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                      node.kind === 'hafalan_block'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : node.kind === 'iqra_page'
+                                        ? 'bg-cyan-100 text-cyan-800'
+                                        : node.kind === 'tajwid_topic'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : node.kind === 'vocab_word'
+                                        ? 'bg-indigo-100 text-indigo-800'
+                                        : 'bg-rose-100 text-rose-800'
+                                    }`}
+                                  >
+                                    {node.kind.replace('_', ' ')}
+                                  </span>
+                                  <span className="text-[10px] text-amber-500 font-bold">
+                                    {'⭐'.repeat(node.difficulty)}
+                                  </span>
+                                  {node.category && (
+                                    <span className="text-[10px] text-slate-500 font-medium">
+                                      • {node.category}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h6 className="text-xs font-black text-slate-900 mt-1 truncate">
+                                  {node.title}
+                                </h6>
+                                <p className="text-[11px] text-slate-500 truncate">
+                                  {node.subtitle || node.description}
+                                </p>
+                              </div>
+
+                              {/* Arabic text snippet if exists */}
+                              {node.arabic && (
+                                <span className="font-quran text-base font-bold text-[#164C68] shrink-0 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+                                  {node.arabic.slice(0, 15)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Prerequisites Display */}
+                            {node.prereq && node.prereq.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-1 text-[10px] text-slate-500 flex-wrap">
+                                <span className="font-bold text-slate-600">Prasyarat:</span>
+                                {node.prereq.map((pid) => {
+                                  const pState = learningGraph.userProgress[pid];
+                                  const pNode = learningGraph.nodes[pid];
+                                  const pDone = pState && (pState.mastery >= 70 || pState.status === 'mastered');
+                                  return (
+                                    <span
+                                      key={pid}
+                                      className={`px-1.5 py-0.5 rounded-md font-semibold ${
+                                        pDone ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                                      }`}
+                                    >
+                                      {pNode?.title?.split(' : ')[0] || pid} {pDone ? '✓' : '🔒'}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Mastery & Spaced Repetition Details */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                              <div className="space-y-1 flex-1">
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="font-bold text-slate-600">Mastery:</span>
+                                  <span className="font-black text-slate-900">{state?.mastery || 0}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      isMastered
+                                        ? 'bg-emerald-500'
+                                        : isAvailable
+                                        ? 'bg-cyan-500'
+                                        : 'bg-slate-300'
+                                    }`}
+                                    style={{ width: `${state?.mastery || 0}%` }}
+                                  />
+                                </div>
+                                {state?.nextReviewDate && (
+                                  <span className="text-[9px] text-slate-500 block">
+                                    Next SR: {state.nextReviewDate} (Interval: {state.srIntervalDays || 1}d)
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Drill Action */}
+                              <button
+                                onClick={() => {
+                                  if (isLocked) {
+                                    alert(`Materi ini terkunci. Tuntaskan materi prasyarat terlebih dahulu.`);
+                                    return;
+                                  }
+                                  StorageService.updateNodeMastery(activeChild.id, node.nodeId, {
+                                    score: 95,
+                                    completed: true,
+                                  });
+                                  confetti({ particleCount: 30, spread: 70 });
+                                }}
+                                disabled={isLocked}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shrink-0 ${
+                                  isLocked
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-[#164C68] hover:bg-slate-800 text-white shadow-2xs active:scale-95'
+                                }`}
+                              >
+                                {isMastered ? 'Latih Ulang ⚡' : 'Drill Mastery ⚡'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

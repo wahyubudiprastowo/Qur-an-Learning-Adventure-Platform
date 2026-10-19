@@ -1,5 +1,6 @@
 export interface DuelQuestion {
   id: string;
+  nodeId?: string;
   category: 'Sambung Ayat' | 'Tebak Surah' | 'Arti Kata' | 'Hukum Tajwid';
   question: string;
   arabicPrompt?: string;
@@ -8,14 +9,23 @@ export interface DuelQuestion {
   explanation: string;
 }
 
+/**
+ * @deprecated Use QuestionFactory.generateAdaptiveQuizForChild() or QuestionFactory.generateQuizFromNodes()
+ * to draw live, calibrated questions from the unified Learning Graph.
+ */
 export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
   {
     id: 'dq-1',
     category: 'Sambung Ayat',
     question: 'Lanjutan dari ayat berikut adalah:',
     arabicPrompt: 'قُلْ هُوَ اللّٰهُ اَحَدٌۚ',
-    options: ['اَللّٰهُ الصَّمَدُۚ', 'لَمْ يَلِدْ وَلَمْ يُوْلَدْۙ', 'وَلَمْ يَكُنْ لَّهٗ كُفُوًا اَحَدٌ', 'مِنْ شَرِّ مَا خَلَقَۙ'],
-    correctIndex: 0,
+    options: [
+      'لَمْ يَلِدْ وَلَمْ يُوْلَدْۙ',
+      'مِنْ شَرِّ مَا خَلَقَۙ',
+      'اَللّٰهُ الصَّمَدُۚ',
+      'وَلَمْ يَكُنْ لَّهٗ كُفُوًا اَحَدٌ',
+    ],
+    correctIndex: 2,
     explanation: 'Ayat ke-2 Surah Al-Ikhlas adalah Allahush-Shamad.',
   },
   {
@@ -23,7 +33,7 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Tebak Surah',
     question: 'Penggalan ayat "فَجَعَلَهُمْ كَعَصْفٍ مَّأْكُوْلٍ" terdapat dalam surah apa?',
     arabicPrompt: 'فَجَعَلَهُمْ كَعَصْفٍ مَّأْكُوْلٍ ࣖ',
-    options: ['Al-Quraisy', 'Al-Fil', 'Al-Humazah', 'Al-Qari\'ah'],
+    options: ['Al-Quraisy', 'Al-Fil', 'Al-Humazah', "Al-Qari'ah"],
     correctIndex: 1,
     explanation: 'Surah Al-Fil ayat 5: "Lalu Dia menjadikan mereka seperti daun-daun yang dimakan ulat."',
   },
@@ -51,12 +61,12 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     question: 'Lanjutan dari ayat "وَرَأَيْتَ النَّاسَ يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا" adalah:',
     arabicPrompt: 'وَرَأَيْتَ النَّاسَ يَدْخُلُوْنَ فِيْ دِيْنِ اللّٰهِ اَفْوَاجًاۙ',
     options: [
-      'فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُۗ',
       'إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ',
       'تَبَّتْ يَدَا أَبِي لَهَبٍ وَتَبَّ',
       'قُلْ يَا أَيُّهَا الْكَافِرُونَ',
+      'فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُۗ',
     ],
-    correctIndex: 0,
+    correctIndex: 3,
     explanation: 'Ayat ke-3 Surah An-Nasr: Fasabbih bihamdi Rabbika wastaghfirh.',
   },
   {
@@ -64,7 +74,7 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Hukum Tajwid',
     question: 'Huruf Ba (ب) bertanda sukun pada kata "اَبْتَرُ" dibaca dengan memantul. Hukum ini disebut:',
     arabicPrompt: 'اِنَّ شَانِئَكَ هُوَ الْاَبْتَرُ ࣖ',
-    options: ['Ghunnah', 'Qalqalah', 'Mad Thabi\'i', 'Idgham Mimi'],
+    options: ['Ghunnah', 'Qalqalah', "Mad Thabi'i", 'Idgham Mimi'],
     correctIndex: 1,
     explanation: 'Qalqalah adalah memantulkan suara ketika huruf qalqalah (ب, ج, د, ط, ق) berharakat sukun.',
   },
@@ -73,8 +83,13 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Arti Kata',
     question: 'Dalam Surah Al-Falaq, apa arti kata "غَاسِقٍ إِذَا وَقَبَ"?',
     arabicPrompt: 'وَمِنْ شَرِّ غَاسِقٍ اِذَا وَقَبَۙ',
-    options: ['Malam apabila telah gelap gulita', 'Wanita penyihir yang meniup simpul', 'Orang yang dengki apabila ia hasad', 'Pagi hari yang cerah'],
-    correctIndex: 0,
+    options: [
+      'Wanita penyihir yang meniup simpul',
+      'Pagi hari yang cerah',
+      'Malam apabila telah gelap gulita',
+      'Orang yang dengki apabila ia hasad',
+    ],
+    correctIndex: 2,
     explanation: 'Ghaasiqin idzaa waqab berarti malam apabila telah gelap gulita.',
   },
   {
@@ -83,12 +98,12 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     question: 'Lanjutan dari ayat "اَرَءَيْتَ الَّذِيْ يُكَذِّبُ بِالدِّيْنِۗ" adalah:',
     arabicPrompt: 'اَرَءَيْتَ الَّذِيْ يُكَذِّبُ بِالدِّيْنِۗ',
     options: [
-      'فَذٰلِكَ الَّذِيْ يَدُعُّ الْيَتِيْمَۙ',
       'وَلَا يَحُضُّ عَلٰى طَعَامِ الْمِسْكِيْنِۗ',
+      'فَذٰلِكَ الَّذِيْ يَدُعُّ الْيَتِيْمَۙ',
       'فَوَيْلٌ لِّلْمُصَلِّيْنَۙ',
       'الَّذِيْنَ هُمْ عَنْ صَلَاتِهِمْ سَاهُوْنَۙ',
     ],
-    correctIndex: 0,
+    correctIndex: 1,
     explanation: 'Ayat ke-2 Surah Al-Ma\'un adalah "Fadzaalikal-ladzii yadu\'\'ul-yatiim".',
   },
   {
@@ -96,8 +111,8 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Tebak Surah',
     question: 'Ayat "كَلَّا لَيُنْۢبَذَنَّ فِى الْحُطَمَةِۖ" terdapat dalam surah apa?',
     arabicPrompt: 'كَلَّا لَيُنْۢبَذَنَّ فِى الْحُطَمَةِۖ',
-    options: ['Al-Humazah', 'At-Takatsur', 'Al-Qari\'ah', 'Al-Zalzalah'],
-    correctIndex: 0,
+    options: ['At-Takatsur', "Al-Qari'ah", 'Al-Zalzalah', 'Al-Humazah'],
+    correctIndex: 3,
     explanation: 'Surah Al-Humazah ayat 4: "Sekali-kali tidak! Pasti dia akan dilemparkan ke dalam neraka Huthamah."',
   },
   {
@@ -105,8 +120,8 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Hukum Tajwid',
     question: 'Pada kata "لَيُنْۢبَذَنَّ", nun sukun bertemu huruf Ba (ب) dengan tanda mim kecil. Hukum tajwid ini disebut:',
     arabicPrompt: 'كَلَّا لَيُنْۢبَذَنَّ فِى الْحُطَمَةِۖ',
-    options: ['Iqlab', 'Idzhar Syafawi', 'Ikhfa Syafawi', 'Idgham Mutamatsilain'],
-    correctIndex: 0,
+    options: ['Idzhar Syafawi', 'Ikhfa Syafawi', 'Iqlab', 'Idgham Mutamatsilain'],
+    correctIndex: 2,
     explanation: 'Iqlab adalah mengganti bunyi nun mati menjadi bunyi mim disertai ghunnah ketika bertemu Ba.',
   },
   {
@@ -114,8 +129,13 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Arti Kata',
     question: 'Apa arti kata "اَلْحُطَمَةُ" dalam Surah Al-Humazah?',
     arabicPrompt: 'وَمَآ اَدْرٰىكَ مَا الْحُطَمَةُ ۗ',
-    options: ['Api neraka yang menghancurkan', 'Timbangan amal yang berat', 'Malaikat penjaga surga', 'Gunung yang berterbangan'],
-    correctIndex: 0,
+    options: [
+      'Timbangan amal yang berat',
+      'Api neraka yang menghancurkan',
+      'Malaikat penjaga surga',
+      'Gunung yang berterbangan',
+    ],
+    correctIndex: 1,
     explanation: 'Al-Huthamah adalah api siksaan Allah yang membakar dan menghancurkan apa saja yang dilemparkan ke dalamnya.',
   },
   {
@@ -137,8 +157,8 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Tebak Surah',
     question: 'Ayat "يَوْمَئِذٍ يَصْدُرُ النَّاسُ اَشْتَاتًا" terdapat dalam surah apa?',
     arabicPrompt: 'يَوْمَىِٕذٍ يَّصْدُرُ النَّاسُ اَشْتَاتًا ەۙ',
-    options: ['Al-Zalzalah', 'Al-\'Adiyat', 'Al-Qari\'ah', 'At-Tin'],
-    correctIndex: 0,
+    options: ["Al-'Adiyat", 'At-Tin', 'Al-Zalzalah', "Al-Qari'ah"],
+    correctIndex: 2,
     explanation: 'Surah Al-Zalzalah ayat 6: "Pada hari itu manusia keluar dari kuburnya dalam keadaan berkelompok-kelompok."',
   },
   {
@@ -146,8 +166,8 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Hukum Tajwid',
     question: 'Hukum tajwid pada lafaz "مَنْ يَّعْمَلْ" (nun sukun bertemu huruf Ya) adalah:',
     arabicPrompt: 'فَمَنْ يَّعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًا يَّرَهٗۚ',
-    options: ['Idgham Bighunnah', 'Idgham Bilaghunnah', 'Idzhar Halqi', 'Iqlab'],
-    correctIndex: 0,
+    options: ['Idgham Bilaghunnah', 'Idzhar Halqi', 'Iqlab', 'Idgham Bighunnah'],
+    correctIndex: 3,
     explanation: 'Nun sukun bertemu huruf Ya (ي) dibaca lebur disertai dengung (Idgham Bighunnah).',
   },
   {
@@ -155,8 +175,13 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Arti Kata',
     question: 'Apa arti kata "مِثْقَالَ ذَرَّةٍ"?',
     arabicPrompt: 'فَمَنْ يَّعْمَلْ مِثْقَالَ ذَرَّةٍ خَيْرًا يَّرَهٗۚ',
-    options: ['Sebesar biji zarrah / debu terkecil', 'Sebesar gunung yang kokoh', 'Sebanyak butiran pasir pantai', 'Setetes air embun'],
-    correctIndex: 0,
+    options: [
+      'Sebesar gunung yang kokoh',
+      'Sebesar biji zarrah / debu terkecil',
+      'Sebanyak butiran pasir pantai',
+      'Setetes air embun',
+    ],
+    correctIndex: 1,
     explanation: 'Mitsqaala dzarrah bermakna seberat partikel/zarrah terkecil sekalipun.',
   },
   {
@@ -165,12 +190,12 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     question: 'Lanjutan dari ayat "وَالتِّيْنِ وَالزَّيْتُوْنِۙ" adalah:',
     arabicPrompt: 'وَالتِّيْنِ وَالزَّيْتُوْنِۙ',
     options: [
-      'وَطُوْرِ سِيْنِيْنَۙ',
       'وَهٰذَا الْبَلَدِ الْاَمِيْنِۙ',
       'لَقَدْ خَلَقْنَا الْاِنْسَانَ فِيْٓ اَحْسَنِ تَقْوِيْمٍۖ',
       'ثُمَّ رَدَدْنٰهُ اَسْفَلَ سَافِلِيْنَۙ',
+      'وَطُوْرِ سِيْنِيْنَۙ',
     ],
-    correctIndex: 0,
+    correctIndex: 3,
     explanation: 'Ayat ke-2 Surah At-Tin adalah "Wa thuuri siiniin".',
   },
   {
@@ -187,8 +212,8 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Hukum Tajwid',
     question: 'Huruf Ra berharakat dhommah atau fathah pada "يُسْرًا" dibaca tebal. Kaidah ini disebut:',
     arabicPrompt: 'فَاِنَّ مَعَ الْعُسْرِ يُسْرًاۙ',
-    options: ['Ra Tafkhim', 'Ra Tarqiq', 'Mad \'Aridh Lissukun', 'Saktah'],
-    correctIndex: 0,
+    options: ['Ra Tarqiq', "Mad 'Aridh Lissukun", 'Ra Tafkhim', 'Saktah'],
+    correctIndex: 2,
     explanation: 'Huruf Ra dibaca tebal (Tafkhim) ketika berharakat fathah atau dhammah.',
   },
   {
@@ -196,8 +221,13 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     category: 'Arti Kata',
     question: 'Apa arti kata "اَلْاَبْتَرُ" dalam Surah Al-Kautsar?',
     arabicPrompt: 'اِنَّ شَانِئَكَ هُوَ الْاَبْتَرُ ࣖ',
-    options: ['Orang yang terputus dari segala kebaikan', 'Orang yang paling mulia', 'Pemimpin yang dermawan', 'Orang yang terlindungi'],
-    correctIndex: 0,
+    options: [
+      'Orang yang paling mulia',
+      'Pemimpin yang dermawan',
+      'Orang yang terlindungi',
+      'Orang yang terputus dari segala kebaikan',
+    ],
+    correctIndex: 3,
     explanation: 'Al-Abtar adalah orang yang terputus dari keturunan dan rahmat kebaikan Allah Swt.',
   },
   {
@@ -206,12 +236,12 @@ export const DUEL_QUESTIONS_CATALOG: DuelQuestion[] = [
     question: 'Lanjutan ayat "اِنَّآ اَنْزَلْنٰهُ فِيْ لَيْلَةِ الْقَدْرِۖ" adalah:',
     arabicPrompt: 'اِنَّآ اَنْزَلْنٰهُ فِيْ لَيْلَةِ الْقَدْرِۖ',
     options: [
-      'وَمَآ اَدْرٰىكَ مَا لَيْلَةُ الْقَدْرِۗ',
       'لَيْلَةُ الْقَدْرِ ەۙ خَيْرٌ مِّنْ اَلْفِ شَهْرٍۗ',
+      'وَمَآ اَدْرٰىكَ مَا لَيْلَةُ الْقَدْرِۗ',
       'تَنَزَّلُ الْمَلٰۤىِٕكَةُ وَالرُّوْحُ فِيْهَا',
       'سَلٰمٌ ۛ هِيَ حَتّٰى مَطْلَعِ الْفَجْرِ ࣖ',
     ],
-    correctIndex: 0,
+    correctIndex: 1,
     explanation: 'Ayat ke-2 Surah Al-Qadr adalah "Wa maa adraaka maa laylatul-qadr".',
   },
 ];
